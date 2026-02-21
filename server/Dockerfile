@@ -2,12 +2,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY server/package*.json ./
 RUN npm ci --only=production
 
-COPY prisma ./prisma/
-COPY tsconfig.json ./
-COPY src ./src
+COPY server/prisma ./prisma/
+COPY server/tsconfig.json ./
+COPY server/src ./src
 
 RUN npx prisma generate
 RUN npm run build
