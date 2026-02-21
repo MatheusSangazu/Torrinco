@@ -158,7 +158,7 @@ docker build -t torrinco-client .
 
 1. No Coolify, crie uma nova aplicação
 2. Build Pack: `Docker Compose`
-3. Docker Compose Path: `docker-compose.yml`
+3. Docker Compose Path: `docker-compose.coolify.yml`
 4. Domínio: `torrinco.forjacorp.com`
 5. Variáveis de Ambiente:
    ```
