@@ -154,6 +154,34 @@ docker build -t torrinco-client .
 
 #### Configuração no Coolify
 
+**Opção 1: Docker Compose (Recomendado - Uma Aplicação)**
+
+1. No Coolify, crie uma nova aplicação
+2. Build Pack: `Docker Compose`
+3. Docker Compose Path: `docker-compose.yml`
+4. Domínio: `torrinco.forjacorp.com`
+5. Variáveis de Ambiente:
+   ```
+   DATABASE_URL=mysql://usuario:senha@mysql.forjacorp.com:3306/finance_bot
+   DATABASE_USER=usuario
+   DATABASE_PASSWORD=senha
+   DATABASE_NAME=finance_bot
+   DATABASE_HOST=mysql.forjacorp.com
+   DATABASE_PORT=3306
+   JWT_SECRET=sua_chave_secreta_aqui
+   JWT_EXPIRES_IN=7d
+   EVOLUTION_API_URL=https://seu-evolution-api.com/
+   EVOLUTION_API_KEY=sua_api_key_aqui
+   EVOLUTION_INSTANCE_NAME=nome_da_instancia
+   ALLOWED_ORIGINS=https://torrinco.forjacorp.com
+   VITE_API_URL=https://torrinco.forjacorp.com
+   PORT=3001
+   ```
+
+**Nota**: O Coolify vai rodar os containers de server e client juntos. O client usa VITE_API_URL para acessar a API.
+
+**Opção 2: Duas Aplicações Separadas (Domínios Separados)**
+
 **Aplicação 1 - Server (apiTorrinco.forjacorp.com)**
 
 1. No Coolify, crie uma nova aplicação
