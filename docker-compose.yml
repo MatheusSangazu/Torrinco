@@ -28,8 +28,6 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=${VITE_API_URL}
     container_name: torrinco-client
     ports:
       - "80:80"
