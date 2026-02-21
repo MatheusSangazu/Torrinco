@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: torrinco-server
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - EVOLUTION_INSTANCE_NAME=${EVOLUTION_INSTANCE_NAME}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - PORT=${PORT}
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: torrinco-client
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    depends_on:
+      - server
+    restart: unless-stopped

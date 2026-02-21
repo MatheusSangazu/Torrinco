@@ -76,18 +76,26 @@ npx prisma generate
 
 ### Variáveis de Ambiente
 
-**Server (.env)**:
+Para desenvolvimento local, use o arquivo `.env` na raiz do projeto com todas as variáveis de server e client.
+
+**Server**:
 ```env
 PORT=3001
 DATABASE_URL="mysql://user:password@host:3306/finance_bot"
+DATABASE_USER=user
+DATABASE_PASSWORD=password
+DATABASE_NAME=finance_bot
+DATABASE_HOST=host
+DATABASE_PORT=3306
 JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=7d
 EVOLUTION_API_URL=https://your-evolution-api-url
 EVOLUTION_API_KEY=your-api-key
 EVOLUTION_INSTANCE_NAME=your-instance
 ALLOWED_ORIGINS=https://torrinco.forjacorp.com
 ```
 
-**Client (.env)**:
+**Client**:
 ```env
 VITE_API_URL=https://apiTorrinco.forjacorp.com
 ```
@@ -120,6 +128,18 @@ O projeto está configurado para deploy via Coolify com Docker nos domínios:
 - Frontend: `https://torrinco.forjacorp.com`
 - Backend: `https://apiTorrinco.forjacorp.com`
 
+#### Docker Compose (Desenvolvimento Local)
+
+Para rodar tudo com Docker Compose:
+```bash
+# Configure o arquivo .env na raiz
+docker-compose up -d
+```
+
+O docker-compose iniciará:
+- Server em http://localhost:3001
+- Client em http://localhost:3000
+
 #### Build e Deploy do Backend
 ```bash
 cd server
@@ -131,6 +151,44 @@ docker build -t torrinco-api .
 cd client
 docker build -t torrinco-client .
 ```
+
+#### Configuração no Coolify
+
+**Aplicação 1 - Server (apiTorrinco.forjacorp.com)**
+
+1. No Coolify, crie uma nova aplicação
+2. Build Pack: `Dockerfile`
+3. Dockerfile Path: `server/Dockerfile`
+4. Port: `3001`
+5. Domínio: `apiTorrinco.forjacorp.com`
+6. Variáveis de Ambiente:
+   ```
+   DATABASE_URL=mysql://usuario:senha@mysql.forjacorp.com:3306/finance_bot
+   DATABASE_USER=usuario
+   DATABASE_PASSWORD=senha
+   DATABASE_NAME=finance_bot
+   DATABASE_HOST=mysql.forjacorp.com
+   DATABASE_PORT=3306
+   JWT_SECRET=sua_chave_secreta_aqui
+   JWT_EXPIRES_IN=7d
+   EVOLUTION_API_URL=https://seu-evolution-api.com/
+   EVOLUTION_API_KEY=sua_api_key_aqui
+   EVOLUTION_INSTANCE_NAME=nome_da_instancia
+   ALLOWED_ORIGINS=https://torrinco.forjacorp.com
+   PORT=3001
+   ```
+
+**Aplicação 2 - Client (torrinco.forjacorp.com)**
+
+1. No Coolify, crie uma nova aplicação
+2. Build Pack: `Dockerfile`
+3. Dockerfile Path: `client/Dockerfile`
+4. Port: `80`
+5. Domínio: `torrinco.forjacorp.com`
+6. Variáveis de Ambiente:
+   ```
+   VITE_API_URL=https://apiTorrinco.forjacorp.com
+   ```
 
 ### Scripts NPM (Raiz)
 
