@@ -174,11 +174,15 @@ docker build -t torrinco-client .
    EVOLUTION_API_KEY=sua_api_key_aqui
    EVOLUTION_INSTANCE_NAME=nome_da_instancia
    ALLOWED_ORIGINS=https://torrinco.forjacorp.com
-   VITE_API_URL=https://torrinco.forjacorp.com
+   VITE_API_URL=https://apitorrinco.forjacorp.com
    PORT=3001
    ```
 
-**Nota**: O Coolify vai rodar os containers de server e client juntos. O client usa VITE_API_URL para acessar a API.
+**Nota**: O Coolify cria domínios separados automaticamente:
+- `apitorrinco.forjacorp.com` - Server (API)
+- `torrinco.forjacorp.com` - Client (Frontend)
+
+O `VITE_API_URL` deve apontar para o domínio do server (`apitorrinco.forjacorp.com`).
 
 **Opção 2: Duas Aplicações Separadas (Domínios Separados)**
 
