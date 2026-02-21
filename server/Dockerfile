@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY server/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 COPY server/prisma ./prisma/
 COPY server/tsconfig.json ./
