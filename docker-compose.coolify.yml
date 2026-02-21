@@ -19,8 +19,8 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - PORT=${PORT}
       - NODE_ENV=production
-    expose:
-      - "3001"
+    ports:
+      - "3001:3001"
     healthcheck:
       test:
         - CMD-SHELL
@@ -42,12 +42,12 @@ services:
       - server
     environment:
       - VITE_API_URL=${VITE_API_URL}
-    expose:
-      - "80"
+    ports:
+      - "80:80"
     healthcheck:
       test:
         - CMD-SHELL
-        - wget -q --spider http://localhost/health || exit 1
+        - curl -f http://localhost/health || exit 1
       interval: 30s
       timeout: 5s
       retries: 5
