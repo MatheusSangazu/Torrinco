@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model accounts {
+  id           Int                 @id @default(autoincrement())
+  name         String?             @default("Minha Conta") @db.VarChar(100)
+  plan_type    accounts_plan_type? @default(individual)
+  status       accounts_status?    @default(trial)
+  created_at   DateTime?           @default(now()) @db.DateTime(0)
+  transactions transactions[]
+  users        users[]
+}
+
+model budgets {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  category     String    @db.VarChar(50)
+  amount_limit Decimal   @db.Decimal(10, 2)
+  month_ref    String?   @db.VarChar(7)
+  created_at   DateTime? @default(now()) @db.Timestamp(0)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "budgets_ibfk_1")
+
+  @@unique([user_id, category], map: "unique_user_category")
+}
+
+model categories {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  name       String    @db.VarChar(50)
+  type       String    @db.VarChar(20)
+  color      String?   @default("#3b82f6") @db.VarChar(20)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "categories_user_fk")
+  transactions transactions[]
+
+  @@unique([user_id, name, type], map: "unique_user_category_type")
+  @@index([user_id], map: "categories_user_idx")
+}
+
+model events {
+  id              Int       @id @default(autoincrement())
+  user_id         Int
+  google_event_id String?   @db.VarChar(255)
+  title           String    @db.VarChar(150)
+  event_date      DateTime  @db.DateTime(0)
+  description     String?   @db.Text
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "events_ibfk_1")
+
+  @@index([google_event_id], map: "idx_google_event")
+  @@index([user_id], map: "user_id")
+}
+
+model financial_entities {
+  id                    Int                     @id @default(autoincrement())
+  user_id               Int
+  name                  String                  @db.VarChar(100)
+  type                  financial_entities_type
+  balance               Decimal?                @default(0.00) @db.Decimal(10, 2)
+  credit_limit          Decimal?                @default(0.00) @db.Decimal(10, 2)
+  closing_day           Int?
+  due_day               Int?
+  color                 String?                 @default("from-purple-600 to-indigo-700") @db.VarChar(50)
+  created_at            DateTime?               @default(now()) @db.Timestamp(0)
+  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "financial_entities_ibfk_1")
+  transactions          transactions[]
+  purchase_installments purchase_installments[]
+
+  @@index([user_id], map: "user_id")
+}
+
+model income_sources {
+  id         Int           @id @default(autoincrement())
+  user_id    Int
+  name       String        @db.VarChar(50)
+  color      String?       @default("#10b981") @db.VarChar(20)
+  created_at DateTime?     @default(now()) @db.Timestamp(0)
+  users      users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "income_sources_user_fk")
+  transactions transactions[]
+
+  @@unique([user_id, name], map: "unique_user_income_source")
+  @@index([user_id], map: "income_sources_user_idx")
+}
+
+model recurring_events {
+  id              Int                        @id @default(autoincrement())
+  user_id         Int
+  google_event_id String?                    @db.VarChar(255)
+  title           String                     @db.VarChar(255)
+  description     String?                    @db.Text
+  event_time      DateTime                   @db.Time(0)
+  frequency       recurring_events_frequency
+  start_date      DateTime                   @db.Date
+  next_event_date DateTime                   @db.Date
+  status          recurring_events_status?   @default(active)
+  created_at      DateTime?                  @default(now()) @db.Timestamp(0)
+  end_date        DateTime?                  @db.Date
+  users           users                      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "recurring_events_ibfk_1")
+
+  @@index([google_event_id], map: "idx_google_recurring_event")
+  @@index([user_id], map: "user_id")
+}
+
+model recurring_transactions {
+  id            Int                              @id @default(autoincrement())
+  user_id       Int
+  description   String                           @db.VarChar(255)
+  amount        Decimal                          @db.Decimal(10, 2)
+  category      String?                          @db.VarChar(50)
+  type          recurring_transactions_type
+  frequency     recurring_transactions_frequency
+  start_date    DateTime                         @db.Date
+  next_due_date DateTime                         @db.Date
+  status        recurring_transactions_status?   @default(active)
+  created_at    DateTime?                        @default(now()) @db.Timestamp(0)
+  users         users                            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "recurring_transactions_ibfk_1")
+  transactions  transactions[]                    @relation("transactions_recurring_fk")
+
+  @@index([user_id], map: "user_id")
+}
+
+model reminder_logs {
+  id                Int                             @id @default(autoincrement())
+  user_id           Int
+  event_identifier  String                          @db.VarChar(255)
+  source_type       reminder_logs_source_type       @default(event)
+  reminder_type_new reminder_logs_reminder_type_new @default(h)
+  reminder_type     reminder_logs_reminder_type
+  sent_at           DateTime?                       @default(now()) @db.Timestamp(0)
+  users             users                           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reminder_user")
+
+  @@unique([user_id, event_identifier, source_type, reminder_type_new, sent_at], map: "idx_unique_reminder_v3")
+}
+
+model reminders {
+  id            Int                  @id @default(autoincrement())
+  user_id       Int
+  content       String               @db.Text
+  trigger_time  DateTime             @db.Time(0)
+  frequency     reminders_frequency? @default(once)
+  specific_date DateTime?            @db.Date
+  weekday       reminders_weekday?
+  status        reminders_status?    @default(active)
+  created_at    DateTime?            @default(now()) @db.Timestamp(0)
+  users         users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "reminders_ibfk_1")
+
+  @@index([user_id], map: "user_id")
+}
+
+model purchase_installments {
+  id                  Int                              @id @default(autoincrement())
+  user_id             Int
+  entity_id           Int
+  description         String                           @db.VarChar(255)
+  amount              Decimal                          @db.Decimal(10, 2)
+  installment_count   Int
+  installment_value   Decimal                          @db.Decimal(10, 2)
+  first_installment    Int                              @default(1)
+  start_date          DateTime                         @db.Date
+  status              purchase_installments_status?     @default(active)
+  created_at          DateTime?                        @default(now()) @db.Timestamp(0)
+  users               users                            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_installments_user_fk")
+  financial_entities  financial_entities               @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "purchase_installments_entity_fk")
+  transactions        transactions[]
+
+  @@index([user_id], map: "purchase_installments_user_idx")
+  @@index([entity_id], map: "purchase_installments_entity_idx")
+}
+
+model transactions {
+  id                  Int                  @id @default(autoincrement())
+  account_id          Int
+  user_id             Int
+  entity_id           Int?
+  amount              Decimal              @db.Decimal(10, 2)
+  type                transactions_type
+  status              transactions_status? @default(paid)
+  category            String?              @db.VarChar(50)
+  description         String?              @db.VarChar(255)
+  transaction_date    DateTime             @db.DateTime(0)
+  created_at          DateTime?            @default(now()) @db.DateTime(0)
+  is_recurring        Boolean?             @default(false)
+  deleted_at          DateTime?            @db.DateTime(0)
+  payment_method      String?              @default("cash") @db.VarChar(20)
+  category_id         Int?
+  income_source_id    Int?
+  installment_id      Int?
+  installment_number  Int?
+  recurring_transaction_id Int?
+  financial_entities  financial_entities?  @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "fk_transaction_entity")
+  accounts            accounts             @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_1")
+  users               users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_2")
+  categories          categories?          @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_category_fk")
+  income_sources      income_sources?      @relation(fields: [income_source_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_income_source_fk")
+  purchase_installments purchase_installments? @relation(fields: [installment_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_installment_fk")
+  recurring_transactions recurring_transactions? @relation("transactions_recurring_fk", fields: [recurring_transaction_id], references: [id])
+
+  @@index([account_id], map: "account_id")
+  @@index([entity_id], map: "fk_transaction_entity")
+  @@index([user_id], map: "user_id")
+  @@index([category_id], map: "category_id")
+  @@index([income_source_id], map: "income_source_id")
+  @@index([installment_id], map: "installment_id")
+  @@index([recurring_transaction_id], map: "recurring_transaction_id")
+}
+
+model users {
+  id                     Int                      @id @default(autoincrement())
+  account_id             Int
+  phone_number           String                   @unique(map: "phone_number") @db.VarChar(50)
+  password_hash          String?                  @db.VarChar(255)
+  name                   String?                  @db.VarChar(100)
+  role                   users_role?              @default(admin)
+  status                 users_status?            @default(active)
+  created_at             DateTime?                @default(now()) @db.DateTime(0)
+  email                  String?                  @db.VarChar(150)
+  google_refresh_token   String?                  @db.VarChar(512)
+  google_email           String?                  @db.VarChar(255)
+  google_calendar_id     String?                  @default("primary") @db.VarChar(255)
+  budgets                budgets[]
+  categories             categories[]
+  events                 events[]
+  financial_entities     financial_entities[]
+  income_sources         income_sources[]
+  recurring_events       recurring_events[]
+  recurring_transactions recurring_transactions[]
+  reminder_logs          reminder_logs[]
+  reminders              reminders[]
+  purchase_installments   purchase_installments[]
+  transactions           transactions[]
+  accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
+
+  @@index([account_id], map: "account_id")
+}
+
+enum accounts_plan_type {
+  individual
+  family
+}
+
+enum reminder_logs_source_type {
+  event
+  transaction
+  reminder
+}
+
+enum financial_entities_type {
+  bank
+  credit_card
+}
+
+enum accounts_status {
+  trial
+  active
+  blocked
+  cancelled
+}
+
+enum reminder_logs_reminder_type_new {
+  h     @map("1h")
+  min   @map("10min")
+  exact
+}
+
+enum reminders_frequency {
+  once
+  daily
+  weekly
+  monthly
+}
+
+enum users_role {
+  admin
+  member
+}
+
+enum reminder_logs_reminder_type {
+  h   @map("1h")
+  min @map("10min")
+}
+
+enum users_status {
+  active
+  inactive
+}
+
+enum transactions_type {
+  expense
+  income
+}
+
+enum recurring_transactions_type {
+  income
+  expense
+}
+
+enum reminders_weekday {
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+  Saturday
+  Sunday
+}
+
+enum recurring_transactions_frequency {
+  daily
+  weekly
+  monthly
+  yearly
+}
+
+enum transactions_status {
+  paid
+  pending
+  overdue
+}
+
+enum recurring_events_frequency {
+  daily
+  weekly
+  monthly
+  yearly
+}
+
+enum reminders_status {
+  active
+  inactive
+  completed
+}
+
+enum recurring_events_status {
+  active
+  paused
+  cancelled
+}
+
+enum recurring_transactions_status {
+  active
+  paused
+  cancelled
+}
+
+enum purchase_installments_status {
+  active
+  completed
+  cancelled
+}

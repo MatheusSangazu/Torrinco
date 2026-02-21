@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-torrinco-50: #f0fdf4;
+  --color-torrinco-100: #dcfce7;
+  --color-torrinco-200: #bbf7d0;
+  --color-torrinco-300: #86efac;
+  --color-torrinco-400: #4ade80;
+  --color-torrinco-500: #22c55e;
+  --color-torrinco-600: #16a34a;
+  --color-torrinco-700: #15803d;
+  --color-torrinco-800: #166534;
+  --color-torrinco-900: #14532d;
+  --color-torrinco-950: #052e16;
+  
+  --color-beak-300: #fcd34d;
+  --color-beak-400: #fbbf24;
+  --color-beak-500: #f59e0b;
+  --color-beak-600: #d97706;
+
+  /* Cores Dark Mode (Inspiradas na imagem) */
+  --color-dark-bg: #0f172a;    /* Slate 900 */
+  --color-dark-card: #1e293b;  /* Slate 800 */
+  --color-dark-text: #f8fafc;  /* Slate 50 - Mais claro para melhor contraste */
+  --color-dark-muted: #94a3b8; /* Slate 400 */
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans antialiased transition-colors duration-200;
+  }
+  
+  /* Dark Mode Styles - Fallback manual se a variante falhar em alguns lugares */
+  :root.dark body {
+    @apply bg-dark-bg text-dark-text;
+  }
+  
+  :root.dark .dark-card {
+    @apply bg-dark-card border-slate-700 text-dark-text;
+  }
+}
