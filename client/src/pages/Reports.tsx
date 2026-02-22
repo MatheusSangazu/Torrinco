@@ -4,6 +4,7 @@ import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
 import { api } from '../services/api';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
+import { CustomSelect } from '../components/CustomSelect';
 
 interface Transaction {
   id: number;
@@ -43,8 +44,6 @@ const CustomTooltip = ({ active, payload }: any) => {
   }
   return null;
 };
-
-import { CustomSelect } from '../components/CustomSelect';
 
 export function Reports() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);

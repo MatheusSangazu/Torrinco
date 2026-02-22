@@ -5,6 +5,7 @@ import { cardsService, type CreditCard as CreditCardType } from '../services/car
 import { installmentsService } from '../services/installments.service';
 import { clsx } from 'clsx';
 import { Select } from '../components/Select';
+import { CustomSelect } from '../components/CustomSelect';
 import { CategorySelect } from '../components/CategorySelect';
 import { Input } from '../components/Input';
 import { DatePicker } from '../components/DatePicker';
@@ -714,25 +715,23 @@ export function Transactions() {
               {formData.payment_method === 'credit' && formData.type === 'expense' && (
                 <div>
                   {creditCards.length > 0 ? (
-                    <Select
+                    <CustomSelect
                       label="Cartão de Crédito"
                       value={formData.entity_id}
-                      onChange={(e) => setFormData({...formData, entity_id: e.target.value})}
-                      icon={<CreditCard className="w-4 h-4" />}
+                      onChange={(value) => setFormData({...formData, entity_id: value as string})}
+                      options={[
+                        { value: '', label: 'Selecione o cartão' },
+                        ...creditCards.map(card => ({ value: card.id.toString(), label: card.name }))
+                      ]}
                       required
-                    >
-                      <option value="">Selecione o cartão</option>
-                      {creditCards.map(card => (
-                        <option key={card.id} value={card.id}>
-                          {card.name}
-                        </option>
-                      ))}
-                    </Select>
+                    />
                   ) : (
                     <div className="text-sm text-gray-500 dark:text-slate-400 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
                       Nenhum cartão de crédito cadastrado. Vá em "Cartões" para criar um primeiro.
                     </div>
                   )}
+                </div>
+              )}
 
                   {!formData.isRecurring && (
                     <div className="flex items-center gap-2 mt-3 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
