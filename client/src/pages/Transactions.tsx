@@ -621,6 +621,7 @@ export function Transactions() {
                   });
                 }}
                 placeholder="Selecione..."
+                required
               />
 
               <div className="space-y-4">
@@ -686,7 +687,7 @@ export function Transactions() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({...formData, payment_method: 'credit'})}
+                      onClick={() => setFormData({...formData, payment_method: 'credit', entity_id: ''})}
                       className={clsx(
                         "py-2 rounded-xl text-sm font-bold transition-all border-2",
                         formData.payment_method === 'credit'
@@ -730,8 +731,6 @@ export function Transactions() {
                       Nenhum cartão de crédito cadastrado. Vá em "Cartões" para criar um primeiro.
                     </div>
                   )}
-                </div>
-              )}
 
                   {!formData.isRecurring && (
                     <div className="flex items-center gap-2 mt-3 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-xl border border-gray-100 dark:border-slate-700">

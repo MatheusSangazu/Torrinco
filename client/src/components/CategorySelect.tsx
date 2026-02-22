@@ -17,6 +17,7 @@ interface CategorySelectProps {
   error?: string;
   placeholder?: string;
   className?: string;
+  required?: boolean;
 }
 
 export function CategorySelect({
@@ -26,7 +27,8 @@ export function CategorySelect({
   options,
   error,
   placeholder = 'Selecione...',
-  className = ''
+  className = '',
+  required
 }: CategorySelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,7 +70,7 @@ export function CategorySelect({
     <div className={`space-y-1 ${className}`} ref={containerRef}>
       {label && (
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          {label}
+          {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
       <div className="relative">

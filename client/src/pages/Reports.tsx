@@ -59,19 +59,31 @@ export function Reports() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
 
   useEffect(() => {
+    console.log('useEffect em Reports - Buscando transações...');
     fetchTransactions();
-  }, []);
+  }, [selectedMonth, selectedYear]);
 
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/finance/transactions');
+      const startDate = new Date(selectedYear, selectedMonth, 1);
+      const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
+      
+      const response = await api.get('/finance/transactions', {
+        params: {
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0]
+        }
+      });
+      console.log('Transações recebidas do backend:', response.data.transactions);
       // Garantir que amount seja número (vem como string do backend se for Decimal)
       const transactionsData = response.data.transactions.map((t: any) => ({
         ...t,
         amount: Number(t.amount)
       }));
+      console.log('Transações processadas:', transactionsData);
       setTransactions(transactionsData);
+      console.log('Transações definidas no estado:', transactionsData.length);
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
     } finally {
@@ -79,16 +91,24 @@ export function Reports() {
     }
   };
 
+  useEffect(() => {
+    console.log('Transações no estado mudou:', transactions.length);
+  }, [transactions]);
+
   const getFilteredTransactions = () => {
-    return transactions.filter(t => {
+    console.log('Filtrando transações - Total:', transactions.length, 'Mês:', selectedMonth, 'Ano:', selectedYear);
+    const filtered = transactions.filter(t => {
       const date = new Date(t.transaction_date);
       const matchesDate = date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
       const matchesType = filterType === 'all' || t.type === filterType;
       const matchesCategory = filterCategory === 'all' || t.category === filterCategory || t.categories?.name === filterCategory;
       const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
       
+      
       return matchesDate && matchesType && matchesCategory && matchesStatus;
     });
+    console.log('Filtrado:', filtered.length);
+    return filtered;
   };
 
   const calculateFinancials = () => {
@@ -209,6 +229,8 @@ export function Reports() {
       if (filterType !== 'all') params.type = filterType;
       if (filterCategory !== 'all') params.category = filterCategory;
       if (filterStatus !== 'all') params.status = filterStatus;
+      
+      console.log('Exportando com params:', params, 'selectedMonth:', selectedMonth, 'selectedYear:', selectedYear);
       
       const response = await api.get('/export/excel', {
         params,

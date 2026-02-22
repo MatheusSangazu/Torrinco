@@ -42,13 +42,43 @@ export function Calendar() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentDate]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData();
+      }
+    };
+
+    const handleFocus = () => {
+      fetchData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentDate]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const startDate = new Date(year, month, 1);
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      
       const [transactionsRes, eventsRes] = await Promise.all([
-        api.get('/finance/transactions'),
+        api.get('/finance/transactions', {
+          params: {
+            start_date: startDate.toISOString().split('T')[0],
+            end_date: endDate.toISOString().split('T')[0]
+          }
+        }),
         api.get('/calendar')
       ]);
       
