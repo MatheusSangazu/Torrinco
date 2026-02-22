@@ -174,7 +174,7 @@ docker build -t torrinco-client .
    EVOLUTION_API_KEY=sua_api_key_aqui
    EVOLUTION_INSTANCE_NAME=nome_da_instancia
    ALLOWED_ORIGINS=https://torrinco.forjacorp.com
-   VITE_API_URL=https://apitorrinco.forjacorp.com
+   VITE_API_URL=https://apitorrinco.forjacorp.com/api
    PORT=3001
    ```
 
