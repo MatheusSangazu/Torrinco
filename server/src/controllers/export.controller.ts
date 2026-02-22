@@ -37,18 +37,25 @@ export class ExportController {
         }
       });
 
-      const data = transactions.map(t => ({
-        'ID': t.id,
-        'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR'),
-        'Descrição': t.description || '-',
-        'Categoria': t.categories?.name || t.category || '-',
-        'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
-        'Valor': Number(t.amount),
-        'Status': t.status === 'paid' ? 'Pago' : 'Pendente',
-        'Entidade': t.financial_entities?.name || '-',
-        'Conta': t.accounts?.name || '-',
-        'Recorrente': t.is_recurring ? 'Sim' : 'Não'
-      }));
+      const data = transactions.map(t => {
+        const installmentInfo = t.installment_id && t.installment_number
+          ? `Parcela ${t.installment_number}`
+          : '-';
+
+        return {
+          'ID': t.id,
+          'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR'),
+          'Descrição': t.description || '-',
+          'Categoria': t.categories?.name || t.category || '-',
+          'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
+          'Valor': Number(t.amount),
+          'Status': t.status === 'paid' ? 'Pago' : 'Pendente',
+          'Entidade': t.financial_entities?.name || '-',
+          'Conta': t.accounts?.name || '-',
+          'Recorrente': t.is_recurring ? 'Sim' : 'Não',
+          'Parcelamento': installmentInfo
+        };
+      });
 
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(data);
@@ -63,7 +70,8 @@ export class ExportController {
         { wch: 12 },
         { wch: 25 },
         { wch: 20 },
-        { wch: 12 }
+        { wch: 12 },
+        { wch: 15 }
       ];
 
       worksheet['!cols'] = colWidths;
@@ -162,8 +170,13 @@ export class ExportController {
         const category = t.categories?.name || t.category || '-';
         const entity = t.financial_entities?.name || '-';
 
+        let installmentText = '';
+        if (t.installment_id && t.installment_number) {
+          installmentText = ` | 📦 Parcela ${t.installment_number}`;
+        }
+
         report += `${index + 1}. ${emoji} ${t.description || '-'}\n`;
-        report += `   📅 ${date} | 💲 ${amount}\n`;
+        report += `   📅 ${date} | 💲 ${amount}${installmentText}\n`;
         report += `   🏷️ ${category} | 🏦 ${entity} ${statusEmoji}\n\n`;
       });
 
@@ -171,18 +184,25 @@ export class ExportController {
       report += `⏰ Gerado em: ${new Date().toLocaleString('pt-BR')}\n\n`;
       report += `🔒 *Relatório confidencial - Torrinco*`;
 
-      const data = transactions.map(t => ({
-        'ID': t.id,
-        'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR'),
-        'Descrição': t.description || '-',
-        'Categoria': t.categories?.name || t.category || '-',
-        'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
-        'Valor': Number(t.amount),
-        'Status': t.status === 'paid' ? 'Pago' : 'Pendente',
-        'Entidade': t.financial_entities?.name || '-',
-        'Conta': t.accounts?.name || '-',
-        'Recorrente': t.is_recurring ? 'Sim' : 'Não'
-      }));
+      const data = transactions.map(t => {
+        const installmentInfo = t.installment_id && t.installment_number
+          ? `Parcela ${t.installment_number}`
+          : '-';
+
+        return {
+          'ID': t.id,
+          'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR'),
+          'Descrição': t.description || '-',
+          'Categoria': t.categories?.name || t.category || '-',
+          'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
+          'Valor': Number(t.amount),
+          'Status': t.status === 'paid' ? 'Pago' : 'Pendente',
+          'Entidade': t.financial_entities?.name || '-',
+          'Conta': t.accounts?.name || '-',
+          'Recorrente': t.is_recurring ? 'Sim' : 'Não',
+          'Parcelamento': installmentInfo
+        };
+      });
 
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(data);
@@ -197,7 +217,8 @@ export class ExportController {
         { wch: 12 },
         { wch: 25 },
         { wch: 20 },
-        { wch: 12 }
+        { wch: 12 },
+        { wch: 15 }
       ];
 
       worksheet['!cols'] = colWidths;
