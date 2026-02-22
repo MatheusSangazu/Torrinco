@@ -26,7 +26,10 @@ const PORT = process.env.PORT || 3001;
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://torrinco.forjacorp.com'
+  'https://torrinco.forjacorp.com',
+  'http://torrinco.forjacorp.com',
+  'https://apitorrinco.forjacorp.com',
+  'http://apitorrinco.forjacorp.com'
 ];
 app.use(cors({
   origin: allowedOrigins,
