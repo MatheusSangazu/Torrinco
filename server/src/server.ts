@@ -1,7 +1,6 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { prismaMiddleware } from './middleware/prisma.js';
 import { errorHandler } from './middleware/errorHandler.js';
 // Rotas
 import authRoutes from './routes/auth.routes.js';
@@ -37,17 +36,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Logging de Requisições
-app.use((req, res, next) => {
-  console.log(`📥 [EXPRESS LOG] ${req.method} ${req.url}`);
-  next();
-});
 
-// Injeção do Prisma no Request (opcional, mas mantido por compatibilidade)
-app.use((req, res, next) => {
-  console.log('🔧 [PRISMA MIDDLEWARE] Injetando Prisma no Request');
-  prismaMiddleware(req, res, next);
-});
 
 // --- Rotas ---
 

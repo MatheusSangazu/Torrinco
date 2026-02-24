@@ -4,27 +4,28 @@ import { prisma } from '../lib/prisma.js';
 import { generateToken, type JwtRequest } from '../middleware/jwt.js';
 import { EvolutionService } from '../services/evolution.service.js';
 
-// Armazenamento temporário de códigos de redefinição (Em produção, usar Redis ou DB)
+// Rever caso escale para múltiplos servidores
 const resetCodes = new Map<string, { code: string, expires: number }>();
+const firstAccessCodes = new Map<string, { code: string, expires: number }>();
 
 export class AuthController {
-  /**
-   * Solicita redefinição de senha (Gera código)
-   */
+  
+   //Solicita redefinição de senha 
+   
   static async requestPasswordReset(req: Request, res: Response, next: NextFunction) {
     
     try {
       const { phone_number } = req.body;
 
       if (!phone_number) {
-        return res.status(400).json({ error: 'Phone number is required' });
+        return res.status(400).json({ error: 'Número de telefone é obrigatório' });
       }
 
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
         
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 
       // Gerar código de 6 dígitos
@@ -39,59 +40,59 @@ export class AuthController {
         expires: Date.now() + 15 * 60 * 1000
       });
 
-      // Enviar via Evolution API
+      
       const message = `*Recuperação de Senha - Torrinco*\n\nSeu código de verificação é: *${code}*\n\nSe você não solicitou, ignore esta mensagem.`;
       
-      // Envio assíncrono para não travar a requisição
+      
       EvolutionService.sendText(targetPhone, message)
         .then(() => console.log('📨 Código enviado via WhatsApp para', targetPhone))
         .catch(err => console.error('❌ Falha no envio do WhatsApp:', err));
 
       console.log('🔑 CÓDIGO DE RECUPERAÇÃO GERADO (Backup):', code, 'para', targetPhone);
 
-      res.json({ message: 'Code sent successfully' });
+      res.json({ message: 'Código enviado com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.requestPasswordReset:', error);
       next(error);
     }
   }
 
-  /**
-   * Redefine a senha usando o código
-   */
+  
+   //Redefine a senha usando o código
+   
   static async resetPassword(req: Request, res: Response, next: NextFunction) {
     
     try {
       const { phone_number, code, new_password } = req.body;
 
       if (!phone_number || !code || !new_password) {
-        return res.status(400).json({ error: 'Phone, code and new password are required' });
+        return res.status(400).json({ error: 'Número de telefone, código e nova senha são obrigatórios' });
       }
 
       // Buscar o usuário para garantir que estamos usando o telefone correto
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
-        return res.status(400).json({ error: 'User not found' });
+        return res.status(400).json({ error: 'Usuário não encontrado' });
       }
 
       const stored = resetCodes.get(user.phone_number);
 
       if (!stored) {
-        return res.status(400).json({ error: 'No reset request found or expired' });
+        return res.status(400).json({ error: 'Solicitação de redefinição não encontrada ou expirada' });
       }
 
       if (Date.now() > stored.expires) {
         resetCodes.delete(user.phone_number);
-        return res.status(400).json({ error: 'Code expired' });
+        return res.status(400).json({ error: 'Código expirado' });
       }
 
       if (stored.code !== code) {
-        return res.status(400).json({ error: 'Invalid code' });
+        return res.status(400).json({ error: 'Código inválido' });
       }
 
       if (new_password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
       }
 
       const new_password_hash = await bcrypt.hash(new_password, 10);
@@ -105,15 +106,104 @@ export class AuthController {
       resetCodes.delete(user.phone_number);
 
       console.log('✅ Senha redefinida com sucesso para:', user.phone_number);
-      res.json({ message: 'Password reset successfully' });
+      res.json({ message: 'Senha redefinida com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.resetPassword:', error);
       next(error);
     }
   }
 
+  
+   // Solicita código de verificação para primeiro acesso
+   
+  static async requestFirstAccessCode(req: Request, res: Response, next: NextFunction) {
+    
+    try {
+      const { phone_number } = req.body;
+
+      if (!phone_number) {
+        return res.status(400).json({ error: 'Número de telefone é obrigatório' });
+      }
+
+      const user = await AuthController.findUserByPhone(phone_number);
+
+      if (!user) {
+        return res.status(404).json({ error: 'Usuário não encontrado' });
+      }
+
+      if (user.password_hash) {
+        return res.status(400).json({ error: 'Senha já definida. Por favor, faça login.' });
+      }
+
+      // Gerar código de 6 dígitos
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // código com validade de 15 minutos
+      const targetPhone = user.phone_number;
+      
+      firstAccessCodes.set(targetPhone, {
+        code,
+        expires: Date.now() + 15 * 60 * 1000
+      });
+
+      
+      const message = `*Primeiro Acesso - Torrinco*\n\nSeu código de verificação é: *${code}*\n\nUse este código para criar sua senha e ativar sua conta.`;
+      
+      
+      EvolutionService.sendText(targetPhone, message)
+        .then(() => console.log('📨 Código de primeiro acesso enviado via WhatsApp para', targetPhone))
+        .catch(err => console.error('❌ Falha no envio do WhatsApp:', err));
+
+      console.log('🔑 CÓDIGO DE PRIMEIRO ACESSO GERADO (Backup):', code, 'para', targetPhone);
+
+      res.json({ message: 'Código enviado com sucesso' });
+    } catch (error) {
+      console.error('❌ Erro no AuthController.requestFirstAccessCode:', error);
+      next(error);
+    }
+  }
+
+  
+  static async validateFirstAccessCode(req: Request, res: Response, next: NextFunction) {
+    
+    try {
+      const { phone_number, code } = req.body;
+
+      if (!phone_number || !code) {
+        return res.status(400).json({ error: 'Número de telefone e código são obrigatórios' });
+      }
+
+      const user = await AuthController.findUserByPhone(phone_number);
+
+      if (!user) {
+        return res.status(404).json({ error: 'Usuário não encontrado' });
+      }
+
+      const stored = firstAccessCodes.get(user.phone_number);
+
+      if (!stored) {
+        return res.status(400).json({ error: 'Código de verificação não encontrado ou expirado' });
+      }
+
+      if (Date.now() > stored.expires) {
+        firstAccessCodes.delete(user.phone_number);
+        return res.status(400).json({ error: 'Código expirado' });
+      }
+
+      if (stored.code !== code) {
+        return res.status(400).json({ error: 'Código inválido' });
+      }
+
+      console.log('✅ Código de primeiro acesso validado para:', phone_number);
+      res.json({ message: 'Código validado com sucesso' });
+    } catch (error) {
+      console.error('❌ Erro no AuthController.validateFirstAccessCode:', error);
+      next(error);
+    }
+  }
+
   /**
-   * Cria um novo usuário (Apenas Admin)
+   * Cria um novo usuário 
    */
   static async createUser(req: JwtRequest, res: Response, next: NextFunction) {
     
@@ -122,7 +212,7 @@ export class AuthController {
       const { name, phone_number, email } = req.body;
 
       if (!name || !phone_number) {
-        return res.status(400).json({ error: 'Name and phone number are required' });
+        return res.status(400).json({ error: 'Nome e número de telefone são obrigatórios' });
       }
 
       const existingUser = await prisma.users.findUnique({
@@ -130,7 +220,7 @@ export class AuthController {
       });
 
       if (existingUser) {
-        return res.status(409).json({ error: 'User already exists with this phone number' });
+        return res.status(409).json({ error: 'Já existe um usuário com este número de telefone' });
       }
 
       const user = await prisma.users.create({
@@ -192,30 +282,45 @@ export class AuthController {
     }
   }
 
-  /**
-   * Define a senha no primeiro acesso
-   */
+  
+   // Define a senha no primeiro acesso (com validação de código)
+   
   static async createPassword(req: Request, res: Response, next: NextFunction) {
    
     try {
-      const { phone_number, password } = req.body;
+      const { phone_number, code, password } = req.body;
 
-      if (!phone_number || !password) {
-        return res.status(400).json({ error: 'Phone number and password are required' });
+      if (!phone_number || !code || !password) {
+        return res.status(400).json({ error: 'Número de telefone, código e senha são obrigatórios' });
       }
 
       if (password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
       }
 
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 
       if (user.password_hash) {
-        return res.status(400).json({ error: 'Password already set' });
+        return res.status(400).json({ error: 'Senha já definida' });
+      }
+
+      const stored = firstAccessCodes.get(user.phone_number);
+
+      if (!stored) {
+        return res.status(400).json({ error: 'Código de verificação não encontrado ou expirado' });
+      }
+
+      if (Date.now() > stored.expires) {
+        firstAccessCodes.delete(user.phone_number);
+        return res.status(400).json({ error: 'Código expirado' });
+      }
+
+      if (stored.code !== code) {
+        return res.status(400).json({ error: 'Código inválido' });
       }
 
       const password_hash = await bcrypt.hash(password, 10);
@@ -240,6 +345,9 @@ export class AuthController {
         userRole: updatedUser.role ?? 'user'
       });
 
+      // Limpar código 
+      firstAccessCodes.delete(user.phone_number);
+
       console.log('✅ Senha criada e token gerado para:', phone_number);
       res.json({ user: updatedUser, token });
     } catch (error) {
@@ -248,40 +356,38 @@ export class AuthController {
     }
   }
 
-  /**
-   * Helper para encontrar usuário buscando por telefone com ou sem o 9º dígito
-   */
+  
+    //para encontrar usuário buscando por telefone com ou sem o 9º dígito
+   
   private static async findUserByPhone(phoneNumber: string) {
-    // Remove caracteres não numéricos
+    
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     
-    // Se não tiver comprimento mínimo para ser celular BR com DDD, busca exato
+    
     if (cleanPhone.length < 10) {
       return prisma.users.findUnique({ where: { phone_number: phoneNumber } });
     }
 
     
-    //  duas variações possíveis para buscar no banco
+    
     let phoneVariations: string[] = [phoneNumber]; // Busca exata original
     
-    // Tenta normalizar removendo DDI 55 se existir para manipular
+    
     let localNumber = cleanPhone.startsWith('55') ? cleanPhone.substring(2) : cleanPhone;
     
     if (localNumber.length === 11) {
-      // Tem 9 dígitos (DDD + 9xxxx-xxxx)
-      // Variação: remover o 9 (índice 2, pois 0 e 1 são DDD)
+      
       const withoutNine = '55' + localNumber.substring(0, 2) + localNumber.substring(3);
       phoneVariations.push(withoutNine);
     } else if (localNumber.length === 10) {
-      // Tem 8 dígitos (DDD + xxxx-xxxx)
-      // Variação: adicionar o 9 após o DDD
+      
       const withNine = '55' + localNumber.substring(0, 2) + '9' + localNumber.substring(2);
       phoneVariations.push(withNine);
     }
 
     console.log('🔍 Buscando usuário com variações de telefone:', phoneVariations);
 
-    // Busca o primeiro usuário que der match em qualquer variação
+    
     return prisma.users.findFirst({
       where: {
         phone_number: {
@@ -301,15 +407,13 @@ export class AuthController {
     });
   }
 
-  /**
-   * Retorna os dados do usuário atual
-   */
+  
   static async me(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.userId;
       
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        return res.status(401).json({ error: 'Usuário não autenticado' });
       }
 
       const user = await prisma.users.findUnique({
@@ -326,7 +430,7 @@ export class AuthController {
       });
 
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 
       res.json({ user });
@@ -336,32 +440,30 @@ export class AuthController {
     }
   }
 
-  /**
-   * Realiza o login do usuário
-   */
+  
   static async login(req: Request, res: Response, next: NextFunction) {
     
     try {
       const { phone_number, password } = req.body;
 
       if (!phone_number || !password) {
-        return res.status(400).json({ error: 'Phone number and password are required' });
+        return res.status(400).json({ error: 'Número de telefone e senha são obrigatórios' });
       }
 
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user || !user.password_hash) {
-        return res.status(401).json({ error: 'Invalid credentials or password not set' });
+        return res.status(401).json({ error: 'Credenciais inválidas ou senha não definida' });
       }
 
       if (user.status !== 'active') {
-        return res.status(403).json({ error: 'User account is not active' });
+        return res.status(403).json({ error: 'Conta de usuário não está ativa' });
       }
 
       const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
       if (!isPasswordValid) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
       const token = generateToken({
@@ -370,7 +472,7 @@ export class AuthController {
         userRole: user.role ?? 'user'
       });
 
-      // Remove password_hash antes de enviar
+      
       const { password_hash, ...userWithoutPassword } = user;
 
       console.log('✅ Login realizado com sucesso:', phone_number);
@@ -381,9 +483,7 @@ export class AuthController {
     }
   }
 
-  /**
-   * Altera a senha de um usuário autenticado
-   */
+  
   static async changePassword(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {
@@ -391,11 +491,11 @@ export class AuthController {
       const { old_password, new_password } = req.body;
 
       if (!old_password || !new_password) {
-        return res.status(400).json({ error: 'Old and new passwords are required' });
+        return res.status(400).json({ error: 'Senha antiga e nova são obrigatórias' });
       }
 
       if (new_password.length < 6) {
-        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+        return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres' });
       }
 
       const user = await prisma.users.findUnique({
@@ -404,13 +504,13 @@ export class AuthController {
       });
 
       if (!user || !user.password_hash) {
-        return res.status(404).json({ error: 'User not found or password not set' });
+        return res.status(404).json({ error: 'Usuário não encontrado ou senha não definida' });
       }
 
       const isPasswordValid = await bcrypt.compare(old_password, user.password_hash);
 
       if (!isPasswordValid) {
-        return res.status(401).json({ error: 'Invalid old password' });
+        return res.status(401).json({ error: 'Senha antiga inválida' });
       }
 
       const new_password_hash = await bcrypt.hash(new_password, 10);
@@ -421,16 +521,14 @@ export class AuthController {
       });
 
       console.log('✅ Senha alterada com sucesso para o usuário:', userId);
-      res.json({ message: 'Password updated successfully' });
+      res.json({ message: 'Senha atualizada com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.changePassword:', error);
       next(error);
     }
   }
 
-  /**
-   * Lista todos os usuários (Apenas Admin)
-   */
+  
   static async listUsers(req: JwtRequest, res: Response, next: NextFunction) {
 
     try {
@@ -439,7 +537,7 @@ export class AuthController {
       const users = await prisma.users.findMany({
         where: { 
           account_id: accountId,
-          status: 'active' // Apenas usuários ativos
+          status: 'active' 
         },
         select: {
           id: true,
@@ -459,9 +557,9 @@ export class AuthController {
     }
   }
 
-  /**
-   * Atualiza dados de um usuário (Apenas Admin)
-   */
+  
+   // Atualiza dados de um usuário 
+   
   static async updateUser(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {
@@ -470,7 +568,7 @@ export class AuthController {
       const { name, email, role, status } = req.body;
 
       if (!id) {
-        return res.status(400).json({ error: 'User ID is required' });
+        return res.status(400).json({ error: 'ID do usuário é obrigatório' });
       }
 
       // Verifica se o usuário pertence à mesma conta
@@ -479,7 +577,7 @@ export class AuthController {
       });
 
       if (!existingUser) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 
       const updatedUser = await prisma.users.update({
@@ -508,9 +606,9 @@ export class AuthController {
     }
   }
 
-  /**
-   * Exclusão lógica de um usuário (Apenas Admin)
-   */
+  
+   // Exclusão
+   
   static async deleteUser(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {
@@ -518,7 +616,7 @@ export class AuthController {
       const { id } = req.params;
 
       if (!id) {
-        return res.status(400).json({ error: 'User ID is required' });
+        return res.status(400).json({ error: 'ID do usuário é obrigatório' });
       }
 
       // Verifica se o usuário pertence à mesma conta
@@ -527,12 +625,12 @@ export class AuthController {
       });
 
       if (!existingUser) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 
-      // Não permite que o admin se delete (opcional, mas seguro)
+      
       if (Number(id) === req.userId) {
-        return res.status(400).json({ error: 'Cannot delete your own admin account' });
+        return res.status(400).json({ error: 'Não é possível excluir sua própria conta de administrador' });
       }
 
       await prisma.users.update({
@@ -541,7 +639,7 @@ export class AuthController {
       });
 
       console.log('✅ Usuário desativado com sucesso:', id);
-      res.json({ message: 'User deleted (deactivated) successfully' });
+      res.json({ message: 'Usuário excluído (desativado) com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.deleteUser:', error);
       next(error);

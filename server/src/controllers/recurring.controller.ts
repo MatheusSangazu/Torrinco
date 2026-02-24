@@ -29,7 +29,6 @@ export class RecurringController {
    * Cria uma nova transação recorrente
    */
   static async createTransaction(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 RecurringController.createTransaction chamada');
     try {
       const { description, amount, category, type, frequency, start_date } = req.body;
       const userId = req.userId!;
@@ -70,7 +69,6 @@ export class RecurringController {
    * Lista transações recorrentes
    */
   static async listTransactions(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 RecurringController.listTransactions chamada');
     try {
       const { status, type } = req.query;
       const userId = req.userId!;
@@ -96,7 +94,6 @@ export class RecurringController {
    * Atualiza uma transação recorrente
    */
   static async updateTransaction(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 RecurringController.updateTransaction chamada');
     try {
       const { id } = req.params;
       const { description, amount, category, frequency, status } = req.body;
@@ -131,7 +128,6 @@ export class RecurringController {
    * Remove (cancela) uma transação recorrente
    */
   static async deleteTransaction(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 RecurringController.deleteTransaction chamada');
     try {
       const { id } = req.params;
       const userId = req.userId!;
@@ -159,7 +155,6 @@ export class RecurringController {
    * Gera uma transação real a partir de uma recorrente
    */
   static async generateTransaction(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 RecurringController.generateTransaction chamada');
     try {
       const { id } = req.params;
       const userId = req.userId!;
@@ -224,7 +219,6 @@ export class RecurringController {
    * Lista transações recorrentes próximas do vencimento
    */
   static async listDue(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 RecurringController.listDue chamada');
     try {
       const { days = 7 } = req.query;
       const userId = req.userId!;

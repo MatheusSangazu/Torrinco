@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3 } from 'lucide-react';
+import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../services/api';
+import { remindersService, type Reminder } from '../services/reminders.service';
 import { CreditCardCarousel } from '../components/CreditCardCarousel';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -73,6 +74,7 @@ export function Dashboard() {
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'month' | 'all'>('month');
   const [chartData, setChartData] = useState<Array<{name: string; receitas: number; despesas: number}>>([]);
@@ -109,6 +111,9 @@ export function Dashboard() {
         setForecast(forecastRes.data);
         setTransactions(transactionsRes.data.transactions);
         setChartData(generateChartData(chartRes.data.transactions));
+
+        const dueReminders = await remindersService.listDue();
+        setReminders(dueReminders);
         
         // Combine recurring transactions and events
         const recurring = (dueRes.data.dueTransactions || []).map((item: RecurringTransaction) => ({
@@ -226,7 +231,7 @@ export function Dashboard() {
       </div>
 
       {/* Grid de Cards Superiores */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         
         {/* Card Saldo em Dinheiro */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
@@ -326,6 +331,63 @@ export function Dashboard() {
                  <AlertCircle size={20} className="mb-1" />
                  <span className="text-xs">Nada previsto</span>
                </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card Lembretes */}
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-4 right-4 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+            {reminders.length > 0 && <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></span>}
+            {reminders.length}
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+              <Bell size={24} />
+            </div>
+            <span className="text-gray-500 dark:text-slate-400 font-medium">Lembretes</span>
+          </div>
+          <div className="space-y-3">
+            {reminders.length > 0 ? (
+              reminders.slice(0, 3).map((reminder, index) => (
+                <div key={`rem-${reminder.id}-${index}`} className="flex justify-between items-start text-sm">
+                  <div className="flex-1 min-w-0">
+                    <span className={clsx(
+                      "font-medium truncate block",
+                      reminder.status === 'completed' ? "line-through text-gray-400 dark:text-slate-500" : "text-gray-600 dark:text-slate-300"
+                    )}>
+                      {reminder.content}
+                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Clock size={12} className="text-gray-400" />
+                      <span className="text-xs text-gray-400 dark:text-slate-500">
+                        {new Date(reminder.trigger_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      await remindersService.markAsCompleted(reminder.id);
+                      const updated = await remindersService.listDue();
+                      setReminders(updated);
+                    }}
+                    className={clsx(
+                      "p-1.5 rounded-lg transition-colors shrink-0 ml-2",
+                      reminder.status === 'completed'
+                        ? "text-gray-400 dark:text-slate-500"
+                        : "text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"
+                    )}
+                    title={reminder.status === 'completed' ? 'Concluído' : 'Marcar como concluído'}
+                  >
+                    {reminder.status === 'completed' ? <Check size={16} /> : <CheckCircle2 size={16} />}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 py-2">
+                <Bell size={20} className="mb-1 opacity-50" />
+                <span className="text-xs">Sem lembretes</span>
+              </div>
             )}
           </div>
         </div>

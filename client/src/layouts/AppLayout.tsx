@@ -1,7 +1,7 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft } from 'lucide-react';
+import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft, Bell } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 
@@ -28,6 +28,7 @@ export function AppLayout() {
     { path: '/categories', label: 'CATEGORIAS', icon: Tag },
     { path: '/cards', label: 'CARTÕES', icon: CreditCard },
     { path: '/reports', label: 'RELATÓRIOS', icon: PieChart },
+    { path: '/reminders', label: 'LEMBRETES', icon: Bell },
     { path: '/calendar', label: 'AGENDA', icon: Calendar },
   ];
 

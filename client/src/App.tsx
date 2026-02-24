@@ -13,6 +13,7 @@ import { Categories } from './pages/Categories';
 import { Reports } from './pages/Reports';
 import { Cards } from './pages/Cards';
 import { IncomeSources } from './pages/IncomeSources';
+import { Reminders } from './pages/Reminders';
 import { Toaster } from 'react-hot-toast';
 import './App.css';
 
@@ -37,6 +38,7 @@ function App() {
               <Route path="/categories" element={<Categories />} />
               <Route path="/cards" element={<Cards />} />
               <Route path="/income-sources" element={<IncomeSources />} />
+              <Route path="/reminders" element={<Reminders />} />
               <Route path="/settings" element={<div className="p-4 text-gray-900 dark:text-white">Configurações (Em breve)</div>} />
             </Route>
 

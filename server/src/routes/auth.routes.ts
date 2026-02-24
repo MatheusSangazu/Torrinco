@@ -10,7 +10,9 @@ console.log('️  Registrando rotas em auth.routes.ts');
 router.post('/request-password-reset', AuthController.requestPasswordReset);
 router.post('/reset-password', AuthController.resetPassword);
 
-// Rota pública para definir senha no primeiro acesso
+// Rotas públicas de primeiro acesso
+router.post('/request-first-access-code', AuthController.requestFirstAccessCode);
+router.post('/validate-first-access-code', AuthController.validateFirstAccessCode);
 router.post('/create-password', AuthController.createPassword);
 
 // Rota de Login

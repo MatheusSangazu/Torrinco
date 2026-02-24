@@ -3,9 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 
 export class BudgetController {
-  /**
-   * Cria ou atualiza um orçamento (Upsert)
-   */
+ 
   static async upsert(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {

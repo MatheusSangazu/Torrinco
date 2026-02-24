@@ -7,7 +7,6 @@ export class ReminderController {
    * Cria um novo lembrete
    */
   static async create(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.create chamada');
     try {
       const { content, trigger_time, frequency, specific_date, weekday } = req.body;
       const userId = req.userId!;
@@ -38,7 +37,6 @@ export class ReminderController {
    * Lista lembretes do usuário
    */
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.list chamada');
     try {
       const { status, frequency } = req.query;
       const userId = req.userId!;
@@ -64,7 +62,6 @@ export class ReminderController {
    * Obtém um lembrete por ID
    */
   static async getById(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.getById chamada');
     try {
       const { id } = req.params;
       const userId = req.userId!;
@@ -90,7 +87,6 @@ export class ReminderController {
    * Atualiza um lembrete
    */
   static async update(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.update chamada');
     try {
       const { id } = req.params;
       const { content, trigger_time, frequency, specific_date, weekday, status } = req.body;
@@ -129,7 +125,6 @@ export class ReminderController {
    * Marca um lembrete como concluído
    */
   static async delete(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.delete chamada');
     try {
       const { id } = req.params;
       const userId = req.userId!;
@@ -160,7 +155,6 @@ export class ReminderController {
    * Cria um log de lembrete
    */
   static async createLog(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.createLog chamada');
     try {
       const { event_identifier, source_type, reminder_type, reminder_type_new } = req.body;
       const userId = req.userId!;
@@ -189,7 +183,6 @@ export class ReminderController {
    * Lista logs de lembretes
    */
   static async listLogs(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.listLogs chamada');
     try {
       const { source_type, limit = 50 } = req.query;
       const userId = req.userId!;
@@ -215,7 +208,6 @@ export class ReminderController {
    * Lista lembretes vencidos ou para o momento atual
    */
   static async listDue(req: JwtRequest, res: Response, next: NextFunction) {
-    console.log('🎮 ReminderController.listDue chamada');
     try {
       const userId = req.userId!;
 

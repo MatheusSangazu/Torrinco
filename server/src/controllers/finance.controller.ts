@@ -612,7 +612,7 @@ export class FinanceController {
       const firstDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
       const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
 
-      const [recurringIncome, recurringExpenses] = await Promise.all([
+      const [recurringIncome, recurringExpenses, installmentsExpenses] = await Promise.all([
         prisma.recurring_transactions.aggregate({
           where: {
             user_id: userId,
@@ -638,14 +638,32 @@ export class FinanceController {
           },
           _sum: { amount: true },
           _count: true
+        }),
+        prisma.transactions.aggregate({
+          where: {
+            user_id: userId,
+            type: 'expense',
+            transaction_date: {
+              gte: firstDayNextMonth,
+              lte: lastDayNextMonth
+            },
+            deleted_at: null,
+            installment_id: {
+              not: null
+            }
+          },
+          _sum: { amount: true },
+          _count: true
         })
       ]);
 
       const forecastIncome = Number(recurringIncome._sum.amount) || 0;
-      const forecastExpenses = Number(recurringExpenses._sum.amount) || 0;
+      const forecastRecurringExpenses = Number(recurringExpenses._sum.amount) || 0;
+      const forecastInstallmentsExpenses = Number(installmentsExpenses._sum.amount) || 0;
+      const forecastExpenses = forecastRecurringExpenses + forecastInstallmentsExpenses;
       const forecastBalance = forecastIncome - forecastExpenses;
 
-      const [recurringIncomeList, recurringExpenseList] = await Promise.all([
+      const [recurringIncomeList, recurringExpenseList, installmentsList] = await Promise.all([
         prisma.recurring_transactions.findMany({
           where: {
             user_id: userId,
@@ -676,6 +694,26 @@ export class FinanceController {
             description: true,
             amount: true,
             next_due_date: true
+          }
+        }),
+        prisma.transactions.findMany({
+          where: {
+            user_id: userId,
+            type: 'expense',
+            transaction_date: {
+              gte: firstDayNextMonth,
+              lte: lastDayNextMonth
+            },
+            deleted_at: null,
+            installment_id: {
+              not: null
+            }
+          },
+          select: {
+            description: true,
+            amount: true,
+            transaction_date: true,
+            installment_number: true
           }
         })
       ]);
@@ -688,7 +726,8 @@ export class FinanceController {
           balance: forecastBalance,
           breakdown: {
             recurring_income: recurringIncomeList,
-            recurring_expenses: recurringExpenseList
+            recurring_expenses: recurringExpenseList,
+            installments: installmentsList
           }
         }
       });

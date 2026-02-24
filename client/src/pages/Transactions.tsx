@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, ArrowUpCircle, ArrowDownCircle, Edit2, Trash2, X, CreditCard, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, ArrowUpCircle, ArrowDownCircle, Edit2, Trash2, X, CreditCard, ChevronLeft, ChevronRight, Calendar, CheckCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { cardsService, type CreditCard as CreditCardType } from '../services/cards.service';
 import { installmentsService } from '../services/installments.service';
@@ -67,6 +67,8 @@ export function Transactions() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; transaction: Transaction | null }>({ open: false, transaction: null });
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<number | string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const formatDate = (date: Date): string => {
@@ -93,6 +95,10 @@ export function Transactions() {
   useEffect(() => {
     fetchTransactions();
   }, [currentDate]);
+
+  useEffect(() => {
+    setShowBulkActions(selectedTransactions.size > 0);
+  }, [selectedTransactions]);
 
   useEffect(() => {
     fetchCategories();
@@ -145,6 +151,7 @@ export function Transactions() {
         }
       });
       setTransactions(response.data.transactions);
+      clearSelection();
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
       toast.error('Erro ao carregar transações. Tente novamente.');
@@ -258,6 +265,50 @@ export function Transactions() {
     } catch (error: any) {
       console.error('Erro ao excluir:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Erro ao excluir transação.';
+      toast.error(errorMessage);
+    }
+  };
+
+  const toggleTransactionSelection = (transactionId: number | string) => {
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(transactionId)) {
+        newSet.delete(transactionId);
+      } else {
+        newSet.add(transactionId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const filteredIds = filteredTransactions.map(t => t.id);
+    if (filteredIds.length === selectedTransactions.size && filteredIds.every(id => selectedTransactions.has(id))) {
+      setSelectedTransactions(new Set());
+    } else {
+      setSelectedTransactions(new Set(filteredIds));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedTransactions(new Set());
+    setShowBulkActions(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTransactions.size === 0) return;
+
+    try {
+      for (const id of selectedTransactions) {
+        await api.delete(`/finance/transactions/${id}`);
+      }
+      
+      fetchTransactions();
+      clearSelection();
+      toast.success(`${selectedTransactions.size} transação(ões) excluída(s) com sucesso!`);
+    } catch (error: any) {
+      console.error('Erro ao excluir em massa:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Erro ao excluir transações.';
       toast.error(errorMessage);
     }
   };
@@ -425,6 +476,38 @@ export function Transactions() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {showBulkActions && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-slate-700 text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-4 z-50">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+            <span className="font-medium">
+              {selectedTransactions.size} transação(ões) selecionada(s)
+            </span>
+          </div>
+          <div className="h-6 w-px bg-gray-700"></div>
+          <button
+            onClick={toggleSelectAll}
+            className="text-sm text-gray-300 hover:text-white transition-colors"
+          >
+            {filteredTransactions.length === selectedTransactions.size ? 'Desmarcar todas' : 'Selecionar todas'}
+          </button>
+          <button
+            onClick={clearSelection}
+            className="text-sm text-gray-300 hover:text-white transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleBulkDelete}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Excluir selecionadas
+          </button>
+        </div>
+      )}
+
       {/* List */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
         {loading ? (
@@ -432,8 +515,18 @@ export function Transactions() {
         ) : filteredTransactions.length > 0 ? (
           <div className="divide-y divide-gray-100 dark:divide-slate-700">
             {filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between group gap-4 sm:gap-0">
+              <div key={transaction.id} className={clsx(
+                "p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between group gap-4 sm:gap-0",
+                selectedTransactions.has(transaction.id) && "bg-blue-50 dark:bg-blue-900/10"
+              )}>
                 <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedTransactions.has(transaction.id)}
+                    onChange={() => toggleTransactionSelection(transaction.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-5 h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500 cursor-pointer shrink-0"
+                  />
                   <div className={clsx(
                     "p-3 rounded-xl shrink-0",
                     transaction.type === 'income' 
