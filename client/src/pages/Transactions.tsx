@@ -382,58 +382,67 @@ export function Transactions() {
 
   const currentMonthLabel = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const currentMonthName = currentMonthLabel.charAt(0).toUpperCase() + currentMonthLabel.slice(1);
+  const currentMonthParts = currentMonthName.split(' ');
+  const monthName = currentMonthParts[0];
+  const yearName = currentMonthParts.slice(1).join(' ');
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4 sm:gap-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Finanças</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Gerencie suas receitas e despesas</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">Finanças</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">Gerencie suas receitas e despesas</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <button 
               onClick={openNewModal}
-              className="flex items-center justify-center px-4 py-2 bg-torrinco-600 hover:bg-torrinco-700 text-white rounded-xl transition-colors font-medium shadow-sm w-full sm:w-auto"
+              className="flex items-center justify-center px-3 sm:px-4 py-2 bg-torrinco-600 hover:bg-torrinco-700 text-white rounded-xl transition-colors font-medium shadow-sm w-full sm:w-auto text-sm"
             >
-              <Plus size={20} className="mr-2" />
-              Nova Transação
+              <Plus size={16} className="mr-1.5" />
+              <span className="hidden sm:inline">Nova Transação</span>
+              <span className="inline sm:hidden">Nova</span>
             </button>
           </div>
         </div>
 
         {/* Month Selector */}
-        <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+        <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
           <button 
             onClick={handlePrevMonth}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-600 dark:text-slate-400"
+            className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-600 dark:text-slate-400"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={20} />
           </button>
           
-          <div className="flex items-center gap-2">
-            <Calendar size={20} className="text-torrinco-600 dark:text-torrinco-400" />
-            <span className="text-lg font-bold text-gray-800 dark:text-white capitalize">
-              {currentMonthName}
-            </span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Calendar size={16} className="text-torrinco-600 dark:text-torrinco-400 shrink-0" />
+            <div className="text-center leading-tight">
+              <div className="text-sm sm:text-base font-bold text-gray-800 dark:text-white capitalize">
+                {monthName}
+              </div>
+              <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-slate-400">
+                {yearName}
+              </div>
+            </div>
           </div>
 
           <button 
             onClick={handleNextMonth}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-600 dark:text-slate-400"
+            className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-600 dark:text-slate-400"
           >
-            <ChevronRight size={24} />
+            <ChevronRight size={20} />
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
+      <div className="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex-1 min-w-0">
           <Input
             type="text"
-            placeholder="Buscar por descrição ou categoria..."
+            placeholder="Buscar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={<Search className="w-4 h-4" />}
@@ -443,7 +452,7 @@ export function Transactions() {
           <button 
             onClick={() => setTypeFilter('all')}
             className={clsx(
-              "px-4 py-2 rounded-xl text-sm font-medium transition-colors border",
+              "px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors border",
               typeFilter === 'all' 
                 ? "bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-900 dark:text-white" 
                 : "border-transparent text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
@@ -454,7 +463,7 @@ export function Transactions() {
           <button 
             onClick={() => setTypeFilter('income')}
             className={clsx(
-              "px-4 py-2 rounded-xl text-sm font-medium transition-colors border",
+              "px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors border",
               typeFilter === 'income' 
                 ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400" 
                 : "border-transparent text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
@@ -465,7 +474,7 @@ export function Transactions() {
           <button 
             onClick={() => setTypeFilter('expense')}
             className={clsx(
-              "px-4 py-2 rounded-xl text-sm font-medium transition-colors border",
+              "px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors border",
               typeFilter === 'expense' 
                 ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400" 
                 : "border-transparent text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
@@ -478,33 +487,36 @@ export function Transactions() {
 
       {/* Bulk Actions Bar */}
       {showBulkActions && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-slate-700 text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-4 z-50">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-green-400" />
-            <span className="font-medium">
-              {selectedTransactions.size} transação(ões) selecionada(s)
+        <div className="fixed bottom-4 sm:bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-slate-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-lg">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start">
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+            <span className="font-medium text-xs sm:text-sm">
+              {selectedTransactions.size} selecionada(s)
             </span>
           </div>
-          <div className="h-6 w-px bg-gray-700"></div>
-          <button
-            onClick={toggleSelectAll}
-            className="text-sm text-gray-300 hover:text-white transition-colors"
-          >
-            {filteredTransactions.length === selectedTransactions.size ? 'Desmarcar todas' : 'Selecionar todas'}
-          </button>
-          <button
-            onClick={clearSelection}
-            className="text-sm text-gray-300 hover:text-white transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-            Excluir selecionadas
-          </button>
+          <div className="h-px sm:h-6 w-full sm:w-px bg-gray-700"></div>
+          <div className="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={toggleSelectAll}
+              className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              {filteredTransactions.length === selectedTransactions.size ? 'Desmarcar' : 'Todas'}
+            </button>
+            <button
+              onClick={clearSelection}
+              className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 sm:gap-2"
+            >
+              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Excluir selecionadas</span>
+              <span className="inline sm:hidden">Excluir</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -516,97 +528,82 @@ export function Transactions() {
           <div className="divide-y divide-gray-100 dark:divide-slate-700">
             {filteredTransactions.map((transaction) => (
               <div key={transaction.id} className={clsx(
-                "p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between group gap-4 sm:gap-0",
+                "p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between group gap-3 sm:gap-0",
                 selectedTransactions.has(transaction.id) && "bg-blue-50 dark:bg-blue-900/10"
               )}>
-                <div className="flex items-center gap-4 min-w-0 flex-1">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <input
                     type="checkbox"
                     checked={selectedTransactions.has(transaction.id)}
                     onChange={() => toggleTransactionSelection(transaction.id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-5 h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500 cursor-pointer shrink-0"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500 cursor-pointer shrink-0"
                   />
                   <div className={clsx(
-                    "p-3 rounded-xl shrink-0",
+                    "p-2 sm:p-3 rounded-xl shrink-0",
                     transaction.type === 'income' 
                       ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
                       : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                   )}>
-                    {transaction.type === 'income' ? <ArrowUpCircle size={24} /> : <ArrowDownCircle size={24} />}
+                    {transaction.type === 'income' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-semibold text-gray-900 dark:text-white truncate pr-2">
+                    <h4 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate pr-2">
                       {transaction.description}
                       {transaction.installment_number && transaction.purchase_installments && (
-                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                         <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
                            {transaction.installment_number}/{transaction.purchase_installments.installment_count}
                          </span>
                       )}
                       {transaction.is_recurring && (
-                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                         <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                            Recorrente
                          </span>
                       )}
                     </h4>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400 flex-wrap">
-                      {transaction.type === 'income' ? (
-                        <span 
-                          className={clsx(
-                            "px-2 py-0.5 rounded text-xs uppercase tracking-wide font-medium shrink-0",
-                            !transaction.income_sources && "bg-gray-100 dark:bg-slate-700"
-                          )}
-                          style={transaction.income_sources?.color ? {
-                            backgroundColor: `${transaction.income_sources.color}20`,
-                            color: transaction.income_sources.color,
-                            borderColor: `${transaction.income_sources.color}40`,
-                            borderWidth: '1px'
-                          } : undefined}
-                        >
-                          {transaction.income_sources?.name || 'Sem fonte'}
-                        </span>
-                      ) : (
-                        <span 
-                          className={clsx(
-                            "px-2 py-0.5 rounded text-xs uppercase tracking-wide font-medium shrink-0",
-                            !transaction.categories && "bg-gray-100 dark:bg-slate-700"
-                          )}
-                          style={transaction.categories?.color ? {
-                            backgroundColor: `${transaction.categories.color}20`,
-                            color: transaction.categories.color,
-                            borderColor: `${transaction.categories.color}40`,
-                            borderWidth: '1px'
-                          } : undefined}
-                        >
-                          {transaction.categories?.name || transaction.category}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-slate-400 flex-wrap">
+                      <span 
+                        className={clsx(
+                          "px-1.5 sm:px-2 py-0.5 rounded text-xs uppercase tracking-wide font-medium shrink-0",
+                          !transaction.categories && "bg-gray-100 dark:bg-slate-700"
+                        )}
+                        style={transaction.categories?.color ? {
+                          backgroundColor: `${transaction.categories.color}20`,
+                          color: transaction.categories.color,
+                          borderColor: `${transaction.categories.color}40`,
+                          borderWidth: '1px'
+                        } : undefined}
+                      >
+                        {transaction.categories?.name || transaction.category}
+                      </span>
                       {transaction.financial_entities && (
                         <>
-                          <span>•</span>
+                          <span className="hidden sm:inline">•</span>
                           <span className="flex items-center gap-1 shrink-0">
-                            <CreditCard size={12} />
-                            {transaction.financial_entities.name}
+                            <CreditCard size={10} />
+                            <span className="hidden sm:inline">{transaction.financial_entities.name}</span>
+                            <span className="inline sm:hidden">{transaction.financial_entities.name.slice(0, 12)}</span>
                           </span>
                         </>
                       )}
                       {transaction.purchase_installments && (
                          <>
-                           <span>•</span>
-                           <span className="flex items-center gap-1 shrink-0">
-                             Parcela {transaction.installment_number} de {transaction.purchase_installments.installment_count}
+                           <span className="hidden sm:inline">•</span>
+                           <span className="flex items-center gap-1 shrink-0 text-xs">
+                             <span className="hidden sm:inline">Parcela</span>
+                             <span className="inline">P.</span> {transaction.installment_number} de {transaction.purchase_installments.installment_count}
                            </span>
                          </>
                       )}
-                      <span>•</span>
-                      <span className="shrink-0">{new Date(transaction.transaction_date).toLocaleDateString()}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="shrink-0 text-xs">{new Date(transaction.transaction_date).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pl-16 sm:pl-0">
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 w-full sm:w-auto pl-14 sm:pl-0">
                   <span className={clsx(
-                    "font-bold text-lg",
+                    "font-bold text-base sm:text-lg",
                     transaction.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-900 dark:text-white"
                   )}>
                     {transaction.type === 'expense' ? '- ' : '+ '}
@@ -734,21 +731,6 @@ export function Transactions() {
                   onChange={(date) => setFormData({...formData, date})}
                 />
               </div>
-
-              {formData.type === 'income' && (
-                <Select
-                  label="Fonte de Receita"
-                  value={formData.income_source_id}
-                  onChange={(e) => setFormData({...formData, income_source_id: e.target.value})}
-                >
-                  <option value="">Selecione...</option>
-                  {incomeSources.map(source => (
-                    <option key={source.id} value={source.id}>
-                      {source.name}
-                    </option>
-                  ))}
-                </Select>
-              )}
 
               {formData.type === 'expense' && (
                 <div>

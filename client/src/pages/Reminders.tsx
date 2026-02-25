@@ -80,9 +80,18 @@ export function Reminders() {
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     try {
+      const buildTriggerTime = () => {
+        if (formData.frequency === 'once' && formData.specific_date) {
+          return `${formData.specific_date}T${formData.trigger_time}:00`;
+        }
+        const today = new Date();
+        const [hours, minutes] = formData.trigger_time.split(':');
+        return new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(hours), parseInt(minutes)).toISOString();
+      };
+
       const dataToSend: any = {
         content: formData.content,
-        trigger_time: formData.trigger_time,
+        trigger_time: buildTriggerTime(),
         frequency: formData.frequency
       };
 
@@ -153,11 +162,12 @@ export function Reminders() {
   };
 
   const resetForm = () => {
+    const today = new Date().toISOString().split('T')[0];
     setFormData({
       content: '',
       trigger_time: '09:00',
       frequency: 'once',
-      specific_date: '',
+      specific_date: today,
       weekday: ''
     });
   };
@@ -315,8 +325,8 @@ export function Reminders() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md animate-in slide-in-from-bottom sm:fade-in sm:zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200 my-8">
             <div className="sticky top-0 px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 rounded-t-2xl z-10">
               <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                 {editingReminder ? 'Editar Lembrete' : 'Novo Lembrete'}
@@ -399,8 +409,8 @@ export function Reminders() {
       )}
 
       {deleteDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm animate-in slide-in-from-bottom sm:fade-in sm:zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm animate-in fade-in zoom-in duration-200">
             <div className="p-4 sm:p-6 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
                 <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />

@@ -43,7 +43,7 @@ export class RecurringController {
         return res.status(400).json({ error: 'Type must be income or expense' });
       }
 
-      const nextDueDate = calculateNextDueDate(frequency, new Date(start_date));
+      const startDate = new Date(start_date);
 
       const recurringTransaction = await prisma.recurring_transactions.create({
         data: {
@@ -53,8 +53,8 @@ export class RecurringController {
           category,
           type,
           frequency,
-          start_date: new Date(start_date),
-          next_due_date: nextDueDate,
+          start_date: startDate,
+          next_due_date: startDate,
           status: 'active'
         }
       });

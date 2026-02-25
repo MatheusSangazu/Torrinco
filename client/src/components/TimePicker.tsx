@@ -50,6 +50,20 @@ export function TimePicker({ label, value, onChange, required, className = '' }:
     onChange(formatTime(hours, newMinuteStr));
   };
 
+  const handleHourInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+    if (value && parseInt(value) > 23) value = '23';
+    setHours(value.padStart(2, '0'));
+    onChange(formatTime(value, minutes));
+  };
+
+  const handleMinuteInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+    if (value && parseInt(value) > 59) value = '59';
+    setMinutes(value.padStart(2, '0'));
+    onChange(formatTime(hours, value));
+  };
+
   const displayTime = value || 'Selecione um horário';
 
   return (
@@ -88,11 +102,13 @@ export function TimePicker({ label, value, onChange, required, className = '' }:
               >
                 <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
-              <div className="w-16 h-16 flex items-center justify-center bg-gray-50 dark:bg-slate-900 rounded-xl border-2 border-gray-200 dark:border-slate-700">
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {hours || '00'}
-                </span>
-              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={hours}
+                onChange={handleHourInput}
+                className="w-16 h-16 text-center bg-gray-50 dark:bg-slate-900 rounded-xl border-2 border-gray-200 dark:border-slate-700 text-2xl font-bold text-gray-900 dark:text-white focus:outline-none focus:border-torrinco-500"
+              />
               <button
                 type="button"
                 onClick={() => handleHourChange(-1)}
@@ -112,11 +128,13 @@ export function TimePicker({ label, value, onChange, required, className = '' }:
               >
                 <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
-              <div className="w-16 h-16 flex items-center justify-center bg-gray-50 dark:bg-slate-900 rounded-xl border-2 border-gray-200 dark:border-slate-700">
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {minutes || '00'}
-                </span>
-              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={minutes}
+                onChange={handleMinuteInput}
+                className="w-16 h-16 text-center bg-gray-50 dark:bg-slate-900 rounded-xl border-2 border-gray-200 dark:border-slate-700 text-2xl font-bold text-gray-900 dark:text-white focus:outline-none focus:border-torrinco-500"
+              />
               <button
                 type="button"
                 onClick={() => handleMinuteChange(-1)}

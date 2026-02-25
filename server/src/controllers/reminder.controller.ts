@@ -215,6 +215,9 @@ export class ReminderController {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+
       const reminders = await prisma.reminders.findMany({
         where: {
           user_id: userId,
@@ -223,7 +226,7 @@ export class ReminderController {
             {
               frequency: 'once',
               specific_date: {
-                equals: now.toISOString().split('T')[0]
+                equals: todayDate
               }
             },
             {

@@ -612,6 +612,58 @@ export class FinanceController {
       const firstDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
       const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
 
+      const creditCards = await prisma.financial_entities.findMany({
+        where: {
+          user_id: userId,
+          type: 'credit_card'
+        },
+        select: {
+          id: true,
+          closing_day: true,
+          due_day: true
+        }
+      });
+
+      let creditCardNextBillExpenses = 0;
+      const creditCardNextBillTransactions: any[] = [];
+
+      for (const card of creditCards) {
+        const closingDay = card.closing_day || 15;
+        const currentMonthClosingDate = new Date(today.getFullYear(), today.getMonth(), closingDay, 23, 59, 59, 999);
+        const nextMonthClosingDate = new Date(today.getFullYear(), today.getMonth() + 1, closingDay, 23, 59, 59, 999);
+
+        const billStartDate = new Date(today.getFullYear(), today.getMonth(), closingDay + 1, 0, 0, 0, 0);
+        const billEndDate = nextMonthClosingDate;
+
+        const cardTransactions = await prisma.transactions.findMany({
+          where: {
+            user_id: userId,
+            entity_id: card.id,
+            type: 'expense',
+            transaction_date: {
+              gte: billStartDate,
+              lte: billEndDate
+            },
+            deleted_at: null,
+            installment_id: null
+          },
+          select: {
+            description: true,
+            amount: true,
+            transaction_date: true
+          }
+        });
+
+        const cardTotal = cardTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+        creditCardNextBillExpenses += cardTotal;
+        creditCardNextBillTransactions.push(...cardTransactions.map(t => ({
+          description: t.description,
+          amount: Number(t.amount),
+          transaction_date: t.transaction_date,
+          type: 'credit_card_bill' as const
+        })));
+      }
+
       const [recurringIncome, recurringExpenses, installmentsExpenses] = await Promise.all([
         prisma.recurring_transactions.aggregate({
           where: {
@@ -660,7 +712,7 @@ export class FinanceController {
       const forecastIncome = Number(recurringIncome._sum.amount) || 0;
       const forecastRecurringExpenses = Number(recurringExpenses._sum.amount) || 0;
       const forecastInstallmentsExpenses = Number(installmentsExpenses._sum.amount) || 0;
-      const forecastExpenses = forecastRecurringExpenses + forecastInstallmentsExpenses;
+      const forecastExpenses = forecastRecurringExpenses + forecastInstallmentsExpenses + creditCardNextBillExpenses;
       const forecastBalance = forecastIncome - forecastExpenses;
 
       const [recurringIncomeList, recurringExpenseList, installmentsList] = await Promise.all([
@@ -727,7 +779,8 @@ export class FinanceController {
           breakdown: {
             recurring_income: recurringIncomeList,
             recurring_expenses: recurringExpenseList,
-            installments: installmentsList
+            installments: installmentsList,
+            credit_card_bills: creditCardNextBillTransactions
           }
         }
       });
