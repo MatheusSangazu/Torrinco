@@ -152,7 +152,7 @@ export function Dashboard() {
   };
 
   const getCategoryIcon = (category: string) => {
-    switch (category.toUpperCase()) {
+    switch ((category || '').toUpperCase()) {
       case 'ASSINATURA': return Music;
       case 'TRANSPORTE': return Fuel;
       case 'ALIMENTAÇÃO': return Utensils;
@@ -231,8 +231,8 @@ export function Dashboard() {
       </div>
 
       {/* Grid de Cards Superiores */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-4 gap-4">
+
         {/* Card Saldo em Dinheiro */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div className="absolute top-4 right-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 animate-pulse">
@@ -274,22 +274,23 @@ export function Dashboard() {
           </div>
           <div>
             <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
-              {forecast ? formatCurrency(forecast.forecast.balance || 0) : 'R$ 0,00'}
+              {/* Aqui usamos o optional chaining "?." e o nullish coalescing "??" para segurança */}
+              {formatCurrency(forecast?.forecast?.balance ?? 0)}
             </h3>
             <div className="mt-1 space-y-1">
               <p className="text-sm text-gray-500 dark:text-slate-400">
-                <span className="text-green-600 font-semibold">{forecast ? formatCurrency(forecast.forecast.income || 0) : 'R$ 0,00'}</span>
+                <span className="text-green-600 font-semibold">{formatCurrency(forecast?.forecast?.income ?? 0)}</span>
                 {' '}entradas
               </p>
               <p className="text-sm text-gray-500 dark:text-slate-400">
-                <span className="text-red-600 font-semibold">{forecast ? formatCurrency(forecast.forecast.expenses || 0) : 'R$ 0,00'}</span>
+                <span className="text-red-600 font-semibold">{formatCurrency(forecast?.forecast?.expenses ?? 0)}</span>
                 {' '}saídas
               </p>
             </div>
           </div>
         </div>
 
-        <CreditCardCarousel />
+        <CreditCardCarousel className="xl:hidden" />
 
         {/* Card Agenda (Recorrências) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
@@ -393,18 +394,18 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Gráfico de Evolução Financeira */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
-            <BarChart3 size={24} />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+              <BarChart3 size={24} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Financeira</h2>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Últimos 6 meses</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Financeira</h2>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Últimos 6 meses</p>
-          </div>
-        </div>
-        <div className="h-72">
+          <div className="h-72">
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
@@ -463,6 +464,11 @@ export function Dashboard() {
             </div>
           )}
         </div>
+        </div>
+
+        <div className="xl:col-span-1 hidden xl:block">
+          <CreditCardCarousel />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -488,20 +494,20 @@ export function Dashboard() {
                     <div className="flex items-center gap-4">
                       <div className={clsx(
                         "p-3 rounded-xl",
-                        transaction.type === 'income' 
+                        transaction.type === 'income'
                           ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
                           : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                       )}>
                         <Icon size={20} />
                       </div>
                       <div>
-                      <h4 className="font-semibold text-gray-800 dark:text-white">{transaction.description || transaction.categories?.name || transaction.category}</h4>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
-                        <span>{transaction.categories?.name || transaction.category}</span>
-                        <span>•</span>
-                        <span>{new Date(transaction.transaction_date).toLocaleDateString()}</span>
+                        <h4 className="font-semibold text-gray-800 dark:text-white">{transaction.description || transaction.categories?.name || transaction.category}</h4>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+                          <span>{transaction.categories?.name || transaction.category}</span>
+                          <span>•</span>
+                          <span>{new Date(transaction.transaction_date).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    </div>
                     </div>
                     <div className="text-right">
                       <span className={clsx(

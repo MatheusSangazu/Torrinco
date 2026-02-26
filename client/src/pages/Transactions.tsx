@@ -180,24 +180,17 @@ export function Transactions() {
           entity_id: formData.entity_id ? Number(formData.entity_id) : null,
           start_date: formData.date,
           status: 'active',
-          frequency: 'monthly'
+          frequency: 'monthly',
+          payment_method: formData.payment_method
         };
 
-        await api.post('/recurring', payload);
+        const recurringResponse = await api.post('/recurring', payload);
 
-        // Check if we should also create the immediate transaction
-        // If the date is today or in the past, we create the transaction immediately
-        const transactionDate = new Date(formData.date + 'T00:00:00');
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (transactionDate > today) {
-           setIsModalOpen(false);
-           resetForm();
-           fetchTransactions();
-           toast.success('Transação recorrente criada com sucesso!');
-           return;
-        }
+        setIsModalOpen(false);
+        resetForm();
+        fetchTransactions();
+        toast.success('Transação recorrente criada com sucesso!');
+        return;
       }
 
       if (formData.isInstallment && formData.type === 'expense' && formData.payment_method === 'credit') {

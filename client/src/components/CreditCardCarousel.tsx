@@ -3,7 +3,11 @@ import { CreditCard as CreditCardIcon, ChevronLeft, ChevronRight, Plus } from 'l
 import { cardsService, type CreditCard } from '../services/cards.service';
 import { clsx } from 'clsx';
 
-export function CreditCardCarousel() {
+interface CreditCardCarouselProps {
+  className?: string;
+}
+
+export function CreditCardCarousel({ className }: CreditCardCarouselProps) {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -64,30 +68,30 @@ export function CreditCardCarousel() {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+      <div className={clsx('bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700', className)}>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
             <CreditCardIcon size={24} />
           </div>
-          <span className="text-gray-500 dark:text-slate-400 font-medium">Cartões de Crédito</span>
+          <span className="text-gray-500 dark:text-slate-400 font-medium text-sm sm:text-base">Cartões de Crédito</span>
         </div>
-        <div className="h-48 bg-gray-100 dark:bg-slate-700 rounded-xl animate-pulse" />
+        <div className="h-40 sm:h-48 bg-gray-100 dark:bg-slate-700 rounded-xl animate-pulse" />
       </div>
     );
   }
 
   if (cards.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+      <div className={clsx('bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700', className)}>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
             <CreditCardIcon size={24} />
           </div>
-          <span className="text-gray-500 dark:text-slate-400 font-medium">Cartões de Crédito</span>
+          <span className="text-gray-500 dark:text-slate-400 font-medium text-sm sm:text-base">Cartões de Crédito</span>
         </div>
-        <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-slate-500">
-          <Plus size={32} className="mb-2" />
-          <span className="text-sm">Nenhum cartão cadastrado</span>
+        <div className="flex flex-col items-center justify-center h-28 sm:h-32 text-gray-400 dark:text-slate-500">
+          <Plus size={28} className="mb-2" />
+          <span className="text-xs sm:text-sm">Nenhum cartão cadastrado</span>
         </div>
       </div>
     );
@@ -98,13 +102,13 @@ export function CreditCardCarousel() {
   const limitColor = getLimitColor(percentage);
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+    <div className={clsx('bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700', className)}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
             <CreditCardIcon size={24} />
           </div>
-          <span className="text-gray-500 dark:text-slate-400 font-medium">Cartões de Crédito</span>
+          <span className="text-gray-500 dark:text-slate-400 font-medium text-sm sm:text-base">Cartões de Crédito</span>
         </div>
         {cards.length > 1 && (
           <div className="flex items-center gap-1">
@@ -129,38 +133,38 @@ export function CreditCardCarousel() {
           <>
             <button
               onClick={prevCard}
-              className="absolute -left-3 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-700 rounded-full shadow-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors z-10"
+              className="absolute -left-2 sm:-left-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-white dark:bg-slate-700 rounded-full shadow-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors z-10"
             >
-              <ChevronLeft size={20} className="text-gray-600 dark:text-slate-300" />
+              <ChevronLeft size={18} className="text-gray-600 dark:text-slate-300" />
             </button>
             <button
               onClick={nextCard}
-              className="absolute -right-3 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-700 rounded-full shadow-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors z-10"
+              className="absolute -right-2 sm:-right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-white dark:bg-slate-700 rounded-full shadow-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors z-10"
             >
-              <ChevronRight size={20} className="text-gray-600 dark:text-slate-300" />
+              <ChevronRight size={18} className="text-gray-600 dark:text-slate-300" />
             </button>
           </>
         )}
 
-        <div className={clsx('bg-gradient-to-br rounded-2xl p-5 text-white shadow-lg', currentCard.color)}>
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-lg">{currentCard.name}</h3>
+        <div className={clsx('bg-gradient-to-br rounded-2xl p-4 sm:p-5 text-white shadow-lg', currentCard.color)}>
+          <div className="flex items-start justify-between mb-3 sm:mb-4">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-base sm:text-lg truncate">{currentCard.name}</h3>
               <span className={clsx(
-                'text-xs px-2 py-1 rounded-full border',
+                'text-xs px-2 py-1 rounded-full border inline-block',
                 getStatusColor(currentCard.status)
               )}>
                 {getStatusText(currentCard.status)}
               </span>
             </div>
-            <div className="text-right">
+            <div className="text-right ml-2 shrink-0">
               <p className="text-xs text-white/80">Fatura Atual</p>
-              <p className="text-xl font-bold">{formatCurrency(currentCard.currentBill)}</p>
+              <p className="text-lg sm:text-xl font-bold">{formatCurrency(currentCard.currentBill)}</p>
             </div>
           </div>
 
-          <div className="mb-4">
-            <div className="flex justify-between text-sm mb-2">
+          <div className="mb-3 sm:mb-4">
+            <div className="flex justify-between text-xs sm:text-sm mb-2">
               <span className="text-white/80">Limite utilizado</span>
               <span className="font-medium">{percentage}%</span>
             </div>
@@ -171,27 +175,27 @@ export function CreditCardCarousel() {
               />
             </div>
             <div className="flex justify-between text-xs mt-1 text-white/60">
-              <span>{formatCurrency(currentCard.currentBill)}</span>
-              <span>{formatCurrency(currentCard.limit)}</span>
+              <span className="truncate">{formatCurrency(currentCard.currentBill)}</span>
+              <span className="truncate">{formatCurrency(currentCard.limit)}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/10 rounded-lg p-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-white/10 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-white/80 mb-1">Fechamento</p>
-              <p className="font-semibold">{currentCard.closingDay}</p>
-              <p className="text-xs text-white/60">{formatDate(currentCard.closingDate)}</p>
+              <p className="font-semibold text-sm">{currentCard.closingDay}</p>
+              <p className="text-xs text-white/60 truncate">{formatDate(currentCard.closingDate)}</p>
             </div>
-            <div className="bg-white/10 rounded-lg p-3">
+            <div className="bg-white/10 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-white/80 mb-1">Vencimento</p>
-              <p className="font-semibold">{currentCard.dueDay}</p>
-              <p className="text-xs text-white/60">{formatDate(currentCard.dueDate)}</p>
+              <p className="font-semibold text-sm">{currentCard.dueDay}</p>
+              <p className="text-xs text-white/60 truncate">{formatDate(currentCard.dueDate)}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm">
+      <div className="mt-3 sm:mt-4 flex items-center justify-between text-xs sm:text-sm">
         <div className="flex items-center gap-2 text-gray-500 dark:text-slate-400">
           <span className="text-xs uppercase tracking-wider">Disponível:</span>
           <span className="font-semibold text-gray-700 dark:text-slate-200">
@@ -200,7 +204,7 @@ export function CreditCardCarousel() {
         </div>
         <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span>SYNC</span>
+          <span className="hidden sm:inline">SYNC</span>
         </div>
       </div>
     </div>

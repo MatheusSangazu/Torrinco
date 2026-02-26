@@ -397,7 +397,7 @@ export function Reports() {
         <>
           {/* Additional Filters */}
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
-            <div className="flex flex-wrap gap-3 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <CustomSelect
                 value={filterType}
                 onChange={(value) => setFilterType(value as 'all' | 'income' | 'expense')}
@@ -406,10 +406,10 @@ export function Reports() {
                   { value: 'income', label: 'Receitas' },
                   { value: 'expense', label: 'Despesas' }
                 ]}
-                className="w-48"
+                className="w-full"
                 placeholder="Tipo"
               />
-              
+
               <CustomSelect
                 value={filterCategory}
                 onChange={(value) => setFilterCategory(value as string)}
@@ -423,10 +423,10 @@ export function Reports() {
                     label: cat
                   }))
                 ]}
-                className="w-56"
+                className="w-full"
                 placeholder="Categoria"
               />
-              
+
               <CustomSelect
                 value={filterStatus}
                 onChange={(value) => setFilterStatus(value as 'all' | 'paid' | 'pending')}
@@ -435,7 +435,7 @@ export function Reports() {
                   { value: 'paid', label: 'Pago' },
                   { value: 'pending', label: 'Pendente' }
                 ]}
-                className="w-48"
+                className="w-full"
                 placeholder="Status"
               />
 
@@ -445,7 +445,7 @@ export function Reports() {
                   setFilterCategory('all');
                   setFilterStatus('all');
                 }}
-                className="text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 transition-colors"
+                className="text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 transition-colors px-4 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl text-left"
               >
                 Limpar filtros
               </button>

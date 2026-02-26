@@ -30,7 +30,7 @@ export class RecurringController {
    */
   static async createTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { description, amount, category, type, frequency, start_date } = req.body;
+      const { description, amount, category, type, frequency, start_date, entity_id, payment_method } = req.body;
       const userId = req.userId!;
 
       if (!description || !amount || !type || !frequency || !start_date) {
@@ -44,6 +44,17 @@ export class RecurringController {
       }
 
       const startDate = new Date(start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      startDate.setHours(0, 0, 0, 0);
+
+      let nextDueDate: Date;
+
+      if (startDate >= today) {
+        nextDueDate = startDate;
+      } else {
+        nextDueDate = calculateNextDueDate(frequency, startDate);
+      }
 
       const recurringTransaction = await prisma.recurring_transactions.create({
         data: {
@@ -54,8 +65,10 @@ export class RecurringController {
           type,
           frequency,
           start_date: startDate,
-          next_due_date: startDate,
-          status: 'active'
+          next_due_date: nextDueDate,
+          status: 'active',
+          entity_id: entity_id ? parseInt(entity_id) : null,
+          payment_method: payment_method || 'cash'
         }
       });
 
@@ -157,6 +170,7 @@ export class RecurringController {
   static async generateTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
+      const { transaction_date } = req.body;
       const userId = req.userId!;
 
       const recurringTransaction = await prisma.recurring_transactions.findFirst({
@@ -192,10 +206,12 @@ export class RecurringController {
           type: recurringTransaction.type,
           category: recurringTransaction.category,
           description: recurringTransaction.description,
-          transaction_date: new Date(),
+          transaction_date: transaction_date ? new Date(transaction_date) : new Date(),
           status: 'pending',
           is_recurring: true,
-          recurring_transaction_id: recurringTransaction.id
+          recurring_transaction_id: recurringTransaction.id,
+          entity_id: recurringTransaction.entity_id,
+          payment_method: recurringTransaction.payment_method
         }
       });
 

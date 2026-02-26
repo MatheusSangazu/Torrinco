@@ -18,6 +18,8 @@ import installmentsRoutes from './routes/installments.routes.js';
 
 dotenv.config();
 
+process.env.TZ = 'America/Sao_Paulo';
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
