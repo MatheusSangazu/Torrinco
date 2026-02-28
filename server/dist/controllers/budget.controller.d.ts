@@ -1,9 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import type { JwtRequest } from '../middleware/jwt.js';
 export declare class BudgetController {
-    /**
-     * Cria ou atualiza um orçamento (Upsert)
-     */
     static upsert(req: JwtRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     /**
      * Lista orçamentos com progresso de gastos

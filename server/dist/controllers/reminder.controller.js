@@ -4,7 +4,6 @@ export class ReminderController {
      * Cria um novo lembrete
      */
     static async create(req, res, next) {
-        console.log('🎮 ReminderController.create chamada');
         try {
             const { content, trigger_time, frequency, specific_date, weekday } = req.body;
             const userId = req.userId;
@@ -32,7 +31,6 @@ export class ReminderController {
      * Lista lembretes do usuário
      */
     static async list(req, res, next) {
-        console.log('🎮 ReminderController.list chamada');
         try {
             const { status, frequency } = req.query;
             const userId = req.userId;
@@ -57,7 +55,6 @@ export class ReminderController {
      * Obtém um lembrete por ID
      */
     static async getById(req, res, next) {
-        console.log('🎮 ReminderController.getById chamada');
         try {
             const { id } = req.params;
             const userId = req.userId;
@@ -80,7 +77,6 @@ export class ReminderController {
      * Atualiza um lembrete
      */
     static async update(req, res, next) {
-        console.log('🎮 ReminderController.update chamada');
         try {
             const { id } = req.params;
             const { content, trigger_time, frequency, specific_date, weekday, status } = req.body;
@@ -115,7 +111,6 @@ export class ReminderController {
      * Marca um lembrete como concluído
      */
     static async delete(req, res, next) {
-        console.log('🎮 ReminderController.delete chamada');
         try {
             const { id } = req.params;
             const userId = req.userId;
@@ -142,7 +137,6 @@ export class ReminderController {
      * Cria um log de lembrete
      */
     static async createLog(req, res, next) {
-        console.log('🎮 ReminderController.createLog chamada');
         try {
             const { event_identifier, source_type, reminder_type, reminder_type_new } = req.body;
             const userId = req.userId;
@@ -168,7 +162,6 @@ export class ReminderController {
      * Lista logs de lembretes
      */
     static async listLogs(req, res, next) {
-        console.log('🎮 ReminderController.listLogs chamada');
         try {
             const { source_type, limit = 50 } = req.query;
             const userId = req.userId;
@@ -192,12 +185,13 @@ export class ReminderController {
      * Lista lembretes vencidos ou para o momento atual
      */
     static async listDue(req, res, next) {
-        console.log('🎮 ReminderController.listDue chamada');
         try {
             const userId = req.userId;
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0);
             const reminders = await prisma.reminders.findMany({
                 where: {
                     user_id: userId,
@@ -206,7 +200,7 @@ export class ReminderController {
                         {
                             frequency: 'once',
                             specific_date: {
-                                equals: now.toISOString().split('T')[0]
+                                equals: todayDate
                             }
                         },
                         {

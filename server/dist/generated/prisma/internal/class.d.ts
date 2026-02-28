@@ -244,6 +244,17 @@ export interface PrismaClient<in LogOpts extends Prisma.LogLevel = never, in out
         omit: OmitOpts;
     }>;
     /**
+     * `prisma.refresh_tokens`: Exposes CRUD operations for the **refresh_tokens** model.
+      * Example usage:
+      * ```ts
+      * // Fetch zero or more Refresh_tokens
+      * const refresh_tokens = await prisma.refresh_tokens.findMany()
+      * ```
+      */
+    get refresh_tokens(): Prisma.refresh_tokensDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
+    /**
      * `prisma.users`: Exposes CRUD operations for the **users** model.
       * Example usage:
       * ```ts

@@ -86,9 +86,14 @@ export class FinanceController {
   static async create(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {
-      const { amount, type, category, category_id, income_source_id, description, transaction_date, status, entity_id, is_recurring, payment_method } = req.body;
-      const userId = req.userId!;
+      const { amount, type, category, category_id, income_source_id, description, transaction_date, status, entity_id, is_recurring, payment_method, target_user_id } = req.body;
+      let userId = req.userId!;
       const accountId = req.accountId!;
+
+      // Se for admin e enviar target_user_id, usa o ID do alvo
+      if (req.userRole === 'admin' && target_user_id) {
+        userId = Number(target_user_id);
+      }
 
       if (!amount || !type || !transaction_date) {
         return res.status(400).json({ error: 'Amount, type and transaction_date are required' });
@@ -511,8 +516,13 @@ export class FinanceController {
   static async getSummary(req: JwtRequest, res: Response, next: NextFunction) {
    
     try {
-      const userId = req.userId!;
-      const { period } = req.query;
+      let userId = req.userId!;
+      const { period, target_user_id } = req.query;
+
+      // Se for admin e enviar target_user_id, usa o ID do alvo
+      if (req.userRole === 'admin' && target_user_id) {
+        userId = Number(target_user_id);
+      }
       
       const now = new Date();
       let dateFilter: { gte?: Date; lte?: Date } | undefined = undefined;
@@ -581,8 +591,14 @@ export class FinanceController {
 
   static async getForecast(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.userId!;
+      let userId = req.userId!;
+      const { target_user_id } = req.query;
       const period = (req.query.period as string) || 'next_month';
+
+      // Se for admin e enviar target_user_id, usa o ID do alvo
+      if (req.userRole === 'admin' && target_user_id) {
+        userId = Number(target_user_id);
+      }
 
       let dateFilter: any = {};
 

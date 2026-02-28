@@ -6,7 +6,13 @@ const { sign, verify } = pkg;
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '7d';
+const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const REFRESH_TOKEN_EXPIRES_IN = '7d';
+
+console.log('✅ JWT module loaded');
+console.log('✅ JWT_SECRET exists:', !!JWT_SECRET);
+console.log('✅ ACCESS_TOKEN_EXPIRES_IN:', ACCESS_TOKEN_EXPIRES_IN);
+console.log('✅ REFRESH_TOKEN_EXPIRES_IN:', REFRESH_TOKEN_EXPIRES_IN);
 
 export interface JwtRequest extends Request {
   userId?: number;
@@ -20,22 +26,41 @@ export interface JwtPayload {
   userRole: string;
 }
 
-export const generateToken = (payload: JwtPayload): string => {
+export const generateAccessToken = (payload: JwtPayload): string => {
   if (!JWT_SECRET) {
     throw new Error('JWT_SECRET is not defined');
   }
-  return sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN as any });
+};
+
+export const generateRefreshToken = (payload: JwtPayload): string => {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined');
+  }
+  return sign(payload, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN as any });
+};
+
+export const generateToken = (payload: JwtPayload, expiresIn: string | number = REFRESH_TOKEN_EXPIRES_IN): string => {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined');
+  }
+  return sign(payload, JWT_SECRET, { expiresIn: expiresIn as any });
 };
 
 export const verifyToken = (token: string): JwtPayload => {
   if (!JWT_SECRET) {
     throw new Error('JWT_SECRET is not defined');
   }
-  const decoded = verify(token, JWT_SECRET);
+  const decoded = verify(token, JWT_SECRET, { ignoreExpiration: false });
   if (typeof decoded === 'string') {
     throw new Error('Invalid token payload');
   }
-  return decoded as JwtPayload;
+  const decodedAny = decoded as any;
+  return {
+    userId: Number(decodedAny.userId),
+    accountId: Number(decodedAny.accountId),
+    userRole: String(decodedAny.userRole)
+  };
 };
 
 export const authenticateJwt = (

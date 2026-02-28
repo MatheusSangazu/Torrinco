@@ -17,11 +17,13 @@ export type Recurring_transactionsAvgAggregateOutputType = {
     id: number | null;
     user_id: number | null;
     amount: runtime.Decimal | null;
+    entity_id: number | null;
 };
 export type Recurring_transactionsSumAggregateOutputType = {
     id: number | null;
     user_id: number | null;
     amount: runtime.Decimal | null;
+    entity_id: number | null;
 };
 export type Recurring_transactionsMinAggregateOutputType = {
     id: number | null;
@@ -35,6 +37,8 @@ export type Recurring_transactionsMinAggregateOutputType = {
     next_due_date: Date | null;
     status: $Enums.recurring_transactions_status | null;
     created_at: Date | null;
+    entity_id: number | null;
+    payment_method: string | null;
 };
 export type Recurring_transactionsMaxAggregateOutputType = {
     id: number | null;
@@ -48,6 +52,8 @@ export type Recurring_transactionsMaxAggregateOutputType = {
     next_due_date: Date | null;
     status: $Enums.recurring_transactions_status | null;
     created_at: Date | null;
+    entity_id: number | null;
+    payment_method: string | null;
 };
 export type Recurring_transactionsCountAggregateOutputType = {
     id: number;
@@ -61,17 +67,21 @@ export type Recurring_transactionsCountAggregateOutputType = {
     next_due_date: number;
     status: number;
     created_at: number;
+    entity_id: number;
+    payment_method: number;
     _all: number;
 };
 export type Recurring_transactionsAvgAggregateInputType = {
     id?: true;
     user_id?: true;
     amount?: true;
+    entity_id?: true;
 };
 export type Recurring_transactionsSumAggregateInputType = {
     id?: true;
     user_id?: true;
     amount?: true;
+    entity_id?: true;
 };
 export type Recurring_transactionsMinAggregateInputType = {
     id?: true;
@@ -85,6 +95,8 @@ export type Recurring_transactionsMinAggregateInputType = {
     next_due_date?: true;
     status?: true;
     created_at?: true;
+    entity_id?: true;
+    payment_method?: true;
 };
 export type Recurring_transactionsMaxAggregateInputType = {
     id?: true;
@@ -98,6 +110,8 @@ export type Recurring_transactionsMaxAggregateInputType = {
     next_due_date?: true;
     status?: true;
     created_at?: true;
+    entity_id?: true;
+    payment_method?: true;
 };
 export type Recurring_transactionsCountAggregateInputType = {
     id?: true;
@@ -111,6 +125,8 @@ export type Recurring_transactionsCountAggregateInputType = {
     next_due_date?: true;
     status?: true;
     created_at?: true;
+    entity_id?: true;
+    payment_method?: true;
     _all?: true;
 };
 export type Recurring_transactionsAggregateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -201,6 +217,8 @@ export type Recurring_transactionsGroupByOutputType = {
     next_due_date: Date;
     status: $Enums.recurring_transactions_status | null;
     created_at: Date | null;
+    entity_id: number | null;
+    payment_method: string | null;
     _count: Recurring_transactionsCountAggregateOutputType | null;
     _avg: Recurring_transactionsAvgAggregateOutputType | null;
     _sum: Recurring_transactionsSumAggregateOutputType | null;
@@ -225,7 +243,11 @@ export type recurring_transactionsWhereInput = {
     next_due_date?: Prisma.DateTimeFilter<"recurring_transactions"> | Date | string;
     status?: Prisma.Enumrecurring_transactions_statusNullableFilter<"recurring_transactions"> | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.DateTimeNullableFilter<"recurring_transactions"> | Date | string | null;
+    entity_id?: Prisma.IntNullableFilter<"recurring_transactions"> | number | null;
+    payment_method?: Prisma.StringNullableFilter<"recurring_transactions"> | string | null;
     users?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>;
+    transactions?: Prisma.TransactionsListRelationFilter;
+    financial_entities?: Prisma.XOR<Prisma.Financial_entitiesNullableScalarRelationFilter, Prisma.financial_entitiesWhereInput> | null;
 };
 export type recurring_transactionsOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
@@ -239,7 +261,11 @@ export type recurring_transactionsOrderByWithRelationInput = {
     next_due_date?: Prisma.SortOrder;
     status?: Prisma.SortOrderInput | Prisma.SortOrder;
     created_at?: Prisma.SortOrderInput | Prisma.SortOrder;
+    entity_id?: Prisma.SortOrderInput | Prisma.SortOrder;
+    payment_method?: Prisma.SortOrderInput | Prisma.SortOrder;
     users?: Prisma.usersOrderByWithRelationInput;
+    transactions?: Prisma.transactionsOrderByRelationAggregateInput;
+    financial_entities?: Prisma.financial_entitiesOrderByWithRelationInput;
     _relevance?: Prisma.recurring_transactionsOrderByRelevanceInput;
 };
 export type recurring_transactionsWhereUniqueInput = Prisma.AtLeast<{
@@ -257,7 +283,11 @@ export type recurring_transactionsWhereUniqueInput = Prisma.AtLeast<{
     next_due_date?: Prisma.DateTimeFilter<"recurring_transactions"> | Date | string;
     status?: Prisma.Enumrecurring_transactions_statusNullableFilter<"recurring_transactions"> | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.DateTimeNullableFilter<"recurring_transactions"> | Date | string | null;
+    entity_id?: Prisma.IntNullableFilter<"recurring_transactions"> | number | null;
+    payment_method?: Prisma.StringNullableFilter<"recurring_transactions"> | string | null;
     users?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>;
+    transactions?: Prisma.TransactionsListRelationFilter;
+    financial_entities?: Prisma.XOR<Prisma.Financial_entitiesNullableScalarRelationFilter, Prisma.financial_entitiesWhereInput> | null;
 }, "id">;
 export type recurring_transactionsOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
@@ -271,6 +301,8 @@ export type recurring_transactionsOrderByWithAggregationInput = {
     next_due_date?: Prisma.SortOrder;
     status?: Prisma.SortOrderInput | Prisma.SortOrder;
     created_at?: Prisma.SortOrderInput | Prisma.SortOrder;
+    entity_id?: Prisma.SortOrderInput | Prisma.SortOrder;
+    payment_method?: Prisma.SortOrderInput | Prisma.SortOrder;
     _count?: Prisma.recurring_transactionsCountOrderByAggregateInput;
     _avg?: Prisma.recurring_transactionsAvgOrderByAggregateInput;
     _max?: Prisma.recurring_transactionsMaxOrderByAggregateInput;
@@ -292,6 +324,8 @@ export type recurring_transactionsScalarWhereWithAggregatesInput = {
     next_due_date?: Prisma.DateTimeWithAggregatesFilter<"recurring_transactions"> | Date | string;
     status?: Prisma.Enumrecurring_transactions_statusNullableWithAggregatesFilter<"recurring_transactions"> | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.DateTimeNullableWithAggregatesFilter<"recurring_transactions"> | Date | string | null;
+    entity_id?: Prisma.IntNullableWithAggregatesFilter<"recurring_transactions"> | number | null;
+    payment_method?: Prisma.StringNullableWithAggregatesFilter<"recurring_transactions"> | string | null;
 };
 export type recurring_transactionsCreateInput = {
     description: string;
@@ -303,7 +337,10 @@ export type recurring_transactionsCreateInput = {
     next_due_date: Date | string;
     status?: $Enums.recurring_transactions_status | null;
     created_at?: Date | string | null;
+    payment_method?: string | null;
     users: Prisma.usersCreateNestedOneWithoutRecurring_transactionsInput;
+    transactions?: Prisma.transactionsCreateNestedManyWithoutRecurring_transactionsInput;
+    financial_entities?: Prisma.financial_entitiesCreateNestedOneWithoutRecurring_transactionsInput;
 };
 export type recurring_transactionsUncheckedCreateInput = {
     id?: number;
@@ -317,6 +354,9 @@ export type recurring_transactionsUncheckedCreateInput = {
     next_due_date: Date | string;
     status?: $Enums.recurring_transactions_status | null;
     created_at?: Date | string | null;
+    entity_id?: number | null;
+    payment_method?: string | null;
+    transactions?: Prisma.transactionsUncheckedCreateNestedManyWithoutRecurring_transactionsInput;
 };
 export type recurring_transactionsUpdateInput = {
     description?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -328,7 +368,10 @@ export type recurring_transactionsUpdateInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     users?: Prisma.usersUpdateOneRequiredWithoutRecurring_transactionsNestedInput;
+    transactions?: Prisma.transactionsUpdateManyWithoutRecurring_transactionsNestedInput;
+    financial_entities?: Prisma.financial_entitiesUpdateOneWithoutRecurring_transactionsNestedInput;
 };
 export type recurring_transactionsUncheckedUpdateInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -342,6 +385,9 @@ export type recurring_transactionsUncheckedUpdateInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transactions?: Prisma.transactionsUncheckedUpdateManyWithoutRecurring_transactionsNestedInput;
 };
 export type recurring_transactionsCreateManyInput = {
     id?: number;
@@ -355,6 +401,8 @@ export type recurring_transactionsCreateManyInput = {
     next_due_date: Date | string;
     status?: $Enums.recurring_transactions_status | null;
     created_at?: Date | string | null;
+    entity_id?: number | null;
+    payment_method?: string | null;
 };
 export type recurring_transactionsUpdateManyMutationInput = {
     description?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -366,6 +414,7 @@ export type recurring_transactionsUpdateManyMutationInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
 };
 export type recurring_transactionsUncheckedUpdateManyInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -379,6 +428,16 @@ export type recurring_transactionsUncheckedUpdateManyInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+};
+export type Recurring_transactionsListRelationFilter = {
+    every?: Prisma.recurring_transactionsWhereInput;
+    some?: Prisma.recurring_transactionsWhereInput;
+    none?: Prisma.recurring_transactionsWhereInput;
+};
+export type recurring_transactionsOrderByRelationAggregateInput = {
+    _count?: Prisma.SortOrder;
 };
 export type recurring_transactionsOrderByRelevanceInput = {
     fields: Prisma.recurring_transactionsOrderByRelevanceFieldEnum | Prisma.recurring_transactionsOrderByRelevanceFieldEnum[];
@@ -397,11 +456,14 @@ export type recurring_transactionsCountOrderByAggregateInput = {
     next_due_date?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     created_at?: Prisma.SortOrder;
+    entity_id?: Prisma.SortOrder;
+    payment_method?: Prisma.SortOrder;
 };
 export type recurring_transactionsAvgOrderByAggregateInput = {
     id?: Prisma.SortOrder;
     user_id?: Prisma.SortOrder;
     amount?: Prisma.SortOrder;
+    entity_id?: Prisma.SortOrder;
 };
 export type recurring_transactionsMaxOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -415,6 +477,8 @@ export type recurring_transactionsMaxOrderByAggregateInput = {
     next_due_date?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     created_at?: Prisma.SortOrder;
+    entity_id?: Prisma.SortOrder;
+    payment_method?: Prisma.SortOrder;
 };
 export type recurring_transactionsMinOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -428,19 +492,56 @@ export type recurring_transactionsMinOrderByAggregateInput = {
     next_due_date?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
     created_at?: Prisma.SortOrder;
+    entity_id?: Prisma.SortOrder;
+    payment_method?: Prisma.SortOrder;
 };
 export type recurring_transactionsSumOrderByAggregateInput = {
     id?: Prisma.SortOrder;
     user_id?: Prisma.SortOrder;
     amount?: Prisma.SortOrder;
+    entity_id?: Prisma.SortOrder;
 };
-export type Recurring_transactionsListRelationFilter = {
-    every?: Prisma.recurring_transactionsWhereInput;
-    some?: Prisma.recurring_transactionsWhereInput;
-    none?: Prisma.recurring_transactionsWhereInput;
+export type Recurring_transactionsNullableScalarRelationFilter = {
+    is?: Prisma.recurring_transactionsWhereInput | null;
+    isNot?: Prisma.recurring_transactionsWhereInput | null;
 };
-export type recurring_transactionsOrderByRelationAggregateInput = {
-    _count?: Prisma.SortOrder;
+export type recurring_transactionsCreateNestedManyWithoutFinancial_entitiesInput = {
+    create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput> | Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput[] | Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput[];
+    connectOrCreate?: Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput | Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput[];
+    createMany?: Prisma.recurring_transactionsCreateManyFinancial_entitiesInputEnvelope;
+    connect?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+};
+export type recurring_transactionsUncheckedCreateNestedManyWithoutFinancial_entitiesInput = {
+    create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput> | Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput[] | Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput[];
+    connectOrCreate?: Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput | Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput[];
+    createMany?: Prisma.recurring_transactionsCreateManyFinancial_entitiesInputEnvelope;
+    connect?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+};
+export type recurring_transactionsUpdateManyWithoutFinancial_entitiesNestedInput = {
+    create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput> | Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput[] | Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput[];
+    connectOrCreate?: Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput | Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput[];
+    upsert?: Prisma.recurring_transactionsUpsertWithWhereUniqueWithoutFinancial_entitiesInput | Prisma.recurring_transactionsUpsertWithWhereUniqueWithoutFinancial_entitiesInput[];
+    createMany?: Prisma.recurring_transactionsCreateManyFinancial_entitiesInputEnvelope;
+    set?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    disconnect?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    delete?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    connect?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    update?: Prisma.recurring_transactionsUpdateWithWhereUniqueWithoutFinancial_entitiesInput | Prisma.recurring_transactionsUpdateWithWhereUniqueWithoutFinancial_entitiesInput[];
+    updateMany?: Prisma.recurring_transactionsUpdateManyWithWhereWithoutFinancial_entitiesInput | Prisma.recurring_transactionsUpdateManyWithWhereWithoutFinancial_entitiesInput[];
+    deleteMany?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
+};
+export type recurring_transactionsUncheckedUpdateManyWithoutFinancial_entitiesNestedInput = {
+    create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput> | Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput[] | Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput[];
+    connectOrCreate?: Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput | Prisma.recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput[];
+    upsert?: Prisma.recurring_transactionsUpsertWithWhereUniqueWithoutFinancial_entitiesInput | Prisma.recurring_transactionsUpsertWithWhereUniqueWithoutFinancial_entitiesInput[];
+    createMany?: Prisma.recurring_transactionsCreateManyFinancial_entitiesInputEnvelope;
+    set?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    disconnect?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    delete?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    connect?: Prisma.recurring_transactionsWhereUniqueInput | Prisma.recurring_transactionsWhereUniqueInput[];
+    update?: Prisma.recurring_transactionsUpdateWithWhereUniqueWithoutFinancial_entitiesInput | Prisma.recurring_transactionsUpdateWithWhereUniqueWithoutFinancial_entitiesInput[];
+    updateMany?: Prisma.recurring_transactionsUpdateManyWithWhereWithoutFinancial_entitiesInput | Prisma.recurring_transactionsUpdateManyWithWhereWithoutFinancial_entitiesInput[];
+    deleteMany?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
 };
 export type Enumrecurring_transactions_typeFieldUpdateOperationsInput = {
     set?: $Enums.recurring_transactions_type;
@@ -450,6 +551,20 @@ export type Enumrecurring_transactions_frequencyFieldUpdateOperationsInput = {
 };
 export type NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput = {
     set?: $Enums.recurring_transactions_status | null;
+};
+export type recurring_transactionsCreateNestedOneWithoutTransactionsInput = {
+    create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutTransactionsInput, Prisma.recurring_transactionsUncheckedCreateWithoutTransactionsInput>;
+    connectOrCreate?: Prisma.recurring_transactionsCreateOrConnectWithoutTransactionsInput;
+    connect?: Prisma.recurring_transactionsWhereUniqueInput;
+};
+export type recurring_transactionsUpdateOneWithoutTransactionsNestedInput = {
+    create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutTransactionsInput, Prisma.recurring_transactionsUncheckedCreateWithoutTransactionsInput>;
+    connectOrCreate?: Prisma.recurring_transactionsCreateOrConnectWithoutTransactionsInput;
+    upsert?: Prisma.recurring_transactionsUpsertWithoutTransactionsInput;
+    disconnect?: Prisma.recurring_transactionsWhereInput | boolean;
+    delete?: Prisma.recurring_transactionsWhereInput | boolean;
+    connect?: Prisma.recurring_transactionsWhereUniqueInput;
+    update?: Prisma.XOR<Prisma.XOR<Prisma.recurring_transactionsUpdateToOneWithWhereWithoutTransactionsInput, Prisma.recurring_transactionsUpdateWithoutTransactionsInput>, Prisma.recurring_transactionsUncheckedUpdateWithoutTransactionsInput>;
 };
 export type recurring_transactionsCreateNestedManyWithoutUsersInput = {
     create?: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutUsersInput, Prisma.recurring_transactionsUncheckedCreateWithoutUsersInput> | Prisma.recurring_transactionsCreateWithoutUsersInput[] | Prisma.recurring_transactionsUncheckedCreateWithoutUsersInput[];
@@ -489,6 +604,145 @@ export type recurring_transactionsUncheckedUpdateManyWithoutUsersNestedInput = {
     updateMany?: Prisma.recurring_transactionsUpdateManyWithWhereWithoutUsersInput | Prisma.recurring_transactionsUpdateManyWithWhereWithoutUsersInput[];
     deleteMany?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
 };
+export type recurring_transactionsCreateWithoutFinancial_entitiesInput = {
+    description: string;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: string | null;
+    type: $Enums.recurring_transactions_type;
+    frequency: $Enums.recurring_transactions_frequency;
+    start_date: Date | string;
+    next_due_date: Date | string;
+    status?: $Enums.recurring_transactions_status | null;
+    created_at?: Date | string | null;
+    payment_method?: string | null;
+    users: Prisma.usersCreateNestedOneWithoutRecurring_transactionsInput;
+    transactions?: Prisma.transactionsCreateNestedManyWithoutRecurring_transactionsInput;
+};
+export type recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput = {
+    id?: number;
+    user_id: number;
+    description: string;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: string | null;
+    type: $Enums.recurring_transactions_type;
+    frequency: $Enums.recurring_transactions_frequency;
+    start_date: Date | string;
+    next_due_date: Date | string;
+    status?: $Enums.recurring_transactions_status | null;
+    created_at?: Date | string | null;
+    payment_method?: string | null;
+    transactions?: Prisma.transactionsUncheckedCreateNestedManyWithoutRecurring_transactionsInput;
+};
+export type recurring_transactionsCreateOrConnectWithoutFinancial_entitiesInput = {
+    where: Prisma.recurring_transactionsWhereUniqueInput;
+    create: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput>;
+};
+export type recurring_transactionsCreateManyFinancial_entitiesInputEnvelope = {
+    data: Prisma.recurring_transactionsCreateManyFinancial_entitiesInput | Prisma.recurring_transactionsCreateManyFinancial_entitiesInput[];
+    skipDuplicates?: boolean;
+};
+export type recurring_transactionsUpsertWithWhereUniqueWithoutFinancial_entitiesInput = {
+    where: Prisma.recurring_transactionsWhereUniqueInput;
+    update: Prisma.XOR<Prisma.recurring_transactionsUpdateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedUpdateWithoutFinancial_entitiesInput>;
+    create: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedCreateWithoutFinancial_entitiesInput>;
+};
+export type recurring_transactionsUpdateWithWhereUniqueWithoutFinancial_entitiesInput = {
+    where: Prisma.recurring_transactionsWhereUniqueInput;
+    data: Prisma.XOR<Prisma.recurring_transactionsUpdateWithoutFinancial_entitiesInput, Prisma.recurring_transactionsUncheckedUpdateWithoutFinancial_entitiesInput>;
+};
+export type recurring_transactionsUpdateManyWithWhereWithoutFinancial_entitiesInput = {
+    where: Prisma.recurring_transactionsScalarWhereInput;
+    data: Prisma.XOR<Prisma.recurring_transactionsUpdateManyMutationInput, Prisma.recurring_transactionsUncheckedUpdateManyWithoutFinancial_entitiesInput>;
+};
+export type recurring_transactionsScalarWhereInput = {
+    AND?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
+    OR?: Prisma.recurring_transactionsScalarWhereInput[];
+    NOT?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
+    id?: Prisma.IntFilter<"recurring_transactions"> | number;
+    user_id?: Prisma.IntFilter<"recurring_transactions"> | number;
+    description?: Prisma.StringFilter<"recurring_transactions"> | string;
+    amount?: Prisma.DecimalFilter<"recurring_transactions"> | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: Prisma.StringNullableFilter<"recurring_transactions"> | string | null;
+    type?: Prisma.Enumrecurring_transactions_typeFilter<"recurring_transactions"> | $Enums.recurring_transactions_type;
+    frequency?: Prisma.Enumrecurring_transactions_frequencyFilter<"recurring_transactions"> | $Enums.recurring_transactions_frequency;
+    start_date?: Prisma.DateTimeFilter<"recurring_transactions"> | Date | string;
+    next_due_date?: Prisma.DateTimeFilter<"recurring_transactions"> | Date | string;
+    status?: Prisma.Enumrecurring_transactions_statusNullableFilter<"recurring_transactions"> | $Enums.recurring_transactions_status | null;
+    created_at?: Prisma.DateTimeNullableFilter<"recurring_transactions"> | Date | string | null;
+    entity_id?: Prisma.IntNullableFilter<"recurring_transactions"> | number | null;
+    payment_method?: Prisma.StringNullableFilter<"recurring_transactions"> | string | null;
+};
+export type recurring_transactionsCreateWithoutTransactionsInput = {
+    description: string;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: string | null;
+    type: $Enums.recurring_transactions_type;
+    frequency: $Enums.recurring_transactions_frequency;
+    start_date: Date | string;
+    next_due_date: Date | string;
+    status?: $Enums.recurring_transactions_status | null;
+    created_at?: Date | string | null;
+    payment_method?: string | null;
+    users: Prisma.usersCreateNestedOneWithoutRecurring_transactionsInput;
+    financial_entities?: Prisma.financial_entitiesCreateNestedOneWithoutRecurring_transactionsInput;
+};
+export type recurring_transactionsUncheckedCreateWithoutTransactionsInput = {
+    id?: number;
+    user_id: number;
+    description: string;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: string | null;
+    type: $Enums.recurring_transactions_type;
+    frequency: $Enums.recurring_transactions_frequency;
+    start_date: Date | string;
+    next_due_date: Date | string;
+    status?: $Enums.recurring_transactions_status | null;
+    created_at?: Date | string | null;
+    entity_id?: number | null;
+    payment_method?: string | null;
+};
+export type recurring_transactionsCreateOrConnectWithoutTransactionsInput = {
+    where: Prisma.recurring_transactionsWhereUniqueInput;
+    create: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutTransactionsInput, Prisma.recurring_transactionsUncheckedCreateWithoutTransactionsInput>;
+};
+export type recurring_transactionsUpsertWithoutTransactionsInput = {
+    update: Prisma.XOR<Prisma.recurring_transactionsUpdateWithoutTransactionsInput, Prisma.recurring_transactionsUncheckedUpdateWithoutTransactionsInput>;
+    create: Prisma.XOR<Prisma.recurring_transactionsCreateWithoutTransactionsInput, Prisma.recurring_transactionsUncheckedCreateWithoutTransactionsInput>;
+    where?: Prisma.recurring_transactionsWhereInput;
+};
+export type recurring_transactionsUpdateToOneWithWhereWithoutTransactionsInput = {
+    where?: Prisma.recurring_transactionsWhereInput;
+    data: Prisma.XOR<Prisma.recurring_transactionsUpdateWithoutTransactionsInput, Prisma.recurring_transactionsUncheckedUpdateWithoutTransactionsInput>;
+};
+export type recurring_transactionsUpdateWithoutTransactionsInput = {
+    description?: Prisma.StringFieldUpdateOperationsInput | string;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    type?: Prisma.Enumrecurring_transactions_typeFieldUpdateOperationsInput | $Enums.recurring_transactions_type;
+    frequency?: Prisma.Enumrecurring_transactions_frequencyFieldUpdateOperationsInput | $Enums.recurring_transactions_frequency;
+    start_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    users?: Prisma.usersUpdateOneRequiredWithoutRecurring_transactionsNestedInput;
+    financial_entities?: Prisma.financial_entitiesUpdateOneWithoutRecurring_transactionsNestedInput;
+};
+export type recurring_transactionsUncheckedUpdateWithoutTransactionsInput = {
+    id?: Prisma.IntFieldUpdateOperationsInput | number;
+    user_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    description?: Prisma.StringFieldUpdateOperationsInput | string;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    type?: Prisma.Enumrecurring_transactions_typeFieldUpdateOperationsInput | $Enums.recurring_transactions_type;
+    frequency?: Prisma.Enumrecurring_transactions_frequencyFieldUpdateOperationsInput | $Enums.recurring_transactions_frequency;
+    start_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+};
 export type recurring_transactionsCreateWithoutUsersInput = {
     description: string;
     amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -499,6 +753,9 @@ export type recurring_transactionsCreateWithoutUsersInput = {
     next_due_date: Date | string;
     status?: $Enums.recurring_transactions_status | null;
     created_at?: Date | string | null;
+    payment_method?: string | null;
+    transactions?: Prisma.transactionsCreateNestedManyWithoutRecurring_transactionsInput;
+    financial_entities?: Prisma.financial_entitiesCreateNestedOneWithoutRecurring_transactionsInput;
 };
 export type recurring_transactionsUncheckedCreateWithoutUsersInput = {
     id?: number;
@@ -511,6 +768,9 @@ export type recurring_transactionsUncheckedCreateWithoutUsersInput = {
     next_due_date: Date | string;
     status?: $Enums.recurring_transactions_status | null;
     created_at?: Date | string | null;
+    entity_id?: number | null;
+    payment_method?: string | null;
+    transactions?: Prisma.transactionsUncheckedCreateNestedManyWithoutRecurring_transactionsInput;
 };
 export type recurring_transactionsCreateOrConnectWithoutUsersInput = {
     where: Prisma.recurring_transactionsWhereUniqueInput;
@@ -533,21 +793,62 @@ export type recurring_transactionsUpdateManyWithWhereWithoutUsersInput = {
     where: Prisma.recurring_transactionsScalarWhereInput;
     data: Prisma.XOR<Prisma.recurring_transactionsUpdateManyMutationInput, Prisma.recurring_transactionsUncheckedUpdateManyWithoutUsersInput>;
 };
-export type recurring_transactionsScalarWhereInput = {
-    AND?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
-    OR?: Prisma.recurring_transactionsScalarWhereInput[];
-    NOT?: Prisma.recurring_transactionsScalarWhereInput | Prisma.recurring_transactionsScalarWhereInput[];
-    id?: Prisma.IntFilter<"recurring_transactions"> | number;
-    user_id?: Prisma.IntFilter<"recurring_transactions"> | number;
-    description?: Prisma.StringFilter<"recurring_transactions"> | string;
-    amount?: Prisma.DecimalFilter<"recurring_transactions"> | runtime.Decimal | runtime.DecimalJsLike | number | string;
-    category?: Prisma.StringNullableFilter<"recurring_transactions"> | string | null;
-    type?: Prisma.Enumrecurring_transactions_typeFilter<"recurring_transactions"> | $Enums.recurring_transactions_type;
-    frequency?: Prisma.Enumrecurring_transactions_frequencyFilter<"recurring_transactions"> | $Enums.recurring_transactions_frequency;
-    start_date?: Prisma.DateTimeFilter<"recurring_transactions"> | Date | string;
-    next_due_date?: Prisma.DateTimeFilter<"recurring_transactions"> | Date | string;
-    status?: Prisma.Enumrecurring_transactions_statusNullableFilter<"recurring_transactions"> | $Enums.recurring_transactions_status | null;
-    created_at?: Prisma.DateTimeNullableFilter<"recurring_transactions"> | Date | string | null;
+export type recurring_transactionsCreateManyFinancial_entitiesInput = {
+    id?: number;
+    user_id: number;
+    description: string;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: string | null;
+    type: $Enums.recurring_transactions_type;
+    frequency: $Enums.recurring_transactions_frequency;
+    start_date: Date | string;
+    next_due_date: Date | string;
+    status?: $Enums.recurring_transactions_status | null;
+    created_at?: Date | string | null;
+    payment_method?: string | null;
+};
+export type recurring_transactionsUpdateWithoutFinancial_entitiesInput = {
+    description?: Prisma.StringFieldUpdateOperationsInput | string;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    type?: Prisma.Enumrecurring_transactions_typeFieldUpdateOperationsInput | $Enums.recurring_transactions_type;
+    frequency?: Prisma.Enumrecurring_transactions_frequencyFieldUpdateOperationsInput | $Enums.recurring_transactions_frequency;
+    start_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    users?: Prisma.usersUpdateOneRequiredWithoutRecurring_transactionsNestedInput;
+    transactions?: Prisma.transactionsUpdateManyWithoutRecurring_transactionsNestedInput;
+};
+export type recurring_transactionsUncheckedUpdateWithoutFinancial_entitiesInput = {
+    id?: Prisma.IntFieldUpdateOperationsInput | number;
+    user_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    description?: Prisma.StringFieldUpdateOperationsInput | string;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    type?: Prisma.Enumrecurring_transactions_typeFieldUpdateOperationsInput | $Enums.recurring_transactions_type;
+    frequency?: Prisma.Enumrecurring_transactions_frequencyFieldUpdateOperationsInput | $Enums.recurring_transactions_frequency;
+    start_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transactions?: Prisma.transactionsUncheckedUpdateManyWithoutRecurring_transactionsNestedInput;
+};
+export type recurring_transactionsUncheckedUpdateManyWithoutFinancial_entitiesInput = {
+    id?: Prisma.IntFieldUpdateOperationsInput | number;
+    user_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    description?: Prisma.StringFieldUpdateOperationsInput | string;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    type?: Prisma.Enumrecurring_transactions_typeFieldUpdateOperationsInput | $Enums.recurring_transactions_type;
+    frequency?: Prisma.Enumrecurring_transactions_frequencyFieldUpdateOperationsInput | $Enums.recurring_transactions_frequency;
+    start_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
 };
 export type recurring_transactionsCreateManyUsersInput = {
     id?: number;
@@ -560,6 +861,8 @@ export type recurring_transactionsCreateManyUsersInput = {
     next_due_date: Date | string;
     status?: $Enums.recurring_transactions_status | null;
     created_at?: Date | string | null;
+    entity_id?: number | null;
+    payment_method?: string | null;
 };
 export type recurring_transactionsUpdateWithoutUsersInput = {
     description?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -571,6 +874,9 @@ export type recurring_transactionsUpdateWithoutUsersInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transactions?: Prisma.transactionsUpdateManyWithoutRecurring_transactionsNestedInput;
+    financial_entities?: Prisma.financial_entitiesUpdateOneWithoutRecurring_transactionsNestedInput;
 };
 export type recurring_transactionsUncheckedUpdateWithoutUsersInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -583,6 +889,9 @@ export type recurring_transactionsUncheckedUpdateWithoutUsersInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transactions?: Prisma.transactionsUncheckedUpdateManyWithoutRecurring_transactionsNestedInput;
 };
 export type recurring_transactionsUncheckedUpdateManyWithoutUsersInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -595,6 +904,32 @@ export type recurring_transactionsUncheckedUpdateManyWithoutUsersInput = {
     next_due_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     status?: Prisma.NullableEnumrecurring_transactions_statusFieldUpdateOperationsInput | $Enums.recurring_transactions_status | null;
     created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+};
+/**
+ * Count Type Recurring_transactionsCountOutputType
+ */
+export type Recurring_transactionsCountOutputType = {
+    transactions: number;
+};
+export type Recurring_transactionsCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    transactions?: boolean | Recurring_transactionsCountOutputTypeCountTransactionsArgs;
+};
+/**
+ * Recurring_transactionsCountOutputType without action
+ */
+export type Recurring_transactionsCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Recurring_transactionsCountOutputType
+     */
+    select?: Prisma.Recurring_transactionsCountOutputTypeSelect<ExtArgs> | null;
+};
+/**
+ * Recurring_transactionsCountOutputType without action
+ */
+export type Recurring_transactionsCountOutputTypeCountTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    where?: Prisma.transactionsWhereInput;
 };
 export type recurring_transactionsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
@@ -608,7 +943,12 @@ export type recurring_transactionsSelect<ExtArgs extends runtime.Types.Extension
     next_due_date?: boolean;
     status?: boolean;
     created_at?: boolean;
+    entity_id?: boolean;
+    payment_method?: boolean;
     users?: boolean | Prisma.usersDefaultArgs<ExtArgs>;
+    transactions?: boolean | Prisma.recurring_transactions$transactionsArgs<ExtArgs>;
+    financial_entities?: boolean | Prisma.recurring_transactions$financial_entitiesArgs<ExtArgs>;
+    _count?: boolean | Prisma.Recurring_transactionsCountOutputTypeDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["recurring_transactions"]>;
 export type recurring_transactionsSelectScalar = {
     id?: boolean;
@@ -622,15 +962,22 @@ export type recurring_transactionsSelectScalar = {
     next_due_date?: boolean;
     status?: boolean;
     created_at?: boolean;
+    entity_id?: boolean;
+    payment_method?: boolean;
 };
-export type recurring_transactionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "user_id" | "description" | "amount" | "category" | "type" | "frequency" | "start_date" | "next_due_date" | "status" | "created_at", ExtArgs["result"]["recurring_transactions"]>;
+export type recurring_transactionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "user_id" | "description" | "amount" | "category" | "type" | "frequency" | "start_date" | "next_due_date" | "status" | "created_at" | "entity_id" | "payment_method", ExtArgs["result"]["recurring_transactions"]>;
 export type recurring_transactionsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     users?: boolean | Prisma.usersDefaultArgs<ExtArgs>;
+    transactions?: boolean | Prisma.recurring_transactions$transactionsArgs<ExtArgs>;
+    financial_entities?: boolean | Prisma.recurring_transactions$financial_entitiesArgs<ExtArgs>;
+    _count?: boolean | Prisma.Recurring_transactionsCountOutputTypeDefaultArgs<ExtArgs>;
 };
 export type $recurring_transactionsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     name: "recurring_transactions";
     objects: {
         users: Prisma.$usersPayload<ExtArgs>;
+        transactions: Prisma.$transactionsPayload<ExtArgs>[];
+        financial_entities: Prisma.$financial_entitiesPayload<ExtArgs> | null;
     };
     scalars: runtime.Types.Extensions.GetPayloadResult<{
         id: number;
@@ -644,6 +991,8 @@ export type $recurring_transactionsPayload<ExtArgs extends runtime.Types.Extensi
         next_due_date: Date;
         status: $Enums.recurring_transactions_status | null;
         created_at: Date | null;
+        entity_id: number | null;
+        payment_method: string | null;
     }, ExtArgs["result"]["recurring_transactions"]>;
     composites: {};
 };
@@ -922,6 +1271,8 @@ export interface recurring_transactionsDelegate<ExtArgs extends runtime.Types.Ex
 export interface Prisma__recurring_transactionsClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise";
     users<T extends Prisma.usersDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.usersDefaultArgs<ExtArgs>>): Prisma.Prisma__usersClient<runtime.Types.Result.GetResult<Prisma.$usersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>;
+    transactions<T extends Prisma.recurring_transactions$transactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.recurring_transactions$transactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$transactionsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
+    financial_entities<T extends Prisma.recurring_transactions$financial_entitiesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.recurring_transactions$financial_entitiesArgs<ExtArgs>>): Prisma.Prisma__financial_entitiesClient<runtime.Types.Result.GetResult<Prisma.$financial_entitiesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -958,6 +1309,8 @@ export interface recurring_transactionsFieldRefs {
     readonly next_due_date: Prisma.FieldRef<"recurring_transactions", 'DateTime'>;
     readonly status: Prisma.FieldRef<"recurring_transactions", 'recurring_transactions_status'>;
     readonly created_at: Prisma.FieldRef<"recurring_transactions", 'DateTime'>;
+    readonly entity_id: Prisma.FieldRef<"recurring_transactions", 'Int'>;
+    readonly payment_method: Prisma.FieldRef<"recurring_transactions", 'String'>;
 }
 /**
  * recurring_transactions findUnique
@@ -1284,6 +1637,47 @@ export type recurring_transactionsDeleteManyArgs<ExtArgs extends runtime.Types.E
      * Limit how many recurring_transactions to delete.
      */
     limit?: number;
+};
+/**
+ * recurring_transactions.transactions
+ */
+export type recurring_transactions$transactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the transactions
+     */
+    select?: Prisma.transactionsSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the transactions
+     */
+    omit?: Prisma.transactionsOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: Prisma.transactionsInclude<ExtArgs> | null;
+    where?: Prisma.transactionsWhereInput;
+    orderBy?: Prisma.transactionsOrderByWithRelationInput | Prisma.transactionsOrderByWithRelationInput[];
+    cursor?: Prisma.transactionsWhereUniqueInput;
+    take?: number;
+    skip?: number;
+    distinct?: Prisma.TransactionsScalarFieldEnum | Prisma.TransactionsScalarFieldEnum[];
+};
+/**
+ * recurring_transactions.financial_entities
+ */
+export type recurring_transactions$financial_entitiesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the financial_entities
+     */
+    select?: Prisma.financial_entitiesSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the financial_entities
+     */
+    omit?: Prisma.financial_entitiesOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: Prisma.financial_entitiesInclude<ExtArgs> | null;
+    where?: Prisma.financial_entitiesWhereInput;
 };
 /**
  * recurring_transactions without action

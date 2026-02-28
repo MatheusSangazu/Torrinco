@@ -38,6 +38,7 @@ export declare const ModelName: {
     readonly reminders: "reminders";
     readonly purchase_installments: "purchase_installments";
     readonly transactions: "transactions";
+    readonly refresh_tokens: "refresh_tokens";
     readonly users: "users";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
@@ -132,6 +133,8 @@ export declare const Recurring_transactionsScalarFieldEnum: {
     readonly next_due_date: "next_due_date";
     readonly status: "status";
     readonly created_at: "created_at";
+    readonly entity_id: "entity_id";
+    readonly payment_method: "payment_method";
 };
 export type Recurring_transactionsScalarFieldEnum = (typeof Recurring_transactionsScalarFieldEnum)[keyof typeof Recurring_transactionsScalarFieldEnum];
 export declare const Reminder_logsScalarFieldEnum: {
@@ -189,8 +192,18 @@ export declare const TransactionsScalarFieldEnum: {
     readonly income_source_id: "income_source_id";
     readonly installment_id: "installment_id";
     readonly installment_number: "installment_number";
+    readonly recurring_transaction_id: "recurring_transaction_id";
 };
 export type TransactionsScalarFieldEnum = (typeof TransactionsScalarFieldEnum)[keyof typeof TransactionsScalarFieldEnum];
+export declare const Refresh_tokensScalarFieldEnum: {
+    readonly id: "id";
+    readonly token: "token";
+    readonly user_id: "user_id";
+    readonly expires_at: "expires_at";
+    readonly created_at: "created_at";
+    readonly revoked_at: "revoked_at";
+};
+export type Refresh_tokensScalarFieldEnum = (typeof Refresh_tokensScalarFieldEnum)[keyof typeof Refresh_tokensScalarFieldEnum];
 export declare const UsersScalarFieldEnum: {
     readonly id: "id";
     readonly account_id: "account_id";
@@ -256,6 +269,7 @@ export type recurring_eventsOrderByRelevanceFieldEnum = (typeof recurring_events
 export declare const recurring_transactionsOrderByRelevanceFieldEnum: {
     readonly description: "description";
     readonly category: "category";
+    readonly payment_method: "payment_method";
 };
 export type recurring_transactionsOrderByRelevanceFieldEnum = (typeof recurring_transactionsOrderByRelevanceFieldEnum)[keyof typeof recurring_transactionsOrderByRelevanceFieldEnum];
 export declare const reminder_logsOrderByRelevanceFieldEnum: {
@@ -276,6 +290,10 @@ export declare const transactionsOrderByRelevanceFieldEnum: {
     readonly payment_method: "payment_method";
 };
 export type transactionsOrderByRelevanceFieldEnum = (typeof transactionsOrderByRelevanceFieldEnum)[keyof typeof transactionsOrderByRelevanceFieldEnum];
+export declare const refresh_tokensOrderByRelevanceFieldEnum: {
+    readonly token: "token";
+};
+export type refresh_tokensOrderByRelevanceFieldEnum = (typeof refresh_tokensOrderByRelevanceFieldEnum)[keyof typeof refresh_tokensOrderByRelevanceFieldEnum];
 export declare const usersOrderByRelevanceFieldEnum: {
     readonly phone_number: "phone_number";
     readonly password_hash: "password_hash";

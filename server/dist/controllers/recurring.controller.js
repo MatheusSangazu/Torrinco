@@ -25,9 +25,8 @@ export class RecurringController {
      * Cria uma nova transação recorrente
      */
     static async createTransaction(req, res, next) {
-        console.log('🎮 RecurringController.createTransaction chamada');
         try {
-            const { description, amount, category, type, frequency, start_date } = req.body;
+            const { description, amount, category, type, frequency, start_date, entity_id, payment_method } = req.body;
             const userId = req.userId;
             if (!description || !amount || !type || !frequency || !start_date) {
                 return res.status(400).json({
@@ -37,7 +36,17 @@ export class RecurringController {
             if (!['income', 'expense'].includes(type)) {
                 return res.status(400).json({ error: 'Type must be income or expense' });
             }
-            const nextDueDate = calculateNextDueDate(frequency, new Date(start_date));
+            const startDate = new Date(start_date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            startDate.setHours(0, 0, 0, 0);
+            let nextDueDate;
+            if (startDate >= today) {
+                nextDueDate = startDate;
+            }
+            else {
+                nextDueDate = calculateNextDueDate(frequency, startDate);
+            }
             const recurringTransaction = await prisma.recurring_transactions.create({
                 data: {
                     user_id: userId,
@@ -46,9 +55,11 @@ export class RecurringController {
                     category,
                     type,
                     frequency,
-                    start_date: new Date(start_date),
+                    start_date: startDate,
                     next_due_date: nextDueDate,
-                    status: 'active'
+                    status: 'active',
+                    entity_id: entity_id ? parseInt(entity_id) : null,
+                    payment_method: payment_method || 'cash'
                 }
             });
             res.status(201).json({ recurringTransaction });
@@ -61,7 +72,6 @@ export class RecurringController {
      * Lista transações recorrentes
      */
     static async listTransactions(req, res, next) {
-        console.log('🎮 RecurringController.listTransactions chamada');
         try {
             const { status, type } = req.query;
             const userId = req.userId;
@@ -86,7 +96,6 @@ export class RecurringController {
      * Atualiza uma transação recorrente
      */
     static async updateTransaction(req, res, next) {
-        console.log('🎮 RecurringController.updateTransaction chamada');
         try {
             const { id } = req.params;
             const { description, amount, category, frequency, status } = req.body;
@@ -117,7 +126,6 @@ export class RecurringController {
      * Remove (cancela) uma transação recorrente
      */
     static async deleteTransaction(req, res, next) {
-        console.log('🎮 RecurringController.deleteTransaction chamada');
         try {
             const { id } = req.params;
             const userId = req.userId;
@@ -141,9 +149,9 @@ export class RecurringController {
      * Gera uma transação real a partir de uma recorrente
      */
     static async generateTransaction(req, res, next) {
-        console.log('🎮 RecurringController.generateTransaction chamada');
         try {
             const { id } = req.params;
+            const { transaction_date } = req.body;
             const userId = req.userId;
             const recurringTransaction = await prisma.recurring_transactions.findFirst({
                 where: {
@@ -174,9 +182,12 @@ export class RecurringController {
                     type: recurringTransaction.type,
                     category: recurringTransaction.category,
                     description: recurringTransaction.description,
-                    transaction_date: new Date(),
+                    transaction_date: transaction_date ? new Date(transaction_date) : new Date(),
                     status: 'pending',
-                    is_recurring: true
+                    is_recurring: true,
+                    recurring_transaction_id: recurringTransaction.id,
+                    entity_id: recurringTransaction.entity_id,
+                    payment_method: recurringTransaction.payment_method
                 }
             });
             const nextDueDate = calculateNextDueDate(recurringTransaction.frequency, recurringTransaction.next_due_date);
@@ -194,7 +205,6 @@ export class RecurringController {
      * Lista transações recorrentes próximas do vencimento
      */
     static async listDue(req, res, next) {
-        console.log('🎮 RecurringController.listDue chamada');
         try {
             const { days = 7 } = req.query;
             const userId = req.userId;

@@ -23,6 +23,7 @@ export type TransactionsAvgAggregateOutputType = {
     income_source_id: number | null;
     installment_id: number | null;
     installment_number: number | null;
+    recurring_transaction_id: number | null;
 };
 export type TransactionsSumAggregateOutputType = {
     id: number | null;
@@ -34,6 +35,7 @@ export type TransactionsSumAggregateOutputType = {
     income_source_id: number | null;
     installment_id: number | null;
     installment_number: number | null;
+    recurring_transaction_id: number | null;
 };
 export type TransactionsMinAggregateOutputType = {
     id: number | null;
@@ -54,6 +56,7 @@ export type TransactionsMinAggregateOutputType = {
     income_source_id: number | null;
     installment_id: number | null;
     installment_number: number | null;
+    recurring_transaction_id: number | null;
 };
 export type TransactionsMaxAggregateOutputType = {
     id: number | null;
@@ -74,6 +77,7 @@ export type TransactionsMaxAggregateOutputType = {
     income_source_id: number | null;
     installment_id: number | null;
     installment_number: number | null;
+    recurring_transaction_id: number | null;
 };
 export type TransactionsCountAggregateOutputType = {
     id: number;
@@ -94,6 +98,7 @@ export type TransactionsCountAggregateOutputType = {
     income_source_id: number;
     installment_id: number;
     installment_number: number;
+    recurring_transaction_id: number;
     _all: number;
 };
 export type TransactionsAvgAggregateInputType = {
@@ -106,6 +111,7 @@ export type TransactionsAvgAggregateInputType = {
     income_source_id?: true;
     installment_id?: true;
     installment_number?: true;
+    recurring_transaction_id?: true;
 };
 export type TransactionsSumAggregateInputType = {
     id?: true;
@@ -117,6 +123,7 @@ export type TransactionsSumAggregateInputType = {
     income_source_id?: true;
     installment_id?: true;
     installment_number?: true;
+    recurring_transaction_id?: true;
 };
 export type TransactionsMinAggregateInputType = {
     id?: true;
@@ -137,6 +144,7 @@ export type TransactionsMinAggregateInputType = {
     income_source_id?: true;
     installment_id?: true;
     installment_number?: true;
+    recurring_transaction_id?: true;
 };
 export type TransactionsMaxAggregateInputType = {
     id?: true;
@@ -157,6 +165,7 @@ export type TransactionsMaxAggregateInputType = {
     income_source_id?: true;
     installment_id?: true;
     installment_number?: true;
+    recurring_transaction_id?: true;
 };
 export type TransactionsCountAggregateInputType = {
     id?: true;
@@ -177,6 +186,7 @@ export type TransactionsCountAggregateInputType = {
     income_source_id?: true;
     installment_id?: true;
     installment_number?: true;
+    recurring_transaction_id?: true;
     _all?: true;
 };
 export type TransactionsAggregateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -274,6 +284,7 @@ export type TransactionsGroupByOutputType = {
     income_source_id: number | null;
     installment_id: number | null;
     installment_number: number | null;
+    recurring_transaction_id: number | null;
     _count: TransactionsCountAggregateOutputType | null;
     _avg: TransactionsAvgAggregateOutputType | null;
     _sum: TransactionsSumAggregateOutputType | null;
@@ -305,12 +316,14 @@ export type transactionsWhereInput = {
     income_source_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     installment_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     installment_number?: Prisma.IntNullableFilter<"transactions"> | number | null;
+    recurring_transaction_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     financial_entities?: Prisma.XOR<Prisma.Financial_entitiesNullableScalarRelationFilter, Prisma.financial_entitiesWhereInput> | null;
     accounts?: Prisma.XOR<Prisma.AccountsScalarRelationFilter, Prisma.accountsWhereInput>;
     users?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>;
     categories?: Prisma.XOR<Prisma.CategoriesNullableScalarRelationFilter, Prisma.categoriesWhereInput> | null;
     income_sources?: Prisma.XOR<Prisma.Income_sourcesNullableScalarRelationFilter, Prisma.income_sourcesWhereInput> | null;
     purchase_installments?: Prisma.XOR<Prisma.Purchase_installmentsNullableScalarRelationFilter, Prisma.purchase_installmentsWhereInput> | null;
+    recurring_transactions?: Prisma.XOR<Prisma.Recurring_transactionsNullableScalarRelationFilter, Prisma.recurring_transactionsWhereInput> | null;
 };
 export type transactionsOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
@@ -331,12 +344,14 @@ export type transactionsOrderByWithRelationInput = {
     income_source_id?: Prisma.SortOrderInput | Prisma.SortOrder;
     installment_id?: Prisma.SortOrderInput | Prisma.SortOrder;
     installment_number?: Prisma.SortOrderInput | Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrderInput | Prisma.SortOrder;
     financial_entities?: Prisma.financial_entitiesOrderByWithRelationInput;
     accounts?: Prisma.accountsOrderByWithRelationInput;
     users?: Prisma.usersOrderByWithRelationInput;
     categories?: Prisma.categoriesOrderByWithRelationInput;
     income_sources?: Prisma.income_sourcesOrderByWithRelationInput;
     purchase_installments?: Prisma.purchase_installmentsOrderByWithRelationInput;
+    recurring_transactions?: Prisma.recurring_transactionsOrderByWithRelationInput;
     _relevance?: Prisma.transactionsOrderByRelevanceInput;
 };
 export type transactionsWhereUniqueInput = Prisma.AtLeast<{
@@ -361,12 +376,14 @@ export type transactionsWhereUniqueInput = Prisma.AtLeast<{
     income_source_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     installment_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     installment_number?: Prisma.IntNullableFilter<"transactions"> | number | null;
+    recurring_transaction_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     financial_entities?: Prisma.XOR<Prisma.Financial_entitiesNullableScalarRelationFilter, Prisma.financial_entitiesWhereInput> | null;
     accounts?: Prisma.XOR<Prisma.AccountsScalarRelationFilter, Prisma.accountsWhereInput>;
     users?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>;
     categories?: Prisma.XOR<Prisma.CategoriesNullableScalarRelationFilter, Prisma.categoriesWhereInput> | null;
     income_sources?: Prisma.XOR<Prisma.Income_sourcesNullableScalarRelationFilter, Prisma.income_sourcesWhereInput> | null;
     purchase_installments?: Prisma.XOR<Prisma.Purchase_installmentsNullableScalarRelationFilter, Prisma.purchase_installmentsWhereInput> | null;
+    recurring_transactions?: Prisma.XOR<Prisma.Recurring_transactionsNullableScalarRelationFilter, Prisma.recurring_transactionsWhereInput> | null;
 }, "id">;
 export type transactionsOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
@@ -387,6 +404,7 @@ export type transactionsOrderByWithAggregationInput = {
     income_source_id?: Prisma.SortOrderInput | Prisma.SortOrder;
     installment_id?: Prisma.SortOrderInput | Prisma.SortOrder;
     installment_number?: Prisma.SortOrderInput | Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrderInput | Prisma.SortOrder;
     _count?: Prisma.transactionsCountOrderByAggregateInput;
     _avg?: Prisma.transactionsAvgOrderByAggregateInput;
     _max?: Prisma.transactionsMaxOrderByAggregateInput;
@@ -415,6 +433,7 @@ export type transactionsScalarWhereWithAggregatesInput = {
     income_source_id?: Prisma.IntNullableWithAggregatesFilter<"transactions"> | number | null;
     installment_id?: Prisma.IntNullableWithAggregatesFilter<"transactions"> | number | null;
     installment_number?: Prisma.IntNullableWithAggregatesFilter<"transactions"> | number | null;
+    recurring_transaction_id?: Prisma.IntNullableWithAggregatesFilter<"transactions"> | number | null;
 };
 export type transactionsCreateInput = {
     amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -434,6 +453,7 @@ export type transactionsCreateInput = {
     categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
     income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
     purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateInput = {
     id?: number;
@@ -454,6 +474,7 @@ export type transactionsUncheckedCreateInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -473,6 +494,7 @@ export type transactionsUpdateInput = {
     categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
     income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -493,6 +515,7 @@ export type transactionsUncheckedUpdateInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsCreateManyInput = {
     id?: number;
@@ -513,6 +536,7 @@ export type transactionsCreateManyInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateManyMutationInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -546,6 +570,7 @@ export type transactionsUncheckedUpdateManyInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type TransactionsListRelationFilter = {
     every?: Prisma.transactionsWhereInput;
@@ -579,6 +604,7 @@ export type transactionsCountOrderByAggregateInput = {
     income_source_id?: Prisma.SortOrder;
     installment_id?: Prisma.SortOrder;
     installment_number?: Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrder;
 };
 export type transactionsAvgOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -590,6 +616,7 @@ export type transactionsAvgOrderByAggregateInput = {
     income_source_id?: Prisma.SortOrder;
     installment_id?: Prisma.SortOrder;
     installment_number?: Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrder;
 };
 export type transactionsMaxOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -610,6 +637,7 @@ export type transactionsMaxOrderByAggregateInput = {
     income_source_id?: Prisma.SortOrder;
     installment_id?: Prisma.SortOrder;
     installment_number?: Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrder;
 };
 export type transactionsMinOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -630,6 +658,7 @@ export type transactionsMinOrderByAggregateInput = {
     income_source_id?: Prisma.SortOrder;
     installment_id?: Prisma.SortOrder;
     installment_number?: Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrder;
 };
 export type transactionsSumOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -641,6 +670,7 @@ export type transactionsSumOrderByAggregateInput = {
     income_source_id?: Prisma.SortOrder;
     installment_id?: Prisma.SortOrder;
     installment_number?: Prisma.SortOrder;
+    recurring_transaction_id?: Prisma.SortOrder;
 };
 export type transactionsCreateNestedManyWithoutAccountsInput = {
     create?: Prisma.XOR<Prisma.transactionsCreateWithoutAccountsInput, Prisma.transactionsUncheckedCreateWithoutAccountsInput> | Prisma.transactionsCreateWithoutAccountsInput[] | Prisma.transactionsUncheckedCreateWithoutAccountsInput[];
@@ -794,6 +824,44 @@ export type transactionsUncheckedUpdateManyWithoutIncome_sourcesNestedInput = {
     updateMany?: Prisma.transactionsUpdateManyWithWhereWithoutIncome_sourcesInput | Prisma.transactionsUpdateManyWithWhereWithoutIncome_sourcesInput[];
     deleteMany?: Prisma.transactionsScalarWhereInput | Prisma.transactionsScalarWhereInput[];
 };
+export type transactionsCreateNestedManyWithoutRecurring_transactionsInput = {
+    create?: Prisma.XOR<Prisma.transactionsCreateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput> | Prisma.transactionsCreateWithoutRecurring_transactionsInput[] | Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput[];
+    connectOrCreate?: Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput | Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput[];
+    createMany?: Prisma.transactionsCreateManyRecurring_transactionsInputEnvelope;
+    connect?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+};
+export type transactionsUncheckedCreateNestedManyWithoutRecurring_transactionsInput = {
+    create?: Prisma.XOR<Prisma.transactionsCreateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput> | Prisma.transactionsCreateWithoutRecurring_transactionsInput[] | Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput[];
+    connectOrCreate?: Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput | Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput[];
+    createMany?: Prisma.transactionsCreateManyRecurring_transactionsInputEnvelope;
+    connect?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+};
+export type transactionsUpdateManyWithoutRecurring_transactionsNestedInput = {
+    create?: Prisma.XOR<Prisma.transactionsCreateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput> | Prisma.transactionsCreateWithoutRecurring_transactionsInput[] | Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput[];
+    connectOrCreate?: Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput | Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput[];
+    upsert?: Prisma.transactionsUpsertWithWhereUniqueWithoutRecurring_transactionsInput | Prisma.transactionsUpsertWithWhereUniqueWithoutRecurring_transactionsInput[];
+    createMany?: Prisma.transactionsCreateManyRecurring_transactionsInputEnvelope;
+    set?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    disconnect?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    delete?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    connect?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    update?: Prisma.transactionsUpdateWithWhereUniqueWithoutRecurring_transactionsInput | Prisma.transactionsUpdateWithWhereUniqueWithoutRecurring_transactionsInput[];
+    updateMany?: Prisma.transactionsUpdateManyWithWhereWithoutRecurring_transactionsInput | Prisma.transactionsUpdateManyWithWhereWithoutRecurring_transactionsInput[];
+    deleteMany?: Prisma.transactionsScalarWhereInput | Prisma.transactionsScalarWhereInput[];
+};
+export type transactionsUncheckedUpdateManyWithoutRecurring_transactionsNestedInput = {
+    create?: Prisma.XOR<Prisma.transactionsCreateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput> | Prisma.transactionsCreateWithoutRecurring_transactionsInput[] | Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput[];
+    connectOrCreate?: Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput | Prisma.transactionsCreateOrConnectWithoutRecurring_transactionsInput[];
+    upsert?: Prisma.transactionsUpsertWithWhereUniqueWithoutRecurring_transactionsInput | Prisma.transactionsUpsertWithWhereUniqueWithoutRecurring_transactionsInput[];
+    createMany?: Prisma.transactionsCreateManyRecurring_transactionsInputEnvelope;
+    set?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    disconnect?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    delete?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    connect?: Prisma.transactionsWhereUniqueInput | Prisma.transactionsWhereUniqueInput[];
+    update?: Prisma.transactionsUpdateWithWhereUniqueWithoutRecurring_transactionsInput | Prisma.transactionsUpdateWithWhereUniqueWithoutRecurring_transactionsInput[];
+    updateMany?: Prisma.transactionsUpdateManyWithWhereWithoutRecurring_transactionsInput | Prisma.transactionsUpdateManyWithWhereWithoutRecurring_transactionsInput[];
+    deleteMany?: Prisma.transactionsScalarWhereInput | Prisma.transactionsScalarWhereInput[];
+};
 export type transactionsCreateNestedManyWithoutPurchase_installmentsInput = {
     create?: Prisma.XOR<Prisma.transactionsCreateWithoutPurchase_installmentsInput, Prisma.transactionsUncheckedCreateWithoutPurchase_installmentsInput> | Prisma.transactionsCreateWithoutPurchase_installmentsInput[] | Prisma.transactionsUncheckedCreateWithoutPurchase_installmentsInput[];
     connectOrCreate?: Prisma.transactionsCreateOrConnectWithoutPurchase_installmentsInput | Prisma.transactionsCreateOrConnectWithoutPurchase_installmentsInput[];
@@ -896,6 +964,7 @@ export type transactionsCreateWithoutAccountsInput = {
     categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
     income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
     purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateWithoutAccountsInput = {
     id?: number;
@@ -915,6 +984,7 @@ export type transactionsUncheckedCreateWithoutAccountsInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsCreateOrConnectWithoutAccountsInput = {
     where: Prisma.transactionsWhereUniqueInput;
@@ -959,6 +1029,7 @@ export type transactionsScalarWhereInput = {
     income_source_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     installment_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
     installment_number?: Prisma.IntNullableFilter<"transactions"> | number | null;
+    recurring_transaction_id?: Prisma.IntNullableFilter<"transactions"> | number | null;
 };
 export type transactionsCreateWithoutCategoriesInput = {
     amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -977,6 +1048,7 @@ export type transactionsCreateWithoutCategoriesInput = {
     users: Prisma.usersCreateNestedOneWithoutTransactionsInput;
     income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
     purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateWithoutCategoriesInput = {
     id?: number;
@@ -996,6 +1068,7 @@ export type transactionsUncheckedCreateWithoutCategoriesInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsCreateOrConnectWithoutCategoriesInput = {
     where: Prisma.transactionsWhereUniqueInput;
@@ -1035,6 +1108,7 @@ export type transactionsCreateWithoutFinancial_entitiesInput = {
     categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
     income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
     purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateWithoutFinancial_entitiesInput = {
     id?: number;
@@ -1054,6 +1128,7 @@ export type transactionsUncheckedCreateWithoutFinancial_entitiesInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsCreateOrConnectWithoutFinancial_entitiesInput = {
     where: Prisma.transactionsWhereUniqueInput;
@@ -1093,6 +1168,7 @@ export type transactionsCreateWithoutIncome_sourcesInput = {
     users: Prisma.usersCreateNestedOneWithoutTransactionsInput;
     categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
     purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateWithoutIncome_sourcesInput = {
     id?: number;
@@ -1112,6 +1188,7 @@ export type transactionsUncheckedCreateWithoutIncome_sourcesInput = {
     category_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsCreateOrConnectWithoutIncome_sourcesInput = {
     where: Prisma.transactionsWhereUniqueInput;
@@ -1134,6 +1211,66 @@ export type transactionsUpdateManyWithWhereWithoutIncome_sourcesInput = {
     where: Prisma.transactionsScalarWhereInput;
     data: Prisma.XOR<Prisma.transactionsUpdateManyMutationInput, Prisma.transactionsUncheckedUpdateManyWithoutIncome_sourcesInput>;
 };
+export type transactionsCreateWithoutRecurring_transactionsInput = {
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    type: $Enums.transactions_type;
+    status?: $Enums.transactions_status | null;
+    category?: string | null;
+    description?: string | null;
+    transaction_date: Date | string;
+    created_at?: Date | string | null;
+    is_recurring?: boolean | null;
+    deleted_at?: Date | string | null;
+    payment_method?: string | null;
+    installment_number?: number | null;
+    financial_entities?: Prisma.financial_entitiesCreateNestedOneWithoutTransactionsInput;
+    accounts: Prisma.accountsCreateNestedOneWithoutTransactionsInput;
+    users: Prisma.usersCreateNestedOneWithoutTransactionsInput;
+    categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
+    income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
+    purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+};
+export type transactionsUncheckedCreateWithoutRecurring_transactionsInput = {
+    id?: number;
+    account_id: number;
+    user_id: number;
+    entity_id?: number | null;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    type: $Enums.transactions_type;
+    status?: $Enums.transactions_status | null;
+    category?: string | null;
+    description?: string | null;
+    transaction_date: Date | string;
+    created_at?: Date | string | null;
+    is_recurring?: boolean | null;
+    deleted_at?: Date | string | null;
+    payment_method?: string | null;
+    category_id?: number | null;
+    income_source_id?: number | null;
+    installment_id?: number | null;
+    installment_number?: number | null;
+};
+export type transactionsCreateOrConnectWithoutRecurring_transactionsInput = {
+    where: Prisma.transactionsWhereUniqueInput;
+    create: Prisma.XOR<Prisma.transactionsCreateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput>;
+};
+export type transactionsCreateManyRecurring_transactionsInputEnvelope = {
+    data: Prisma.transactionsCreateManyRecurring_transactionsInput | Prisma.transactionsCreateManyRecurring_transactionsInput[];
+    skipDuplicates?: boolean;
+};
+export type transactionsUpsertWithWhereUniqueWithoutRecurring_transactionsInput = {
+    where: Prisma.transactionsWhereUniqueInput;
+    update: Prisma.XOR<Prisma.transactionsUpdateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedUpdateWithoutRecurring_transactionsInput>;
+    create: Prisma.XOR<Prisma.transactionsCreateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedCreateWithoutRecurring_transactionsInput>;
+};
+export type transactionsUpdateWithWhereUniqueWithoutRecurring_transactionsInput = {
+    where: Prisma.transactionsWhereUniqueInput;
+    data: Prisma.XOR<Prisma.transactionsUpdateWithoutRecurring_transactionsInput, Prisma.transactionsUncheckedUpdateWithoutRecurring_transactionsInput>;
+};
+export type transactionsUpdateManyWithWhereWithoutRecurring_transactionsInput = {
+    where: Prisma.transactionsScalarWhereInput;
+    data: Prisma.XOR<Prisma.transactionsUpdateManyMutationInput, Prisma.transactionsUncheckedUpdateManyWithoutRecurring_transactionsInput>;
+};
 export type transactionsCreateWithoutPurchase_installmentsInput = {
     amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
     type: $Enums.transactions_type;
@@ -1151,6 +1288,7 @@ export type transactionsCreateWithoutPurchase_installmentsInput = {
     users: Prisma.usersCreateNestedOneWithoutTransactionsInput;
     categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
     income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateWithoutPurchase_installmentsInput = {
     id?: number;
@@ -1170,6 +1308,7 @@ export type transactionsUncheckedCreateWithoutPurchase_installmentsInput = {
     category_id?: number | null;
     income_source_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsCreateOrConnectWithoutPurchase_installmentsInput = {
     where: Prisma.transactionsWhereUniqueInput;
@@ -1209,6 +1348,7 @@ export type transactionsCreateWithoutUsersInput = {
     categories?: Prisma.categoriesCreateNestedOneWithoutTransactionsInput;
     income_sources?: Prisma.income_sourcesCreateNestedOneWithoutTransactionsInput;
     purchase_installments?: Prisma.purchase_installmentsCreateNestedOneWithoutTransactionsInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedOneWithoutTransactionsInput;
 };
 export type transactionsUncheckedCreateWithoutUsersInput = {
     id?: number;
@@ -1228,6 +1368,7 @@ export type transactionsUncheckedCreateWithoutUsersInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsCreateOrConnectWithoutUsersInput = {
     where: Prisma.transactionsWhereUniqueInput;
@@ -1268,6 +1409,7 @@ export type transactionsCreateManyAccountsInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateWithoutAccountsInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -1286,6 +1428,7 @@ export type transactionsUpdateWithoutAccountsInput = {
     categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
     income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateWithoutAccountsInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1305,6 +1448,7 @@ export type transactionsUncheckedUpdateWithoutAccountsInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsUncheckedUpdateManyWithoutAccountsInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1324,6 +1468,7 @@ export type transactionsUncheckedUpdateManyWithoutAccountsInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsCreateManyCategoriesInput = {
     id?: number;
@@ -1343,6 +1488,7 @@ export type transactionsCreateManyCategoriesInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateWithoutCategoriesInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -1361,6 +1507,7 @@ export type transactionsUpdateWithoutCategoriesInput = {
     users?: Prisma.usersUpdateOneRequiredWithoutTransactionsNestedInput;
     income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateWithoutCategoriesInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1380,6 +1527,7 @@ export type transactionsUncheckedUpdateWithoutCategoriesInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsUncheckedUpdateManyWithoutCategoriesInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1399,6 +1547,7 @@ export type transactionsUncheckedUpdateManyWithoutCategoriesInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsCreateManyFinancial_entitiesInput = {
     id?: number;
@@ -1418,6 +1567,7 @@ export type transactionsCreateManyFinancial_entitiesInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateWithoutFinancial_entitiesInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -1436,6 +1586,7 @@ export type transactionsUpdateWithoutFinancial_entitiesInput = {
     categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
     income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateWithoutFinancial_entitiesInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1455,6 +1606,7 @@ export type transactionsUncheckedUpdateWithoutFinancial_entitiesInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsUncheckedUpdateManyWithoutFinancial_entitiesInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1474,6 +1626,7 @@ export type transactionsUncheckedUpdateManyWithoutFinancial_entitiesInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsCreateManyIncome_sourcesInput = {
     id?: number;
@@ -1493,6 +1646,7 @@ export type transactionsCreateManyIncome_sourcesInput = {
     category_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateWithoutIncome_sourcesInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -1511,6 +1665,7 @@ export type transactionsUpdateWithoutIncome_sourcesInput = {
     users?: Prisma.usersUpdateOneRequiredWithoutTransactionsNestedInput;
     categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateWithoutIncome_sourcesInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1530,6 +1685,7 @@ export type transactionsUncheckedUpdateWithoutIncome_sourcesInput = {
     category_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsUncheckedUpdateManyWithoutIncome_sourcesInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1547,6 +1703,86 @@ export type transactionsUncheckedUpdateManyWithoutIncome_sourcesInput = {
     deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     category_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+};
+export type transactionsCreateManyRecurring_transactionsInput = {
+    id?: number;
+    account_id: number;
+    user_id: number;
+    entity_id?: number | null;
+    amount: runtime.Decimal | runtime.DecimalJsLike | number | string;
+    type: $Enums.transactions_type;
+    status?: $Enums.transactions_status | null;
+    category?: string | null;
+    description?: string | null;
+    transaction_date: Date | string;
+    created_at?: Date | string | null;
+    is_recurring?: boolean | null;
+    deleted_at?: Date | string | null;
+    payment_method?: string | null;
+    category_id?: number | null;
+    income_source_id?: number | null;
+    installment_id?: number | null;
+    installment_number?: number | null;
+};
+export type transactionsUpdateWithoutRecurring_transactionsInput = {
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    type?: Prisma.Enumtransactions_typeFieldUpdateOperationsInput | $Enums.transactions_type;
+    status?: Prisma.NullableEnumtransactions_statusFieldUpdateOperationsInput | $Enums.transactions_status | null;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transaction_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    is_recurring?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    financial_entities?: Prisma.financial_entitiesUpdateOneWithoutTransactionsNestedInput;
+    accounts?: Prisma.accountsUpdateOneRequiredWithoutTransactionsNestedInput;
+    users?: Prisma.usersUpdateOneRequiredWithoutTransactionsNestedInput;
+    categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
+    income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
+    purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+};
+export type transactionsUncheckedUpdateWithoutRecurring_transactionsInput = {
+    id?: Prisma.IntFieldUpdateOperationsInput | number;
+    account_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    user_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    type?: Prisma.Enumtransactions_typeFieldUpdateOperationsInput | $Enums.transactions_type;
+    status?: Prisma.NullableEnumtransactions_statusFieldUpdateOperationsInput | $Enums.transactions_status | null;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transaction_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    is_recurring?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+};
+export type transactionsUncheckedUpdateManyWithoutRecurring_transactionsInput = {
+    id?: Prisma.IntFieldUpdateOperationsInput | number;
+    account_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    user_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    entity_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
+    type?: Prisma.Enumtransactions_typeFieldUpdateOperationsInput | $Enums.transactions_type;
+    status?: Prisma.NullableEnumtransactions_statusFieldUpdateOperationsInput | $Enums.transactions_status | null;
+    category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    transaction_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    is_recurring?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    payment_method?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
@@ -1568,6 +1804,7 @@ export type transactionsCreateManyPurchase_installmentsInput = {
     category_id?: number | null;
     income_source_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateWithoutPurchase_installmentsInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -1586,6 +1823,7 @@ export type transactionsUpdateWithoutPurchase_installmentsInput = {
     users?: Prisma.usersUpdateOneRequiredWithoutTransactionsNestedInput;
     categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
     income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateWithoutPurchase_installmentsInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1605,6 +1843,7 @@ export type transactionsUncheckedUpdateWithoutPurchase_installmentsInput = {
     category_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsUncheckedUpdateManyWithoutPurchase_installmentsInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1624,6 +1863,7 @@ export type transactionsUncheckedUpdateManyWithoutPurchase_installmentsInput = {
     category_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsCreateManyUsersInput = {
     id?: number;
@@ -1643,6 +1883,7 @@ export type transactionsCreateManyUsersInput = {
     income_source_id?: number | null;
     installment_id?: number | null;
     installment_number?: number | null;
+    recurring_transaction_id?: number | null;
 };
 export type transactionsUpdateWithoutUsersInput = {
     amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string;
@@ -1661,6 +1902,7 @@ export type transactionsUpdateWithoutUsersInput = {
     categories?: Prisma.categoriesUpdateOneWithoutTransactionsNestedInput;
     income_sources?: Prisma.income_sourcesUpdateOneWithoutTransactionsNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUpdateOneWithoutTransactionsNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateOneWithoutTransactionsNestedInput;
 };
 export type transactionsUncheckedUpdateWithoutUsersInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1680,6 +1922,7 @@ export type transactionsUncheckedUpdateWithoutUsersInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsUncheckedUpdateManyWithoutUsersInput = {
     id?: Prisma.IntFieldUpdateOperationsInput | number;
@@ -1699,6 +1942,7 @@ export type transactionsUncheckedUpdateManyWithoutUsersInput = {
     income_source_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
     installment_number?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
+    recurring_transaction_id?: Prisma.NullableIntFieldUpdateOperationsInput | number | null;
 };
 export type transactionsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
@@ -1719,12 +1963,14 @@ export type transactionsSelect<ExtArgs extends runtime.Types.Extensions.Internal
     income_source_id?: boolean;
     installment_id?: boolean;
     installment_number?: boolean;
+    recurring_transaction_id?: boolean;
     financial_entities?: boolean | Prisma.transactions$financial_entitiesArgs<ExtArgs>;
     accounts?: boolean | Prisma.accountsDefaultArgs<ExtArgs>;
     users?: boolean | Prisma.usersDefaultArgs<ExtArgs>;
     categories?: boolean | Prisma.transactions$categoriesArgs<ExtArgs>;
     income_sources?: boolean | Prisma.transactions$income_sourcesArgs<ExtArgs>;
     purchase_installments?: boolean | Prisma.transactions$purchase_installmentsArgs<ExtArgs>;
+    recurring_transactions?: boolean | Prisma.transactions$recurring_transactionsArgs<ExtArgs>;
 }, ExtArgs["result"]["transactions"]>;
 export type transactionsSelectScalar = {
     id?: boolean;
@@ -1745,8 +1991,9 @@ export type transactionsSelectScalar = {
     income_source_id?: boolean;
     installment_id?: boolean;
     installment_number?: boolean;
+    recurring_transaction_id?: boolean;
 };
-export type transactionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "account_id" | "user_id" | "entity_id" | "amount" | "type" | "status" | "category" | "description" | "transaction_date" | "created_at" | "is_recurring" | "deleted_at" | "payment_method" | "category_id" | "income_source_id" | "installment_id" | "installment_number", ExtArgs["result"]["transactions"]>;
+export type transactionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "account_id" | "user_id" | "entity_id" | "amount" | "type" | "status" | "category" | "description" | "transaction_date" | "created_at" | "is_recurring" | "deleted_at" | "payment_method" | "category_id" | "income_source_id" | "installment_id" | "installment_number" | "recurring_transaction_id", ExtArgs["result"]["transactions"]>;
 export type transactionsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     financial_entities?: boolean | Prisma.transactions$financial_entitiesArgs<ExtArgs>;
     accounts?: boolean | Prisma.accountsDefaultArgs<ExtArgs>;
@@ -1754,6 +2001,7 @@ export type transactionsInclude<ExtArgs extends runtime.Types.Extensions.Interna
     categories?: boolean | Prisma.transactions$categoriesArgs<ExtArgs>;
     income_sources?: boolean | Prisma.transactions$income_sourcesArgs<ExtArgs>;
     purchase_installments?: boolean | Prisma.transactions$purchase_installmentsArgs<ExtArgs>;
+    recurring_transactions?: boolean | Prisma.transactions$recurring_transactionsArgs<ExtArgs>;
 };
 export type $transactionsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     name: "transactions";
@@ -1764,6 +2012,7 @@ export type $transactionsPayload<ExtArgs extends runtime.Types.Extensions.Intern
         categories: Prisma.$categoriesPayload<ExtArgs> | null;
         income_sources: Prisma.$income_sourcesPayload<ExtArgs> | null;
         purchase_installments: Prisma.$purchase_installmentsPayload<ExtArgs> | null;
+        recurring_transactions: Prisma.$recurring_transactionsPayload<ExtArgs> | null;
     };
     scalars: runtime.Types.Extensions.GetPayloadResult<{
         id: number;
@@ -1784,6 +2033,7 @@ export type $transactionsPayload<ExtArgs extends runtime.Types.Extensions.Intern
         income_source_id: number | null;
         installment_id: number | null;
         installment_number: number | null;
+        recurring_transaction_id: number | null;
     }, ExtArgs["result"]["transactions"]>;
     composites: {};
 };
@@ -2067,6 +2317,7 @@ export interface Prisma__transactionsClient<T, Null = never, ExtArgs extends run
     categories<T extends Prisma.transactions$categoriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.transactions$categoriesArgs<ExtArgs>>): Prisma.Prisma__categoriesClient<runtime.Types.Result.GetResult<Prisma.$categoriesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
     income_sources<T extends Prisma.transactions$income_sourcesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.transactions$income_sourcesArgs<ExtArgs>>): Prisma.Prisma__income_sourcesClient<runtime.Types.Result.GetResult<Prisma.$income_sourcesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
     purchase_installments<T extends Prisma.transactions$purchase_installmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.transactions$purchase_installmentsArgs<ExtArgs>>): Prisma.Prisma__purchase_installmentsClient<runtime.Types.Result.GetResult<Prisma.$purchase_installmentsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
+    recurring_transactions<T extends Prisma.transactions$recurring_transactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.transactions$recurring_transactionsArgs<ExtArgs>>): Prisma.Prisma__recurring_transactionsClient<runtime.Types.Result.GetResult<Prisma.$recurring_transactionsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2110,6 +2361,7 @@ export interface transactionsFieldRefs {
     readonly income_source_id: Prisma.FieldRef<"transactions", 'Int'>;
     readonly installment_id: Prisma.FieldRef<"transactions", 'Int'>;
     readonly installment_number: Prisma.FieldRef<"transactions", 'Int'>;
+    readonly recurring_transaction_id: Prisma.FieldRef<"transactions", 'Int'>;
 }
 /**
  * transactions findUnique
@@ -2508,6 +2760,24 @@ export type transactions$purchase_installmentsArgs<ExtArgs extends runtime.Types
      */
     include?: Prisma.purchase_installmentsInclude<ExtArgs> | null;
     where?: Prisma.purchase_installmentsWhereInput;
+};
+/**
+ * transactions.recurring_transactions
+ */
+export type transactions$recurring_transactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the recurring_transactions
+     */
+    select?: Prisma.recurring_transactionsSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the recurring_transactions
+     */
+    omit?: Prisma.recurring_transactionsOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: Prisma.recurring_transactionsInclude<ExtArgs> | null;
+    where?: Prisma.recurring_transactionsWhereInput;
 };
 /**
  * transactions without action

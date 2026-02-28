@@ -63,6 +63,11 @@ export type purchase_installments = Prisma.purchase_installmentsModel;
  */
 export type transactions = Prisma.transactionsModel;
 /**
+ * Model refresh_tokens
+ *
+ */
+export type refresh_tokens = Prisma.refresh_tokensModel;
+/**
  * Model users
  *
  */

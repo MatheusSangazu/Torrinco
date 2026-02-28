@@ -11,5 +11,7 @@ router.get('/transactions', FinanceController.list);
 router.get('/transactions/:id', FinanceController.getById);
 router.put('/transactions/:id', FinanceController.update);
 router.delete('/transactions/:id', FinanceController.delete);
+router.get('/cards/:cardId/bill', FinanceController.getCardBill);
+router.get('/cards/:cardId/next-bill', FinanceController.getCardNextBill);
 export default router;
 //# sourceMappingURL=finance.routes.js.map

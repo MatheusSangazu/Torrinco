@@ -1,8 +1,5 @@
 import { prisma } from '../lib/prisma.js';
 export class BudgetController {
-    /**
-     * Cria ou atualiza um orçamento (Upsert)
-     */
     static async upsert(req, res, next) {
         try {
             const { category, amount_limit, month_ref } = req.body;

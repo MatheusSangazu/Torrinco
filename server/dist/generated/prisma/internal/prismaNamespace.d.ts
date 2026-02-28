@@ -243,6 +243,7 @@ export declare const ModelName: {
     readonly reminders: "reminders";
     readonly purchase_installments: "purchase_installments";
     readonly transactions: "transactions";
+    readonly refresh_tokens: "refresh_tokens";
     readonly users: "users";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
@@ -256,7 +257,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         omit: GlobalOmitOptions;
     };
     meta: {
-        modelProps: "accounts" | "budgets" | "categories" | "events" | "financial_entities" | "income_sources" | "recurring_events" | "recurring_transactions" | "reminder_logs" | "reminders" | "purchase_installments" | "transactions" | "users";
+        modelProps: "accounts" | "budgets" | "categories" | "events" | "financial_entities" | "income_sources" | "recurring_events" | "recurring_transactions" | "reminder_logs" | "reminders" | "purchase_installments" | "transactions" | "refresh_tokens" | "users";
         txIsolationLevel: TransactionIsolationLevel;
     };
     model: {
@@ -1052,6 +1053,72 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
                 };
             };
         };
+        refresh_tokens: {
+            payload: Prisma.$refresh_tokensPayload<ExtArgs>;
+            fields: Prisma.refresh_tokensFieldRefs;
+            operations: {
+                findUnique: {
+                    args: Prisma.refresh_tokensFindUniqueArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload> | null;
+                };
+                findUniqueOrThrow: {
+                    args: Prisma.refresh_tokensFindUniqueOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>;
+                };
+                findFirst: {
+                    args: Prisma.refresh_tokensFindFirstArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload> | null;
+                };
+                findFirstOrThrow: {
+                    args: Prisma.refresh_tokensFindFirstOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>;
+                };
+                findMany: {
+                    args: Prisma.refresh_tokensFindManyArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>[];
+                };
+                create: {
+                    args: Prisma.refresh_tokensCreateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>;
+                };
+                createMany: {
+                    args: Prisma.refresh_tokensCreateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                delete: {
+                    args: Prisma.refresh_tokensDeleteArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>;
+                };
+                update: {
+                    args: Prisma.refresh_tokensUpdateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>;
+                };
+                deleteMany: {
+                    args: Prisma.refresh_tokensDeleteManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateMany: {
+                    args: Prisma.refresh_tokensUpdateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                upsert: {
+                    args: Prisma.refresh_tokensUpsertArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$refresh_tokensPayload>;
+                };
+                aggregate: {
+                    args: Prisma.Refresh_tokensAggregateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.AggregateRefresh_tokens>;
+                };
+                groupBy: {
+                    args: Prisma.refresh_tokensGroupByArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.Refresh_tokensGroupByOutputType>[];
+                };
+                count: {
+                    args: Prisma.refresh_tokensCountArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.Refresh_tokensCountAggregateOutputType> | number;
+                };
+            };
+        };
         users: {
             payload: Prisma.$usersPayload<ExtArgs>;
             fields: Prisma.usersFieldRefs;
@@ -1236,6 +1303,8 @@ export declare const Recurring_transactionsScalarFieldEnum: {
     readonly next_due_date: "next_due_date";
     readonly status: "status";
     readonly created_at: "created_at";
+    readonly entity_id: "entity_id";
+    readonly payment_method: "payment_method";
 };
 export type Recurring_transactionsScalarFieldEnum = (typeof Recurring_transactionsScalarFieldEnum)[keyof typeof Recurring_transactionsScalarFieldEnum];
 export declare const Reminder_logsScalarFieldEnum: {
@@ -1293,8 +1362,18 @@ export declare const TransactionsScalarFieldEnum: {
     readonly income_source_id: "income_source_id";
     readonly installment_id: "installment_id";
     readonly installment_number: "installment_number";
+    readonly recurring_transaction_id: "recurring_transaction_id";
 };
 export type TransactionsScalarFieldEnum = (typeof TransactionsScalarFieldEnum)[keyof typeof TransactionsScalarFieldEnum];
+export declare const Refresh_tokensScalarFieldEnum: {
+    readonly id: "id";
+    readonly token: "token";
+    readonly user_id: "user_id";
+    readonly expires_at: "expires_at";
+    readonly created_at: "created_at";
+    readonly revoked_at: "revoked_at";
+};
+export type Refresh_tokensScalarFieldEnum = (typeof Refresh_tokensScalarFieldEnum)[keyof typeof Refresh_tokensScalarFieldEnum];
 export declare const UsersScalarFieldEnum: {
     readonly id: "id";
     readonly account_id: "account_id";
@@ -1360,6 +1439,7 @@ export type recurring_eventsOrderByRelevanceFieldEnum = (typeof recurring_events
 export declare const recurring_transactionsOrderByRelevanceFieldEnum: {
     readonly description: "description";
     readonly category: "category";
+    readonly payment_method: "payment_method";
 };
 export type recurring_transactionsOrderByRelevanceFieldEnum = (typeof recurring_transactionsOrderByRelevanceFieldEnum)[keyof typeof recurring_transactionsOrderByRelevanceFieldEnum];
 export declare const reminder_logsOrderByRelevanceFieldEnum: {
@@ -1380,6 +1460,10 @@ export declare const transactionsOrderByRelevanceFieldEnum: {
     readonly payment_method: "payment_method";
 };
 export type transactionsOrderByRelevanceFieldEnum = (typeof transactionsOrderByRelevanceFieldEnum)[keyof typeof transactionsOrderByRelevanceFieldEnum];
+export declare const refresh_tokensOrderByRelevanceFieldEnum: {
+    readonly token: "token";
+};
+export type refresh_tokensOrderByRelevanceFieldEnum = (typeof refresh_tokensOrderByRelevanceFieldEnum)[keyof typeof refresh_tokensOrderByRelevanceFieldEnum];
 export declare const usersOrderByRelevanceFieldEnum: {
     readonly phone_number: "phone_number";
     readonly password_hash: "password_hash";
@@ -1599,6 +1683,7 @@ export type GlobalOmitConfig = {
     reminders?: Prisma.remindersOmit;
     purchase_installments?: Prisma.purchase_installmentsOmit;
     transactions?: Prisma.transactionsOmit;
+    refresh_tokens?: Prisma.refresh_tokensOmit;
     users?: Prisma.usersOmit;
 };
 export type LogLevel = 'info' | 'query' | 'warn' | 'error';

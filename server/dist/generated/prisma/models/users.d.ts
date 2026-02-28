@@ -229,6 +229,7 @@ export type usersWhereInput = {
     google_refresh_token?: Prisma.StringNullableFilter<"users"> | string | null;
     google_email?: Prisma.StringNullableFilter<"users"> | string | null;
     google_calendar_id?: Prisma.StringNullableFilter<"users"> | string | null;
+    refresh_tokens?: Prisma.Refresh_tokensListRelationFilter;
     budgets?: Prisma.BudgetsListRelationFilter;
     categories?: Prisma.CategoriesListRelationFilter;
     events?: Prisma.EventsListRelationFilter;
@@ -255,6 +256,7 @@ export type usersOrderByWithRelationInput = {
     google_refresh_token?: Prisma.SortOrderInput | Prisma.SortOrder;
     google_email?: Prisma.SortOrderInput | Prisma.SortOrder;
     google_calendar_id?: Prisma.SortOrderInput | Prisma.SortOrder;
+    refresh_tokens?: Prisma.refresh_tokensOrderByRelationAggregateInput;
     budgets?: Prisma.budgetsOrderByRelationAggregateInput;
     categories?: Prisma.categoriesOrderByRelationAggregateInput;
     events?: Prisma.eventsOrderByRelationAggregateInput;
@@ -285,6 +287,7 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
     google_refresh_token?: Prisma.StringNullableFilter<"users"> | string | null;
     google_email?: Prisma.StringNullableFilter<"users"> | string | null;
     google_calendar_id?: Prisma.StringNullableFilter<"users"> | string | null;
+    refresh_tokens?: Prisma.Refresh_tokensListRelationFilter;
     budgets?: Prisma.BudgetsListRelationFilter;
     categories?: Prisma.CategoriesListRelationFilter;
     events?: Prisma.EventsListRelationFilter;
@@ -345,6 +348,7 @@ export type usersCreateInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -371,6 +375,7 @@ export type usersUncheckedCreateInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -394,6 +399,7 @@ export type usersUpdateInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -420,6 +426,7 @@ export type usersUncheckedUpdateInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -709,6 +716,18 @@ export type usersUpdateOneRequiredWithoutTransactionsNestedInput = {
     connect?: Prisma.usersWhereUniqueInput;
     update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutTransactionsInput, Prisma.usersUpdateWithoutTransactionsInput>, Prisma.usersUncheckedUpdateWithoutTransactionsInput>;
 };
+export type usersCreateNestedOneWithoutRefresh_tokensInput = {
+    create?: Prisma.XOR<Prisma.usersCreateWithoutRefresh_tokensInput, Prisma.usersUncheckedCreateWithoutRefresh_tokensInput>;
+    connectOrCreate?: Prisma.usersCreateOrConnectWithoutRefresh_tokensInput;
+    connect?: Prisma.usersWhereUniqueInput;
+};
+export type usersUpdateOneRequiredWithoutRefresh_tokensNestedInput = {
+    create?: Prisma.XOR<Prisma.usersCreateWithoutRefresh_tokensInput, Prisma.usersUncheckedCreateWithoutRefresh_tokensInput>;
+    connectOrCreate?: Prisma.usersCreateOrConnectWithoutRefresh_tokensInput;
+    upsert?: Prisma.usersUpsertWithoutRefresh_tokensInput;
+    connect?: Prisma.usersWhereUniqueInput;
+    update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutRefresh_tokensInput, Prisma.usersUpdateWithoutRefresh_tokensInput>, Prisma.usersUncheckedUpdateWithoutRefresh_tokensInput>;
+};
 export type NullableEnumusers_roleFieldUpdateOperationsInput = {
     set?: $Enums.users_role | null;
 };
@@ -726,6 +745,7 @@ export type usersCreateWithoutAccountsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -750,6 +770,7 @@ export type usersUncheckedCreateWithoutAccountsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -811,6 +832,7 @@ export type usersCreateWithoutBudgetsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
     financial_entities?: Prisma.financial_entitiesCreateNestedManyWithoutUsersInput;
@@ -836,6 +858,7 @@ export type usersUncheckedCreateWithoutBudgetsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
     financial_entities?: Prisma.financial_entitiesUncheckedCreateNestedManyWithoutUsersInput;
@@ -871,6 +894,7 @@ export type usersUpdateWithoutBudgetsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
     financial_entities?: Prisma.financial_entitiesUpdateManyWithoutUsersNestedInput;
@@ -896,6 +920,7 @@ export type usersUncheckedUpdateWithoutBudgetsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
     financial_entities?: Prisma.financial_entitiesUncheckedUpdateManyWithoutUsersNestedInput;
@@ -918,6 +943,7 @@ export type usersCreateWithoutCategoriesInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
     financial_entities?: Prisma.financial_entitiesCreateNestedManyWithoutUsersInput;
@@ -943,6 +969,7 @@ export type usersUncheckedCreateWithoutCategoriesInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
     financial_entities?: Prisma.financial_entitiesUncheckedCreateNestedManyWithoutUsersInput;
@@ -978,6 +1005,7 @@ export type usersUpdateWithoutCategoriesInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
     financial_entities?: Prisma.financial_entitiesUpdateManyWithoutUsersNestedInput;
@@ -1003,6 +1031,7 @@ export type usersUncheckedUpdateWithoutCategoriesInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
     financial_entities?: Prisma.financial_entitiesUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1025,6 +1054,7 @@ export type usersCreateWithoutEventsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     financial_entities?: Prisma.financial_entitiesCreateNestedManyWithoutUsersInput;
@@ -1050,6 +1080,7 @@ export type usersUncheckedCreateWithoutEventsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     financial_entities?: Prisma.financial_entitiesUncheckedCreateNestedManyWithoutUsersInput;
@@ -1085,6 +1116,7 @@ export type usersUpdateWithoutEventsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     financial_entities?: Prisma.financial_entitiesUpdateManyWithoutUsersNestedInput;
@@ -1110,6 +1142,7 @@ export type usersUncheckedUpdateWithoutEventsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     financial_entities?: Prisma.financial_entitiesUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1132,6 +1165,7 @@ export type usersCreateWithoutFinancial_entitiesInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1157,6 +1191,7 @@ export type usersUncheckedCreateWithoutFinancial_entitiesInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1192,6 +1227,7 @@ export type usersUpdateWithoutFinancial_entitiesInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1217,6 +1253,7 @@ export type usersUncheckedUpdateWithoutFinancial_entitiesInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1239,6 +1276,7 @@ export type usersCreateWithoutIncome_sourcesInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1264,6 +1302,7 @@ export type usersUncheckedCreateWithoutIncome_sourcesInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1299,6 +1338,7 @@ export type usersUpdateWithoutIncome_sourcesInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1324,6 +1364,7 @@ export type usersUncheckedUpdateWithoutIncome_sourcesInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1346,6 +1387,7 @@ export type usersCreateWithoutRecurring_eventsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1371,6 +1413,7 @@ export type usersUncheckedCreateWithoutRecurring_eventsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1406,6 +1449,7 @@ export type usersUpdateWithoutRecurring_eventsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1431,6 +1475,7 @@ export type usersUncheckedUpdateWithoutRecurring_eventsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1453,6 +1498,7 @@ export type usersCreateWithoutRecurring_transactionsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1478,6 +1524,7 @@ export type usersUncheckedCreateWithoutRecurring_transactionsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1513,6 +1560,7 @@ export type usersUpdateWithoutRecurring_transactionsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1538,6 +1586,7 @@ export type usersUncheckedUpdateWithoutRecurring_transactionsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1560,6 +1609,7 @@ export type usersCreateWithoutReminder_logsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1585,6 +1635,7 @@ export type usersUncheckedCreateWithoutReminder_logsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1620,6 +1671,7 @@ export type usersUpdateWithoutReminder_logsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1645,6 +1697,7 @@ export type usersUncheckedUpdateWithoutReminder_logsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1667,6 +1720,7 @@ export type usersCreateWithoutRemindersInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1692,6 +1746,7 @@ export type usersUncheckedCreateWithoutRemindersInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1727,6 +1782,7 @@ export type usersUpdateWithoutRemindersInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1752,6 +1808,7 @@ export type usersUncheckedUpdateWithoutRemindersInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1774,6 +1831,7 @@ export type usersCreateWithoutPurchase_installmentsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1799,6 +1857,7 @@ export type usersUncheckedCreateWithoutPurchase_installmentsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1834,6 +1893,7 @@ export type usersUpdateWithoutPurchase_installmentsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1859,6 +1919,7 @@ export type usersUncheckedUpdateWithoutPurchase_installmentsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1881,6 +1942,7 @@ export type usersCreateWithoutTransactionsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
@@ -1906,6 +1968,7 @@ export type usersUncheckedCreateWithoutTransactionsInput = {
     google_refresh_token?: string | null;
     google_email?: string | null;
     google_calendar_id?: string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedCreateNestedManyWithoutUsersInput;
     budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
     categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
     events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
@@ -1941,6 +2004,7 @@ export type usersUpdateWithoutTransactionsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -1966,6 +2030,7 @@ export type usersUncheckedUpdateWithoutTransactionsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -1976,6 +2041,117 @@ export type usersUncheckedUpdateWithoutTransactionsInput = {
     reminder_logs?: Prisma.reminder_logsUncheckedUpdateManyWithoutUsersNestedInput;
     reminders?: Prisma.remindersUncheckedUpdateManyWithoutUsersNestedInput;
     purchase_installments?: Prisma.purchase_installmentsUncheckedUpdateManyWithoutUsersNestedInput;
+};
+export type usersCreateWithoutRefresh_tokensInput = {
+    phone_number: string;
+    password_hash?: string | null;
+    name?: string | null;
+    role?: $Enums.users_role | null;
+    status?: $Enums.users_status | null;
+    created_at?: Date | string | null;
+    email?: string | null;
+    google_refresh_token?: string | null;
+    google_email?: string | null;
+    google_calendar_id?: string | null;
+    budgets?: Prisma.budgetsCreateNestedManyWithoutUsersInput;
+    categories?: Prisma.categoriesCreateNestedManyWithoutUsersInput;
+    events?: Prisma.eventsCreateNestedManyWithoutUsersInput;
+    financial_entities?: Prisma.financial_entitiesCreateNestedManyWithoutUsersInput;
+    income_sources?: Prisma.income_sourcesCreateNestedManyWithoutUsersInput;
+    recurring_events?: Prisma.recurring_eventsCreateNestedManyWithoutUsersInput;
+    recurring_transactions?: Prisma.recurring_transactionsCreateNestedManyWithoutUsersInput;
+    reminder_logs?: Prisma.reminder_logsCreateNestedManyWithoutUsersInput;
+    reminders?: Prisma.remindersCreateNestedManyWithoutUsersInput;
+    purchase_installments?: Prisma.purchase_installmentsCreateNestedManyWithoutUsersInput;
+    transactions?: Prisma.transactionsCreateNestedManyWithoutUsersInput;
+    accounts: Prisma.accountsCreateNestedOneWithoutUsersInput;
+};
+export type usersUncheckedCreateWithoutRefresh_tokensInput = {
+    id?: number;
+    account_id: number;
+    phone_number: string;
+    password_hash?: string | null;
+    name?: string | null;
+    role?: $Enums.users_role | null;
+    status?: $Enums.users_status | null;
+    created_at?: Date | string | null;
+    email?: string | null;
+    google_refresh_token?: string | null;
+    google_email?: string | null;
+    google_calendar_id?: string | null;
+    budgets?: Prisma.budgetsUncheckedCreateNestedManyWithoutUsersInput;
+    categories?: Prisma.categoriesUncheckedCreateNestedManyWithoutUsersInput;
+    events?: Prisma.eventsUncheckedCreateNestedManyWithoutUsersInput;
+    financial_entities?: Prisma.financial_entitiesUncheckedCreateNestedManyWithoutUsersInput;
+    income_sources?: Prisma.income_sourcesUncheckedCreateNestedManyWithoutUsersInput;
+    recurring_events?: Prisma.recurring_eventsUncheckedCreateNestedManyWithoutUsersInput;
+    recurring_transactions?: Prisma.recurring_transactionsUncheckedCreateNestedManyWithoutUsersInput;
+    reminder_logs?: Prisma.reminder_logsUncheckedCreateNestedManyWithoutUsersInput;
+    reminders?: Prisma.remindersUncheckedCreateNestedManyWithoutUsersInput;
+    purchase_installments?: Prisma.purchase_installmentsUncheckedCreateNestedManyWithoutUsersInput;
+    transactions?: Prisma.transactionsUncheckedCreateNestedManyWithoutUsersInput;
+};
+export type usersCreateOrConnectWithoutRefresh_tokensInput = {
+    where: Prisma.usersWhereUniqueInput;
+    create: Prisma.XOR<Prisma.usersCreateWithoutRefresh_tokensInput, Prisma.usersUncheckedCreateWithoutRefresh_tokensInput>;
+};
+export type usersUpsertWithoutRefresh_tokensInput = {
+    update: Prisma.XOR<Prisma.usersUpdateWithoutRefresh_tokensInput, Prisma.usersUncheckedUpdateWithoutRefresh_tokensInput>;
+    create: Prisma.XOR<Prisma.usersCreateWithoutRefresh_tokensInput, Prisma.usersUncheckedCreateWithoutRefresh_tokensInput>;
+    where?: Prisma.usersWhereInput;
+};
+export type usersUpdateToOneWithWhereWithoutRefresh_tokensInput = {
+    where?: Prisma.usersWhereInput;
+    data: Prisma.XOR<Prisma.usersUpdateWithoutRefresh_tokensInput, Prisma.usersUncheckedUpdateWithoutRefresh_tokensInput>;
+};
+export type usersUpdateWithoutRefresh_tokensInput = {
+    phone_number?: Prisma.StringFieldUpdateOperationsInput | string;
+    password_hash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    role?: Prisma.NullableEnumusers_roleFieldUpdateOperationsInput | $Enums.users_role | null;
+    status?: Prisma.NullableEnumusers_statusFieldUpdateOperationsInput | $Enums.users_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
+    categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
+    events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
+    financial_entities?: Prisma.financial_entitiesUpdateManyWithoutUsersNestedInput;
+    income_sources?: Prisma.income_sourcesUpdateManyWithoutUsersNestedInput;
+    recurring_events?: Prisma.recurring_eventsUpdateManyWithoutUsersNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUpdateManyWithoutUsersNestedInput;
+    reminder_logs?: Prisma.reminder_logsUpdateManyWithoutUsersNestedInput;
+    reminders?: Prisma.remindersUpdateManyWithoutUsersNestedInput;
+    purchase_installments?: Prisma.purchase_installmentsUpdateManyWithoutUsersNestedInput;
+    transactions?: Prisma.transactionsUpdateManyWithoutUsersNestedInput;
+    accounts?: Prisma.accountsUpdateOneRequiredWithoutUsersNestedInput;
+};
+export type usersUncheckedUpdateWithoutRefresh_tokensInput = {
+    id?: Prisma.IntFieldUpdateOperationsInput | number;
+    account_id?: Prisma.IntFieldUpdateOperationsInput | number;
+    phone_number?: Prisma.StringFieldUpdateOperationsInput | string;
+    password_hash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    role?: Prisma.NullableEnumusers_roleFieldUpdateOperationsInput | $Enums.users_role | null;
+    status?: Prisma.NullableEnumusers_statusFieldUpdateOperationsInput | $Enums.users_status | null;
+    created_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
+    categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
+    events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
+    financial_entities?: Prisma.financial_entitiesUncheckedUpdateManyWithoutUsersNestedInput;
+    income_sources?: Prisma.income_sourcesUncheckedUpdateManyWithoutUsersNestedInput;
+    recurring_events?: Prisma.recurring_eventsUncheckedUpdateManyWithoutUsersNestedInput;
+    recurring_transactions?: Prisma.recurring_transactionsUncheckedUpdateManyWithoutUsersNestedInput;
+    reminder_logs?: Prisma.reminder_logsUncheckedUpdateManyWithoutUsersNestedInput;
+    reminders?: Prisma.remindersUncheckedUpdateManyWithoutUsersNestedInput;
+    purchase_installments?: Prisma.purchase_installmentsUncheckedUpdateManyWithoutUsersNestedInput;
+    transactions?: Prisma.transactionsUncheckedUpdateManyWithoutUsersNestedInput;
 };
 export type usersCreateManyAccountsInput = {
     id?: number;
@@ -2001,6 +2177,7 @@ export type usersUpdateWithoutAccountsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUpdateManyWithoutUsersNestedInput;
@@ -2025,6 +2202,7 @@ export type usersUncheckedUpdateWithoutAccountsInput = {
     google_refresh_token?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     google_calendar_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    refresh_tokens?: Prisma.refresh_tokensUncheckedUpdateManyWithoutUsersNestedInput;
     budgets?: Prisma.budgetsUncheckedUpdateManyWithoutUsersNestedInput;
     categories?: Prisma.categoriesUncheckedUpdateManyWithoutUsersNestedInput;
     events?: Prisma.eventsUncheckedUpdateManyWithoutUsersNestedInput;
@@ -2054,6 +2232,7 @@ export type usersUncheckedUpdateManyWithoutAccountsInput = {
  * Count Type UsersCountOutputType
  */
 export type UsersCountOutputType = {
+    refresh_tokens: number;
     budgets: number;
     categories: number;
     events: number;
@@ -2067,6 +2246,7 @@ export type UsersCountOutputType = {
     transactions: number;
 };
 export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    refresh_tokens?: boolean | UsersCountOutputTypeCountRefresh_tokensArgs;
     budgets?: boolean | UsersCountOutputTypeCountBudgetsArgs;
     categories?: boolean | UsersCountOutputTypeCountCategoriesArgs;
     events?: boolean | UsersCountOutputTypeCountEventsArgs;
@@ -2087,6 +2267,12 @@ export type UsersCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extens
      * Select specific fields to fetch from the UsersCountOutputType
      */
     select?: Prisma.UsersCountOutputTypeSelect<ExtArgs> | null;
+};
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountRefresh_tokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    where?: Prisma.refresh_tokensWhereInput;
 };
 /**
  * UsersCountOutputType without action
@@ -2167,6 +2353,7 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     google_refresh_token?: boolean;
     google_email?: boolean;
     google_calendar_id?: boolean;
+    refresh_tokens?: boolean | Prisma.users$refresh_tokensArgs<ExtArgs>;
     budgets?: boolean | Prisma.users$budgetsArgs<ExtArgs>;
     categories?: boolean | Prisma.users$categoriesArgs<ExtArgs>;
     events?: boolean | Prisma.users$eventsArgs<ExtArgs>;
@@ -2197,6 +2384,7 @@ export type usersSelectScalar = {
 };
 export type usersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "account_id" | "phone_number" | "password_hash" | "name" | "role" | "status" | "created_at" | "email" | "google_refresh_token" | "google_email" | "google_calendar_id", ExtArgs["result"]["users"]>;
 export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    refresh_tokens?: boolean | Prisma.users$refresh_tokensArgs<ExtArgs>;
     budgets?: boolean | Prisma.users$budgetsArgs<ExtArgs>;
     categories?: boolean | Prisma.users$categoriesArgs<ExtArgs>;
     events?: boolean | Prisma.users$eventsArgs<ExtArgs>;
@@ -2214,6 +2402,7 @@ export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
 export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     name: "users";
     objects: {
+        refresh_tokens: Prisma.$refresh_tokensPayload<ExtArgs>[];
         budgets: Prisma.$budgetsPayload<ExtArgs>[];
         categories: Prisma.$categoriesPayload<ExtArgs>[];
         events: Prisma.$eventsPayload<ExtArgs>[];
@@ -2517,6 +2706,7 @@ export interface usersDelegate<ExtArgs extends runtime.Types.Extensions.Internal
  */
 export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise";
+    refresh_tokens<T extends Prisma.users$refresh_tokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$refresh_tokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$refresh_tokensPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     budgets<T extends Prisma.users$budgetsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$budgetsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$budgetsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     categories<T extends Prisma.users$categoriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$categoriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$categoriesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     events<T extends Prisma.users$eventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$eventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$eventsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
@@ -2892,6 +3082,29 @@ export type usersDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
      * Limit how many users to delete.
      */
     limit?: number;
+};
+/**
+ * users.refresh_tokens
+ */
+export type users$refresh_tokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the refresh_tokens
+     */
+    select?: Prisma.refresh_tokensSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the refresh_tokens
+     */
+    omit?: Prisma.refresh_tokensOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: Prisma.refresh_tokensInclude<ExtArgs> | null;
+    where?: Prisma.refresh_tokensWhereInput;
+    orderBy?: Prisma.refresh_tokensOrderByWithRelationInput | Prisma.refresh_tokensOrderByWithRelationInput[];
+    cursor?: Prisma.refresh_tokensWhereUniqueInput;
+    take?: number;
+    skip?: number;
+    distinct?: Prisma.Refresh_tokensScalarFieldEnum | Prisma.Refresh_tokensScalarFieldEnum[];
 };
 /**
  * users.budgets

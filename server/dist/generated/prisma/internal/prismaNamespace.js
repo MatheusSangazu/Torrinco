@@ -80,6 +80,7 @@ export const ModelName = {
     reminders: 'reminders',
     purchase_installments: 'purchase_installments',
     transactions: 'transactions',
+    refresh_tokens: 'refresh_tokens',
     users: 'users'
 };
 /**
@@ -167,7 +168,9 @@ export const Recurring_transactionsScalarFieldEnum = {
     start_date: 'start_date',
     next_due_date: 'next_due_date',
     status: 'status',
-    created_at: 'created_at'
+    created_at: 'created_at',
+    entity_id: 'entity_id',
+    payment_method: 'payment_method'
 };
 export const Reminder_logsScalarFieldEnum = {
     id: 'id',
@@ -220,7 +223,16 @@ export const TransactionsScalarFieldEnum = {
     category_id: 'category_id',
     income_source_id: 'income_source_id',
     installment_id: 'installment_id',
-    installment_number: 'installment_number'
+    installment_number: 'installment_number',
+    recurring_transaction_id: 'recurring_transaction_id'
+};
+export const Refresh_tokensScalarFieldEnum = {
+    id: 'id',
+    token: 'token',
+    user_id: 'user_id',
+    expires_at: 'expires_at',
+    created_at: 'created_at',
+    revoked_at: 'revoked_at'
 };
 export const UsersScalarFieldEnum = {
     id: 'id',
@@ -276,7 +288,8 @@ export const recurring_eventsOrderByRelevanceFieldEnum = {
 };
 export const recurring_transactionsOrderByRelevanceFieldEnum = {
     description: 'description',
-    category: 'category'
+    category: 'category',
+    payment_method: 'payment_method'
 };
 export const reminder_logsOrderByRelevanceFieldEnum = {
     event_identifier: 'event_identifier'
@@ -291,6 +304,9 @@ export const transactionsOrderByRelevanceFieldEnum = {
     category: 'category',
     description: 'description',
     payment_method: 'payment_method'
+};
+export const refresh_tokensOrderByRelevanceFieldEnum = {
+    token: 'token'
 };
 export const usersOrderByRelevanceFieldEnum = {
     phone_number: 'phone_number',

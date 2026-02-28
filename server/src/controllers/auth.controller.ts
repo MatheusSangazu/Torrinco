@@ -1,8 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma.js';
-import { generateToken, type JwtRequest } from '../middleware/jwt.js';
+import { generateAccessToken, type JwtRequest } from '../middleware/jwt.js';
 import { EvolutionService } from '../services/evolution.service.js';
+import { RefreshTokenService } from '../services/refresh-token.service.js';
 
 // Rever caso escale para múltiplos servidores
 const resetCodes = new Map<string, { code: string, expires: number }>();
@@ -339,17 +340,25 @@ export class AuthController {
         }
       });
 
-      const token = generateToken({
+      const createPasswordPayload = {
         userId: updatedUser.id,
         accountId: updatedUser.account_id,
         userRole: updatedUser.role ?? 'user'
-      });
+      };
+
+      const accessToken = generateAccessToken(createPasswordPayload);
+
+      const refreshToken = await RefreshTokenService.createRefreshToken(
+        updatedUser.id,
+        updatedUser.account_id,
+        updatedUser.role ?? 'user'
+      );
 
       // Limpar código 
       firstAccessCodes.delete(user.phone_number);
 
       console.log('✅ Senha criada e token gerado para:', phone_number);
-      res.json({ user: updatedUser, token });
+      res.json({ user: updatedUser, accessToken, refreshToken });
     } catch (error) {
       console.error('❌ Erro no AuthController.createPassword:', error);
       next(error);
@@ -466,17 +475,24 @@ export class AuthController {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
-      const token = generateToken({
+      const loginPayload = {
         userId: user.id,
         accountId: user.account_id,
         userRole: user.role ?? 'user'
-      });
+      };
 
-      
+      const accessToken = generateAccessToken(loginPayload);
+
+      const refreshToken = await RefreshTokenService.createRefreshToken(
+        user.id,
+        user.account_id,
+        user.role ?? 'user'
+      );
+
       const { password_hash, ...userWithoutPassword } = user;
 
       console.log('✅ Login realizado com sucesso:', phone_number);
-      res.json({ user: userWithoutPassword, token });
+      res.json({ user: userWithoutPassword, accessToken, refreshToken });
     } catch (error) {
       console.error('❌ Erro no AuthController.login:', error);
       next(error);
@@ -642,6 +658,43 @@ export class AuthController {
       res.json({ message: 'Usuário excluído (desativado) com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.deleteUser:', error);
+      next(error);
+    }
+  }
+
+  static async refreshToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({ error: 'Refresh token é obrigatório' });
+      }
+
+      const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.rotateRefreshToken(refreshToken);
+      res.json({ accessToken, refreshToken: newRefreshToken });
+    } catch (error) {
+      console.error('❌ Erro no AuthController.refreshToken:', error);
+      if (error instanceof Error) {
+        return res.status(401).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  static async logout(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({ error: 'Refresh token é obrigatório' });
+      }
+
+      await RefreshTokenService.revokeRefreshToken(refreshToken);
+
+      console.log('✅ Logout realizado com sucesso');
+      res.json({ message: 'Logout realizado com sucesso' });
+    } catch (error) {
+      console.error('❌ Erro no AuthController.logout:', error);
       next(error);
     }
   }
