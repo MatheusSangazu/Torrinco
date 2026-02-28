@@ -72,6 +72,9 @@ interface Transaction {
   description: string;
   transaction_date: string;
   status: string;
+  financial_entities?: {
+    name: string;
+  };
 }
 
 interface RecurringTransaction {

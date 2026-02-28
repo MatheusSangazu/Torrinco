@@ -49,6 +49,7 @@ interface Transaction {
   status: string;
   payment_method?: string;
   is_recurring?: boolean;
+  recurring_transaction_id?: number;
   is_projected?: boolean;
   installment_number?: number;
   purchase_installments?: {
