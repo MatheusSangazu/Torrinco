@@ -66,7 +66,8 @@ export class FinanceController {
             status: 'pending',
             is_recurring: true,
             is_projected: true,
-            payment_method: 'pix'
+            payment_method: rt.payment_method || 'pix',
+            entity_id: rt.entity_id
           });
         }
         
@@ -332,7 +333,8 @@ export class FinanceController {
         where: { id: Number(id), user_id: userId },
         include: {
           financial_entities: true,
-          categories: true
+          categories: true,
+          income_sources: true
         }
       });
 
@@ -370,11 +372,12 @@ export class FinanceController {
           amount: amount ? parseFloat(amount) : undefined,
           type: type ?? undefined,
           category: category ?? undefined,
+          category_id: category_id ? Number(category_id) : (category_id === null ? null : undefined),
           income_source_id: finalIncomeSourceId !== undefined ? finalIncomeSourceId : undefined,
           description: description ?? undefined,
           transaction_date: transaction_date ? new Date(transaction_date) : undefined,
           status: status ?? undefined,
-          entity_id: entity_id ? Number(entity_id) : undefined,
+          entity_id: entity_id ? Number(entity_id) : (entity_id === null ? null : undefined),
           payment_method: payment_method ?? undefined,
           is_recurring: is_recurring !== undefined ? is_recurring : undefined
         },

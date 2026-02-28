@@ -233,7 +233,12 @@ export function Transactions() {
         };
 
         if (editingTransaction) {
-          await api.put(`/finance/transactions/${editingTransaction.id}`, payload);
+          // If it's a projected recurring transaction (virtual), we need to create it as a real one first
+          if (typeof editingTransaction.id === 'string' && editingTransaction.id.startsWith('rec-')) {
+            await api.post('/finance/transactions', payload);
+          } else {
+            await api.put(`/finance/transactions/${editingTransaction.id}`, payload);
+          }
         } else {
           await api.post('/finance/transactions', payload);
         }
