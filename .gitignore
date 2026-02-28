@@ -32,5 +32,8 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# Keep the generated Prisma Client + query engine out of version control
+# Prisma
 /src/generated/prisma
+
+# Docs (Local only)
+docs/
