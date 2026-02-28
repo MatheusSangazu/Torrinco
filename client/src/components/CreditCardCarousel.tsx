@@ -139,10 +139,10 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'paid') return 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30';
+    if (status === 'paid') return 'bg-white/90 text-indigo-700 font-bold shadow-sm backdrop-blur-sm';
     return status === 'open' 
-      ? 'bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30'
-      : 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30';
+      ? 'bg-white/90 text-emerald-700 font-bold shadow-sm backdrop-blur-sm'
+      : 'bg-white/90 text-blue-700 font-bold shadow-sm backdrop-blur-sm';
   };
 
   const getStatusText = (status: string) => {
