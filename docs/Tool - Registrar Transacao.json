@@ -1,0 +1,170 @@
+{
+  "name": "Tool - Registrar Transacao",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { telefone, valor, tipo, categoria, descricao, data_transacao, forma_pagamento, cartao_id, parcelas, recorrente, target_user_id } = $input.item.json;\n\nif (!valor || isNaN(valor) || valor <= 0) {\n  throw new Error('Valor inválido. Deve ser um número positivo.');\n}\n\nif (!tipo || !['despesa', 'receita'].includes(tipo)) {\n  throw new Error('Tipo inválido. Use \"despesa\" ou \"receita\".');\n}\n\nif (forma_pagamento && forma_pagamento.includes('cartao') && !cartao_id) {\n  throw new Error('Para pagamentos com cartão, é necessário informar o cartao_id.');\n}\n\nif (parcelas && (!forma_pagamento || !forma_pagamento.includes('credito'))) {\n  throw new Error('Parcelamento só disponível para cartão de crédito.');\n}\n\nreturn { \n  json: { \n    telefone, valor, tipo, categoria, descricao, \n    data_transacao, forma_pagamento, cartao_id, parcelas, recorrente, target_user_id \n  } \n};"
+      },
+      "id": "validar_input",
+      "name": "Validar Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_URL }}/api/auth/login",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phone_number",
+              "value": "={{ $env.API_USER_PHONE }}"
+            },
+            {
+              "name": "password",
+              "value": "={{ $env.API_PASSWORD }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "login_api",
+      "name": "Login API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_URL }}/api/finance/transactions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "amount",
+              "value": "={{ $('Validar Input').item.json.valor }}"
+            },
+            {
+              "name": "type",
+              "value": "={{ $('Validar Input').item.json.tipo }}"
+            },
+            {
+              "name": "category",
+              "value": "={{ $('Validar Input').item.json.categoria }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $('Validar Input').item.json.descricao }}"
+            },
+            {
+              "name": "transaction_date",
+              "value": "={{ $('Validar Input').item.json.data_transacao }}"
+            },
+            {
+              "name": "payment_method",
+              "value": "={{ $('Validar Input').item.json.forma_pagamento }}"
+            },
+            {
+              "name": "card_id",
+              "value": "={{ $('Validar Input').item.json.cartao_id }}"
+            },
+            {
+              "name": "installments",
+              "value": "={{ $('Validar Input').item.json.parcelas || 1 }}"
+            },
+            {
+              "name": "is_recurring",
+              "value": "={{ $('Validar Input').item.json.recorrente || false }}"
+            },
+            {
+              "name": "target_user_id",
+              "value": "={{ $('Validar Input').item.json.target_user_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "criar_transacao",
+      "name": "Criar Transação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [600, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Torrinco API Auth (Dynamic)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\n\nif (response.error) {\n  throw new Error(`Erro ao registrar transação: ${response.error}`);\n}\n\nconst { amount, type, description } = response.transaction || response;\nconst formattedAmount = new Intl.NumberFormat('pt-BR', {\n  style: 'currency',\n  currency: 'BRL'\n}).format(amount);\n\nreturn {\n  json: {\n    success: true,\n    message: `✅ ${type === 'receita' ? 'Receita' : 'Despesa'} registrada com sucesso!\\n💰 Valor: ${formattedAmount}\\n📝 Descrição: ${description || 'Sem descrição'}`,\n    data: response\n  }\n};"
+      },
+      "id": "formatar_resposta",
+      "name": "Formatar Resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 0]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validar Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Input": {
+      "main": [
+        [
+          {
+            "node": "Login API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login API": {
+      "main": [
+        [
+          {
+            "node": "Criar Transação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Transação": {
+      "main": [
+        [
+          {
+            "node": "Formatar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

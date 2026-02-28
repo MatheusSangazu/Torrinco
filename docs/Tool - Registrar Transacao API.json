@@ -1,0 +1,155 @@
+{
+  "name": "Tool - Registrar Transacao API",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-workflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { telefone, valor, tipo, categoria, descricao, data_transacao, forma_pagamento, cartao_id } = $input.json();\n\nif (!valor || isNaN(valor) || valor <= 0) {\n  throw new Error('Valor inválido. Deve ser um número positivo.');\n}\n\nif (!['expense', 'income'].includes(tipo)) {\n  throw new Error('Tipo deve ser \"expense\" ou \"income\".');\n}\n\nif (!descricao || descricao.trim() === '') {\n  throw new Error('Descrição é obrigatória.');\n}\n\nconst categoriasMap = {\n  'alimentação': 1,\n  'alimentacao': 1,\n  'transporte': 2,\n  'moradia': 3,\n  'lazer': 4,\n  'saúde': 5,\n  'saude': 5,\n  'educação': 6,\n  'educacao': 6,\n  'outros': 7\n};\n\nconst category_id = categoria ? categoriasMap[categoria?.toLowerCase()] || 7 : null;\n\nconst dataFinal = data_transacao || new Date().toISOString().split('T')[0];\n\nlet payment_method = 'cash';\nlet entity_id = null;\n\nif (forma_pagamento) {\n  const formaMap = {\n    'dinheiro': 'cash',\n    'pix': 'pix',\n    'debito': 'debit_card',\n    'debito_cartao': 'debit_card',\n    'credito': 'credit_card',\n    'credito_cartao': 'credit_card'\n  };\n  payment_method = formaMap[forma_pagamento.toLowerCase()] || 'cash';\n}\n\nif (payment_method === 'credit_card' && cartao_id) {\n  entity_id = parseInt(cartao_id);\n}\n\nreturn [{\n  json: {\n    telefone,\n    valor: parseFloat(valor),\n    tipo,\n    category_id,\n    descricao: descricao.trim(),\n    data_transacao: dataFinal,\n    payment_method,\n    entity_id\n  }\n}];"
+      },
+      "id": "validar-input",
+      "name": "Validar Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://apitorrinco.forjacorp.com/api/auth/login",
+        "sendBody": true,
+        "contentType": "application/json",
+        "body": {
+          "type": "json",
+          "json": "={{ JSON.stringify({ phone_number: $('Validar Input').item.json.telefone, password: 'SENHA_DO_USUARIO' }) }}"
+        },
+        "options": {}
+      },
+      "id": "login-api",
+      "name": "Login API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://apitorrinco.forjacorp.com/api/finance/transactions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "application/json",
+        "body": {
+          "type": "json",
+          "json": "={{ JSON.stringify({\n  description: $('Validar Input').item.json.descricao,\n  amount: $('Validar Input').item.json.valor,\n  type: $('Validar Input').item.json.tipo,\n  category_id: $('Validar Input').item.json.category_id,\n  transaction_date: $('Validar Input').item.json.data_transacao,\n  status: 'paid',\n  payment_method: $('Validar Input').item.json.payment_method,\n  entity_id: $('Validar Input').item.json.entity_id\n}) }}"
+        },
+        "options": {}
+      },
+      "id": "criar-transacao",
+      "name": "Criar Transação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.json();\n\nif (response.transaction) {\n  const transaction = response.transaction;\n  const formatCurrency = (value) => \n    new Intl.NumberFormat('pt-BR', {\n      style: 'currency',\n      currency: 'BRL'\n    }).format(value);\n\n  const tipoText = transaction.type === 'income' ? 'Receita' : 'Despesa';\n  const emoji = transaction.type === 'income' ? '💰' : '💸';\n\n  return [{\n    json: {\n      success: true,\n      message: `${emoji} ${tipoText} registrada: ${transaction.description}\\nValor: ${formatCurrency(transaction.amount)}\\nData: ${transaction.transaction_date.split('T')[0]}`,\n      transaction_id: transaction.id,\n      data: transaction\n    }\n  }];\n} else {\n  return [{\n    json: {\n      success: false,\n      message: response.message || 'Erro ao registrar transação',\n      error: response.error\n    }\n  }];\n}"
+      },
+      "id": "formatar-resposta",
+      "name": "Formatar Resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validar Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Input": {
+      "main": [
+        [
+          {
+            "node": "Login API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login API": {
+      "main": [
+        [
+          {
+            "node": "Criar Transação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Transação": {
+      "main": [
+        [
+          {
+            "node": "Formatar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "2.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "tool-registrar-transacao-api",
+  "tags": []
+}

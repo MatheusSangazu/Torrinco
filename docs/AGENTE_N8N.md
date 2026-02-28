@@ -37,9 +37,10 @@ Uso: Listar gastos/receitas, filtros por período
 #### 2. Criar Transação
 ```
 POST /api/finance/transactions
-Campos: description, amount, type, category_id, transaction_date, 
+Campos: description, amount, type, category_id, transaction_date,
        payment_method, entity_id, installments, is_recurring
 Uso: Registrar compras, receitas
+Obs: Campo "income_source" removido do formulário (usar category_id para fontes de receita)
 ```
 
 #### 3. Atualizar Transação
@@ -63,7 +64,9 @@ Uso: Visão geral (saldo, entradas, saídas)
 #### 6. Previsão Financeira
 ```
 GET /api/finance/forecast
-Uso: Projetar saldo futuro
+Parâmetros: period (next_month, month)
+Uso: Projetar saldo futuro, inclui faturas de cartão de crédito do próximo mês
+Retorna: income, expenses, balance, breakdown (recurring_income, recurring_expenses, installments, credit_card_bills)
 ```
 
 ### Fase 2 - Cartões e Parcelas
@@ -141,7 +144,9 @@ Uso: Adicionar compromissos
 GET /api/reminders
 POST /api/reminders
 GET /api/reminders/due
+Parâmetros (POST): title, specific_date, time, frequency
 Uso: Criar/consultar lembretes de pagamento
+Obs: specific_date deve ser um objeto Date (não string ISO)
 ```
 
 ### Fase 6 - Transações Recorrentes
@@ -152,7 +157,15 @@ GET /api/recurring
 Uso: Ver assinaturas, contas fixas
 ```
 
-#### 19. Gerar Transação Recorrente
+#### 19. Criar Transação Recorrente
+```
+POST /api/recurring
+Campos: description, amount, type, category, frequency, start_date
+Uso: Criar assinaturas, contas fixas
+Obs: next_due_date é automaticamente igual a start_date para novas transações
+```
+
+#### 20. Gerar Transação Recorrente
 ```
 POST /api/recurring/:id/generate
 Uso: Criar transação mensal a partir de recorrente

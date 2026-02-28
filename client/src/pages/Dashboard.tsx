@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check } from 'lucide-react';
+import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../services/api';
 import { remindersService, type Reminder } from '../services/reminders.service';
@@ -30,6 +30,24 @@ interface Forecast {
         description: string;
         amount: number;
         next_due_date: string;
+      }>;
+      normal_expenses: Array<{
+        description: string;
+        amount: number;
+        transaction_date: string;
+      }>;
+      installments: Array<{
+        description: string;
+        amount: number;
+        transaction_date: string;
+        installment_number: number;
+      }>;
+      credit_card_bills: Array<{
+        description: string;
+        amount: number;
+        transaction_date: string;
+        card_name: string;
+        card_color: string;
       }>;
     };
   };
@@ -78,6 +96,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'month' | 'all'>('month');
   const [chartData, setChartData] = useState<Array<{name: string; receitas: number; despesas: number}>>([]);
+  const [showForecastModal, setShowForecastModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -261,7 +280,10 @@ export function Dashboard() {
         </div>
 
         {/* Card Previsão do Próximo Mês */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+        <div 
+          onClick={() => setShowForecastModal(true)}
+          className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+        >
           <div className="absolute top-4 right-4 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
             <TrendingDown size={12} />
             PREVISÃO
@@ -532,6 +554,208 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalhes da Previsão */}
+      {showForecastModal && forecast && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-slate-700">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Detalhes da Previsão - {forecast.period}</h2>
+                <button 
+                  onClick={() => setShowForecastModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
+                >
+                  <MoreHorizontal size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Receitas</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(forecast.forecast.income)}</p>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Despesas</p>
+                  <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(forecast.forecast.expenses)}</p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Saldo Previsto</p>
+                  <p className={clsx(
+                    "text-lg font-bold",
+                    forecast.forecast.balance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                  )}>{formatCurrency(forecast.forecast.balance)}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {forecast.forecast.breakdown.recurring_income.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                      <ArrowDownLeft size={16} className="text-green-500" />
+                      Receitas Recorrentes
+                    </h3>
+                    <div className="space-y-2">
+                      {forecast.forecast.breakdown.recurring_income.map((item, idx) => (
+                        <div key={`inc-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                              <ArrowDownLeft size={14} className="text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                              <p className="text-xs text-gray-500 dark:text-slate-400">
+                                {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {forecast.forecast.breakdown.recurring_expenses.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                      <ArrowUpRight size={16} className="text-red-500" />
+                      Despesas Recorrentes
+                    </h3>
+                    <div className="space-y-2">
+                      {forecast.forecast.breakdown.recurring_expenses.map((item, idx) => (
+                        <div key={`rec-exp-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                              <ArrowUpRight size={14} className="text-red-600 dark:text-red-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                              <p className="text-xs text-gray-500 dark:text-slate-400">
+                                {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {forecast.forecast.breakdown.normal_expenses.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                      <ArrowUpRight size={16} className="text-orange-500" />
+                      Despesas Normais
+                    </h3>
+                    <div className="space-y-2">
+                      {forecast.forecast.breakdown.normal_expenses.map((item, idx) => (
+                        <div key={`norm-exp-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                              <ArrowUpRight size={14} className="text-orange-600 dark:text-orange-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                              <p className="text-xs text-gray-500 dark:text-slate-400">
+                                {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-orange-600 dark:text-orange-400">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {forecast.forecast.breakdown.installments.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                      <ArrowUpRight size={16} className="text-purple-500" />
+                      Parcelas
+                    </h3>
+                    <div className="space-y-2">
+                      {forecast.forecast.breakdown.installments.map((item, idx) => (
+                        <div key={`inst-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                              <ArrowUpRight size={14} className="text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                              <p className="text-xs text-gray-500 dark:text-slate-400">
+                                Parcela {item.installment_number} • {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(() => {
+                  const cardBills = forecast.forecast.breakdown.credit_card_bills.reduce((acc: any, item: any) => {
+                    const key = `${item.card_name}-${item.card_color}`;
+                    if (!acc[key]) {
+                      acc[key] = {
+                        card_name: item.card_name,
+                        card_color: item.card_color,
+                        transactions: []
+                      };
+                    }
+                    acc[key].transactions.push(item);
+                    return acc;
+                  }, {});
+
+                  return Object.values(cardBills).length > 0 ? (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                        <CreditCard size={16} className="text-blue-500" />
+                        Faturas de Cartão
+                      </h3>
+                      <div className="space-y-4">
+                        {Object.values(cardBills).map((cardGroup: any, cardIdx) => (
+                          <div key={`card-${cardIdx}`} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl overflow-hidden">
+                            <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-slate-600">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: cardGroup.card_color }}
+                              />
+                              <h4 className="font-semibold text-gray-800 dark:text-white">{cardGroup.card_name}</h4>
+                              <span className="ml-auto font-bold text-blue-600 dark:text-blue-400">
+                                {formatCurrency(cardGroup.transactions.reduce((sum: number, t: any) => sum + t.amount, 0))}
+                              </span>
+                            </div>
+                            <div className="p-4 space-y-2">
+                              {cardGroup.transactions.map((item: any, idx: number) => (
+                                <div key={`cc-${cardIdx}-${idx}`} className="flex justify-between items-center text-sm">
+                                  <div>
+                                    <p className="text-gray-700 dark:text-gray-300">{item.description}</p>
+                                    <p className="text-xs text-gray-500 dark:text-slate-400">
+                                      {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                    </p>
+                                  </div>
+                                  <span className="font-medium text-gray-600 dark:text-gray-400">{formatCurrency(item.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

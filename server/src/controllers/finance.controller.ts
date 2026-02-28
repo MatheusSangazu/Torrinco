@@ -635,6 +635,8 @@ export class FinanceController {
         },
         select: {
           id: true,
+          name: true,
+          color: true,
           closing_day: true,
           due_day: true
         }
@@ -675,6 +677,8 @@ export class FinanceController {
           description: t.description,
           amount: Number(t.amount),
           transaction_date: t.transaction_date,
+          card_name: card.name,
+          card_color: card.color,
           type: 'credit_card_bill' as const
         })));
       }
