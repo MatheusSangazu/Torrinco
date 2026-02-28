@@ -72,6 +72,39 @@ export class RecurringController {
         }
       });
 
+      // Se a data de início for hoje, já gerar a primeira transação real
+      if (startDate.getTime() === today.getTime()) {
+        const account = await prisma.accounts.findFirst({
+          where: { users: { some: { id: userId } } }
+        });
+
+        if (account) {
+          await prisma.transactions.create({
+            data: {
+              account_id: account.id,
+              user_id: userId,
+              amount: recurringTransaction.amount,
+              type: recurringTransaction.type,
+              category: recurringTransaction.category,
+              description: recurringTransaction.description,
+              transaction_date: startDate,
+              status: 'paid',
+              is_recurring: true,
+              recurring_transaction_id: recurringTransaction.id,
+              entity_id: recurringTransaction.entity_id,
+              payment_method: recurringTransaction.payment_method
+            }
+          });
+
+          // Atualizar a próxima data de vencimento, pois a de hoje já foi gerada
+          const nextDateAfterToday = calculateNextDueDate(frequency, nextDueDate);
+          await prisma.recurring_transactions.update({
+            where: { id: recurringTransaction.id },
+            data: { next_due_date: nextDateAfterToday }
+          });
+        }
+      }
+
       res.status(201).json({ recurringTransaction });
     } catch (error) {
       next(error);

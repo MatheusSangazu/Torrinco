@@ -170,9 +170,18 @@ export function Transactions() {
       const shouldCreateRecurringSeries = formData.isRecurring && (!editingTransaction || !editingTransaction.is_recurring);
 
       if (shouldCreateRecurringSeries) {
+        // Prepare the base amount
+        const rawAmount = formData.amount.toString().replace(',', '.');
+        const finalAmount = parseFloat(rawAmount);
+
+        if (isNaN(finalAmount)) {
+          toast.error('Valor inválido');
+          return;
+        }
+
         const payload = {
           description: formData.description,
-          amount: parseFloat(formData.amount.replace(',', '.')),
+          amount: finalAmount,
           type: formData.type,
           category: formData.category,
           category_id: formData.category_id ? Number(formData.category_id) : null,
@@ -184,7 +193,7 @@ export function Transactions() {
           payment_method: formData.payment_method
         };
 
-        const recurringResponse = await api.post('/recurring', payload);
+        await api.post('/recurring', payload);
 
         setIsModalOpen(false);
         resetForm();
@@ -193,11 +202,14 @@ export function Transactions() {
         return;
       }
 
+      const rawAmount = formData.amount.toString().replace(',', '.');
+      const finalAmount = parseFloat(rawAmount);
+
       if (formData.isInstallment && formData.type === 'expense' && formData.payment_method === 'credit') {
         const payload = {
           entity_id: Number(formData.entity_id),
           description: formData.description,
-          amount: parseFloat(formData.amount.replace(',', '.')),
+          amount: finalAmount,
           installment_count: parseInt(formData.installmentCount),
           start_date: formData.date,
           category: formData.category,
@@ -208,7 +220,7 @@ export function Transactions() {
       } else {
         const payload = {
           description: formData.description,
-          amount: parseFloat(formData.amount.replace(',', '.')),
+          amount: finalAmount,
           type: formData.type,
           category: formData.category,
           category_id: formData.category_id ? Number(formData.category_id) : null,
