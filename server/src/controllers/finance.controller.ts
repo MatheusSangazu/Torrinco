@@ -947,8 +947,7 @@ export class FinanceController {
           type: 'expense',
           category: 'Pagamento de Cartão',
           description: {
-            contains: card.name,
-            mode: 'insensitive'
+            contains: card.name
           },
           deleted_at: null
         },
