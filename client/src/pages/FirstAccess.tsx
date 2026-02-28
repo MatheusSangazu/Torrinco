@@ -82,11 +82,10 @@ export function FirstAccess() {
         password,
       });
 
-      const { token, user } = response.data;
-      login(token, user);
+      const { accessToken, user } = response.data;
+      login(accessToken, user);
       navigate('/');
     } catch (err: any) {
-      console.error(err);
       setError(err.response?.data?.error || 'Falha ao definir senha. Tente novamente.');
     } finally {
       setLoading(false);

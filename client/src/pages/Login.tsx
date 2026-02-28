@@ -24,8 +24,8 @@ export function Login() {
         password,
       });
 
-      const { token, user } = response.data;
-      login(token, user);
+      const { accessToken, user, refreshToken } = response.data;
+      login(accessToken, user);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Falha ao fazer login');
