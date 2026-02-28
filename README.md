@@ -37,19 +37,19 @@ torrinco/
 
 ## Funcionalidades
 
-- Dashboard financeiro com métricas em tempo real
-- Gerenciamento de transações (receitas/despesas)
-- Controle de cartões de crédito e faturas
-- Sistema de parcelamento de compras
-- Fontes de renda personalizáveis
-- Categorização de transações
-- Orçamentos e metas financeiras
-- Calendário de pagamentos e compromissos
-- Lembretes automáticos
+- Dashboard financeiro com métricas em tempo real e extrato detalhado de saldo
+- Gerenciamento de transações (receitas/despesas) com filtros por tipo de pagamento
+- Controle inteligente de cartões de crédito, faturas e pagamentos (com opção de desfazer)
+- Sistema de parcelamento de compras automático
+- Previsão financeira detalhada para o próximo mês
+- Fontes de renda personalizáveis e categorização dinâmica
+- Orçamentos e metas financeiras por categoria
+- Calendário interativo de pagamentos e compromissos
+- Lembretes automáticos integrados
 - Relatórios e exportação (Excel/WhatsApp)
-- Autenticação JWT com controle de acesso
-- Integração com Evolution API para WhatsApp
-- PWA (Progressive Web App)
+- Autenticação JWT com controle de acesso por níveis
+- Integração com Evolution API para automação via WhatsApp
+- PWA (Progressive Web App) 100% responsivo para mobile
 
 ## Instalação
 

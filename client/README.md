@@ -21,10 +21,12 @@ Frontend React do sistema de gestão financeira Torrinco.
 src/
 ├── components/          Componentes reutilizáveis
 │   ├── CategorySelect.tsx
+│   ├── ConfirmModal.tsx
 │   ├── CreditCardCarousel.tsx
 │   ├── CustomSelect.tsx
 │   ├── DatePicker.tsx
-│   └── Input.tsx
+│   ├── Input.tsx
+│   └── Select.tsx
 ├── context/             Contextos globais
 │   ├── AuthContext.tsx
 │   └── ThemeContext.tsx
@@ -112,14 +114,14 @@ O build usa Nginx para servir os arquivos estáticos. A configuração está em 
 
 ## Funcionalidades
 
-- **Dashboard**: Visão geral com métricas financeiras
-- **Transações**: Listagem e gerenciamento de receitas/despesas
-- **Cartões**: Controle de cartões de crédito e faturas
-- **Categorias**: Gerenciamento de categorias personalizadas
-- **Fontes de Renda**: Cadastro de fontes de receita
-- **Calendário**: Visualização de eventos e compromissos financeiros
-- **Relatórios**: Exportação de dados em diferentes formatos
-- **Autenticação**: Login, registro e recuperação de senha
+- **Dashboard**: Visão geral com métricas em tempo real, extrato detalhado de saldo (Pix/Débito/Dinheiro) e modal de previsão financeira.
+- **Transações**: Listagem e gerenciamento de receitas/despesas com filtros avançados.
+- **Cartões**: Controle de cartões de crédito, faturas dinâmicas e fluxo de pagamento/estorno inteligente.
+- **Categorias**: Gerenciamento de categorias personalizadas com cores e ícones.
+- **Fontes de Renda**: Cadastro e acompanhamento de fontes de receita.
+- **Calendário**: Visualização interativa de eventos e compromissos financeiros.
+- **Relatórios**: Exportação de dados para Excel e envio direto via WhatsApp.
+- **Autenticação**: Sistema completo de login, registro e recuperação de senha segura.
 
 ## PWA (Progressive Web App)
 

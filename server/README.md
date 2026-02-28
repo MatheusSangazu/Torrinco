@@ -254,3 +254,5 @@ O servidor disponibiliza um endpoint de health check em `GET /health` que verifi
 - **Datas**: O sistema utiliza datas UTC para consistência.
 - **Soft Delete**: Transações deletadas são marcadas com `deleted_at` ao invés de serem removidas do banco.
 - **Recorrência**: Transações recorrentes criam uma relação direta via `recurring_transaction_id` na tabela `transactions`.
+- **Inteligência de Faturas**: O sistema identifica automaticamente se uma fatura de cartão já foi paga buscando transações na categoria "Pagamento de Cartão" vinculadas ao nome do cartão no período da fatura.
+- **Estorno de Pagamento**: Ao deletar uma transação de "Pagamento de Cartão", o sistema restaura automaticamente o status da fatura para "aberta" ou "fechada" conforme a data.
