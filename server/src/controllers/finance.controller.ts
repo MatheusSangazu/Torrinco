@@ -61,13 +61,16 @@ export class FinanceController {
             amount: rt.amount,
             type: rt.type,
             category: rt.category,
+            category_id: rt.category_id,
+            categories: rt.categories,
             description: rt.description,
             transaction_date: new Date(currentDate),
             status: 'pending',
             is_recurring: true,
             is_projected: true,
             payment_method: rt.payment_method || 'pix',
-            entity_id: rt.entity_id
+            entity_id: rt.entity_id,
+            financial_entities: rt.financial_entities
           });
         }
         
@@ -265,6 +268,10 @@ export class FinanceController {
           user_id: userId,
           status: 'active',
           start_date: { lte: end }
+        },
+        include: {
+          categories: true,
+          financial_entities: true
         }
       });
 

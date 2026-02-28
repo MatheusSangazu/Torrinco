@@ -89,7 +89,8 @@ export function Transactions() {
     payment_method: 'pix',
     isInstallment: false,
     installmentCount: '',
-    isRecurring: false
+    isRecurring: false,
+    updateSeries: false
   });
 
   useEffect(() => {
@@ -235,9 +236,23 @@ export function Transactions() {
         if (editingTransaction) {
           // If it's a projected recurring transaction (virtual), we need to create it as a real one first
           if (typeof editingTransaction.id === 'string' && editingTransaction.id.startsWith('rec-')) {
-            await api.post('/finance/transactions', payload);
+            const recurringId = editingTransaction.id.split('-')[1];
+            
+            // If user wants to update the entire series
+            if (formData.updateSeries) {
+              await api.put(`/recurring/${recurringId}`, payload);
+              toast.success('Série recorrente atualizada!');
+            } else {
+              await api.post('/finance/transactions', payload);
+            }
           } else {
             await api.put(`/finance/transactions/${editingTransaction.id}`, payload);
+            
+            // If it's a recurring transaction and user wants to update the series too
+            if (editingTransaction.is_recurring && formData.updateSeries && editingTransaction.recurring_transaction_id) {
+              await api.put(`/recurring/${editingTransaction.recurring_transaction_id}`, payload);
+              toast.success('Transação e série atualizadas!');
+            }
           }
         } else {
           await api.post('/finance/transactions', payload);
@@ -338,7 +353,8 @@ export function Transactions() {
       payment_method: transaction.payment_method || 'pix',
       isInstallment: false,
       installmentCount: '',
-      isRecurring: transaction.is_recurring || false
+      isRecurring: transaction.is_recurring || false,
+      updateSeries: false
     });
     setIsModalOpen(true);
   };
@@ -363,7 +379,8 @@ export function Transactions() {
       payment_method: 'pix',
       isInstallment: false,
       installmentCount: '',
-      isRecurring: false
+      isRecurring: false,
+      updateSeries: false
     });
   };
 
@@ -864,20 +881,40 @@ export function Transactions() {
 
               {/* Recurring Toggle - Show only if not installment */}
               {!formData.isInstallment && (
-                <div className="flex items-center gap-2 mb-4 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
-                  <input
-                    type="checkbox"
-                    id="isRecurring"
-                    checked={formData.isRecurring}
-                    onChange={(e) => setFormData({...formData, isRecurring: e.target.checked})}
-                    className="w-5 h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500"
-                  />
-                  <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer select-none">
-                    Esta é uma transação recorrente?
-                    <span className="block text-xs text-gray-500 font-normal">
-                      {formData.type === 'income' ? 'Ex: Salário, Aluguel recebido' : 'Ex: Assinatura, Aluguel, Conta de Luz'}
-                    </span>
-                  </label>
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
+                    <input
+                      type="checkbox"
+                      id="isRecurring"
+                      checked={formData.isRecurring}
+                      onChange={(e) => setFormData({...formData, isRecurring: e.target.checked})}
+                      className="w-5 h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500"
+                    />
+                    <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer select-none">
+                      Esta é uma transação recorrente?
+                      <span className="block text-xs text-gray-500 font-normal">
+                        {formData.type === 'income' ? 'Ex: Salário, Aluguel recebido' : 'Ex: Assinatura, Aluguel, Conta de Luz'}
+                      </span>
+                    </label>
+                  </div>
+
+                  {(editingTransaction?.is_recurring || (typeof editingTransaction?.id === 'string' && editingTransaction?.id.startsWith('rec-'))) && (
+                    <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-100 dark:border-amber-800 animate-in slide-in-from-top-2 duration-300">
+                      <input
+                        type="checkbox"
+                        id="updateSeries"
+                        checked={formData.updateSeries}
+                        onChange={(e) => setFormData({...formData, updateSeries: e.target.checked})}
+                        className="w-5 h-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                      />
+                      <label htmlFor="updateSeries" className="text-sm font-medium text-amber-800 dark:text-amber-300 cursor-pointer select-none">
+                        Atualizar toda a série futura?
+                        <span className="block text-xs text-amber-600/70 dark:text-amber-400/70 font-normal">
+                          Isso mudará todas as próximas ocorrências desta transação.
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
 

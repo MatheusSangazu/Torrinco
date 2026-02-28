@@ -906,14 +906,19 @@ export function Dashboard() {
                                   <p className="text-sm font-bold text-gray-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                     {t.description}
                                   </p>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
-                                      {t.payment_method === 'pix' ? 'Pix' : t.payment_method === 'debit' ? 'Débito' : 'Dinheiro'}
-                                    </span>
-                                    <span className="text-xs text-gray-400">
-                                      {new Date(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                                    </span>
-                                  </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
+                                        {t.payment_method === 'pix' ? 'Pix' : t.payment_method === 'debit' ? 'Débito' : t.payment_method === 'credit' ? 'Crédito' : 'Dinheiro'}
+                                      </span>
+                                      {t.financial_entities && (
+                                        <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
+                                          {t.financial_entities.name}
+                                        </span>
+                                      )}
+                                      <span className="text-xs text-gray-400">
+                                        {new Date(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                      </span>
+                                    </div>
                                 </div>
                               </div>
                               <div className="text-right shrink-0 ml-4">

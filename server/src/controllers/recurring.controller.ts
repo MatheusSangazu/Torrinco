@@ -30,7 +30,7 @@ export class RecurringController {
    */
   static async createTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { description, amount, category, type, frequency, start_date, entity_id, payment_method } = req.body;
+      const { description, amount, category, category_id, type, frequency, start_date, entity_id, payment_method } = req.body;
       const userId = req.userId!;
 
       if (!description || !amount || !type || !frequency || !start_date) {
@@ -56,12 +56,22 @@ export class RecurringController {
         nextDueDate = calculateNextDueDate(frequency, startDate);
       }
 
+      // Resolver category_id e category name se necessário
+      let finalCategoryId = category_id ? parseInt(category_id) : null;
+      let finalCategoryName = category;
+
+      if (finalCategoryId && !finalCategoryName) {
+        const cat = await prisma.categories.findUnique({ where: { id: finalCategoryId } });
+        if (cat) finalCategoryName = cat.name;
+      }
+
       const recurringTransaction = await prisma.recurring_transactions.create({
         data: {
           user_id: userId,
           description,
           amount: parseFloat(amount),
-          category,
+          category: finalCategoryName,
+          category_id: finalCategoryId,
           type,
           frequency,
           start_date: startDate,
@@ -69,6 +79,10 @@ export class RecurringController {
           status: 'active',
           entity_id: entity_id ? parseInt(entity_id) : null,
           payment_method: payment_method || 'cash'
+        },
+        include: {
+          categories: true,
+          financial_entities: true
         }
       });
 
@@ -86,6 +100,7 @@ export class RecurringController {
               amount: recurringTransaction.amount,
               type: recurringTransaction.type,
               category: recurringTransaction.category,
+              category_id: recurringTransaction.category_id,
               description: recurringTransaction.description,
               transaction_date: startDate,
               status: 'paid',
@@ -142,7 +157,7 @@ export class RecurringController {
   static async updateTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { description, amount, category, frequency, status } = req.body;
+      const { description, amount, category, category_id, frequency, status, entity_id, payment_method } = req.body;
       const userId = req.userId!;
 
       const existing = await prisma.recurring_transactions.findFirst({
@@ -153,14 +168,26 @@ export class RecurringController {
         return res.status(404).json({ error: 'Recurring transaction not found' });
       }
 
+      // Resolver category_id e category name se necessário
+      let finalCategoryId = category_id !== undefined ? (category_id ? parseInt(category_id) : null) : undefined;
+      let finalCategoryName = category;
+
+      if (finalCategoryId && !finalCategoryName) {
+        const cat = await prisma.categories.findUnique({ where: { id: finalCategoryId } });
+        if (cat) finalCategoryName = cat.name;
+      }
+
       const updated = await prisma.recurring_transactions.update({
         where: { id: Number(id) },
         data: {
           description: description ?? undefined,
           amount: amount ? parseFloat(amount) : undefined,
-          category: category ?? undefined,
+          category: finalCategoryName ?? undefined,
+          category_id: finalCategoryId,
           frequency: frequency ?? undefined,
-          status: status ?? undefined
+          status: status ?? undefined,
+          entity_id: entity_id !== undefined ? (entity_id ? parseInt(entity_id) : null) : undefined,
+          payment_method: payment_method ?? undefined
         }
       });
 
@@ -238,9 +265,10 @@ export class RecurringController {
           amount: recurringTransaction.amount,
           type: recurringTransaction.type,
           category: recurringTransaction.category,
+          category_id: recurringTransaction.category_id,
           description: recurringTransaction.description,
           transaction_date: transaction_date ? new Date(transaction_date) : new Date(),
-          status: 'pending',
+          status: 'paid',
           is_recurring: true,
           recurring_transaction_id: recurringTransaction.id,
           entity_id: recurringTransaction.entity_id,
