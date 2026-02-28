@@ -4,6 +4,7 @@ import { cardsService, type CreditCard } from '../services/cards.service';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
+import { ConfirmModal } from './ConfirmModal';
 
 interface CreditCardCarouselProps {
   className?: string;
@@ -15,6 +16,8 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
+  const [cardToUndo, setCardToUndo] = useState<CreditCard | null>(null);
 
   const fetchCards = async () => {
     try {
@@ -77,19 +80,26 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
       return;
     }
 
-    if (!window.confirm(`Deseja desfazer o pagamento do cartão ${card.name}?`)) return;
+    setCardToUndo(card);
+    setIsUndoModalOpen(true);
+  };
+
+  const confirmUndoPayment = async () => {
+    if (!cardToUndo?.paymentId) return;
 
     const toastId = toast.loading('Desfazendo pagamento...');
     try {
       setPaying(true);
-      await api.delete(`/finance/transactions/${card.paymentId}`);
-      toast.success(`Pagamento do cartão ${card.name} desfeito.`, { id: toastId });
+      await api.delete(`/finance/transactions/${cardToUndo.paymentId}`);
+      toast.success(`Pagamento do cartão ${cardToUndo.name} desfeito.`, { id: toastId });
       
       await fetchCards();
       
       if (onPaymentSuccess) {
         onPaymentSuccess();
       }
+      setIsUndoModalOpen(false);
+      setCardToUndo(null);
     } catch (error) {
       console.error('Erro ao desfazer pagamento:', error);
       toast.error('Erro ao desfazer pagamento.', { id: toastId });
@@ -304,6 +314,21 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
           <span className="hidden sm:inline">SYNC</span>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isUndoModalOpen}
+        onClose={() => {
+          setIsUndoModalOpen(false);
+          setCardToUndo(null);
+        }}
+        onConfirm={confirmUndoPayment}
+        title="Desfazer Pagamento"
+        message={`Deseja realmente desfazer o pagamento do cartão ${cardToUndo?.name}? O valor será devolvido ao seu saldo.`}
+        confirmLabel="Desfazer"
+        cancelLabel="Voltar"
+        isLoading={paying}
+        type="danger"
+      />
     </div>
   );
 }

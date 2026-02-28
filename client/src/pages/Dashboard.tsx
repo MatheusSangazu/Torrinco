@@ -600,20 +600,20 @@ export function Dashboard() {
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl">
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Receitas</p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(forecast.forecast.income)}</p>
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Receitas</p>
+                  <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(forecast.forecast.income)}</p>
                 </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl">
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Despesas</p>
-                  <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(forecast.forecast.expenses)}</p>
+                <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl border border-red-100/50 dark:border-red-900/30">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Despesas</p>
+                  <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">{formatCurrency(forecast.forecast.expenses)}</p>
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Saldo Previsto</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-1">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Previsto</p>
                   <p className={clsx(
-                    "text-lg font-bold",
+                    "text-base sm:text-lg font-bold truncate",
                     forecast.forecast.balance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
                   )}>{formatCurrency(forecast.forecast.balance)}</p>
                 </div>
@@ -629,18 +629,18 @@ export function Dashboard() {
                     <div className="space-y-2">
                       {forecast.forecast.breakdown.recurring_income.map((item, idx) => (
                         <div key={`inc-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg shrink-0">
                               <ArrowDownLeft size={14} className="text-green-600 dark:text-green-400" />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
                                 {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </p>
                             </div>
                           </div>
-                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
+                          <span className="font-bold text-green-600 dark:text-green-400 shrink-0 ml-2">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -656,18 +656,18 @@ export function Dashboard() {
                     <div className="space-y-2">
                       {forecast.forecast.breakdown.normal_income.map((item, idx) => (
                         <div key={`norm-inc-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg shrink-0">
                               <ArrowDownLeft size={14} className="text-green-600 dark:text-green-400" />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
                                 {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </p>
                             </div>
                           </div>
-                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
+                          <span className="font-bold text-green-600 dark:text-green-400 shrink-0 ml-2">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -683,18 +683,18 @@ export function Dashboard() {
                     <div className="space-y-2">
                       {forecast.forecast.breakdown.recurring_expenses.map((item, idx) => (
                         <div key={`rec-exp-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg shrink-0">
                               <ArrowUpRight size={14} className="text-red-600 dark:text-red-400" />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
                                 {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </p>
                             </div>
                           </div>
-                          <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(item.amount)}</span>
+                          <span className="font-bold text-red-600 dark:text-red-400 shrink-0 ml-2">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -710,18 +710,18 @@ export function Dashboard() {
                     <div className="space-y-2">
                       {forecast.forecast.breakdown.normal_expenses.map((item, idx) => (
                         <div key={`norm-exp-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg shrink-0">
                               <ArrowUpRight size={14} className="text-orange-600 dark:text-orange-400" />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
                                 {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </p>
                             </div>
                           </div>
-                          <span className="font-bold text-orange-600 dark:text-orange-400">{formatCurrency(item.amount)}</span>
+                          <span className="font-bold text-orange-600 dark:text-orange-400 shrink-0 ml-2">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -737,18 +737,18 @@ export function Dashboard() {
                     <div className="space-y-2">
                       {forecast.forecast.breakdown.installments.map((item, idx) => (
                         <div key={`inst-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg shrink-0">
                               <ArrowUpRight size={14} className="text-purple-600 dark:text-purple-400" />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
                                 Parcela {item.installment_number} • {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </p>
                             </div>
                           </div>
-                          <span className="font-bold text-purple-600 dark:text-purple-400">{formatCurrency(item.amount)}</span>
+                          <span className="font-bold text-purple-600 dark:text-purple-400 shrink-0 ml-2">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -790,14 +790,14 @@ export function Dashboard() {
                             </div>
                             <div className="p-4 space-y-2">
                               {cardGroup.transactions.map((item: any, idx: number) => (
-                                <div key={`cc-${cardIdx}-${idx}`} className="flex justify-between items-center text-sm">
-                                  <div>
-                                    <p className="text-gray-700 dark:text-gray-300">{item.description}</p>
+                                <div key={`cc-${cardIdx}-${idx}`} className="flex justify-between items-center text-sm gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-gray-700 dark:text-gray-300 truncate">{item.description}</p>
                                     <p className="text-xs text-gray-500 dark:text-slate-400">
                                       {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                                     </p>
                                   </div>
-                                  <span className="font-medium text-gray-600 dark:text-gray-400">{formatCurrency(item.amount)}</span>
+                                  <span className="font-medium text-gray-600 dark:text-gray-400 shrink-0">{formatCurrency(item.amount)}</span>
                                 </div>
                               ))}
                             </div>

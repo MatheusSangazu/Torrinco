@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { Input } from '../components/Input';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Transaction {
   id: number;
@@ -100,6 +101,7 @@ export function Cards() {
   });
 
   const [paying, setPaying] = useState(false);
+  const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCards();
@@ -142,7 +144,11 @@ export function Cards() {
       return;
     }
 
-    if (!window.confirm(`Deseja desfazer o pagamento do cartão ${billModalCard.name}?`)) return;
+    setIsUndoModalOpen(true);
+  };
+
+  const confirmUndoPayment = async () => {
+    if (!billDetails?.bill.paymentId || !billModalCard) return;
 
     const toastId = toast.loading('Desfazendo pagamento...');
     try {
@@ -152,6 +158,7 @@ export function Cards() {
       
       handleCloseBillModal();
       fetchCards();
+      setIsUndoModalOpen(false);
     } catch (error) {
       console.error('Erro ao desfazer pagamento:', error);
       toast.error('Erro ao desfazer pagamento.', { id: toastId });
@@ -903,6 +910,18 @@ export function Cards() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={isUndoModalOpen}
+        onClose={() => setIsUndoModalOpen(false)}
+        onConfirm={confirmUndoPayment}
+        title="Desfazer Pagamento"
+        message={`Deseja realmente desfazer o pagamento do cartão ${billModalCard?.name}? O valor será devolvido ao seu saldo.`}
+        confirmLabel="Desfazer"
+        cancelLabel="Voltar"
+        isLoading={paying}
+        type="danger"
+      />
     </div>
   );
 }
