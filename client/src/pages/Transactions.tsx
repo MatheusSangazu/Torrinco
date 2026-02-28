@@ -212,19 +212,28 @@ export function Transactions() {
         amount: finalAmount,
         type: formData.type,
         category: formData.category,
-        category_id: formData.category_id ? Number(formData.category_id) : null,
-        income_source_id: formData.income_source_id ? Number(formData.income_source_id) : null,
-        entity_id: formData.entity_id ? Number(formData.entity_id) : null,
+        category_id: formData.category_id ? Number(formData.category_id) : undefined,
+        income_source_id: formData.income_source_id ? Number(formData.income_source_id) : undefined,
+        entity_id: formData.entity_id ? Number(formData.entity_id) : undefined,
         status: formData.status,
         payment_method: formData.payment_method,
         is_recurring: formData.isRecurring
       };
 
       if (formData.isInstallment && formData.type === 'expense' && formData.payment_method === 'credit') {
+        if (!formData.entity_id) {
+          toast.error('Selecione um cartão para o parcelamento');
+          return;
+        }
+
         const payload = {
-          ...commonPayload,
+          entity_id: Number(formData.entity_id),
+          description: formData.description,
+          amount: finalAmount,
           installment_count: parseInt(formData.installmentCount),
-          start_date: formData.date
+          start_date: formData.date,
+          category: formData.category,
+          category_id: formData.category_id ? Number(formData.category_id) : undefined
         };
 
         await installmentsService.create(payload);
