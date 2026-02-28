@@ -14,6 +14,7 @@ import { Reports } from './pages/Reports';
 import { Cards } from './pages/Cards';
 import { IncomeSources } from './pages/IncomeSources';
 import { Reminders } from './pages/Reminders';
+import { InstallPWABadge } from './components/InstallPWABadge';
 import { Toaster } from 'react-hot-toast';
 import './App.css';
 
@@ -23,6 +24,7 @@ function App() {
       <ThemeProvider>
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         <AuthProvider>
+          <InstallPWABadge />
           <Routes>
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<Login />} />
