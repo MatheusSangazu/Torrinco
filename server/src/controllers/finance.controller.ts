@@ -683,7 +683,7 @@ export class FinanceController {
         })));
       }
 
-      const [recurringIncome, recurringExpenses, normalExpenses, installmentsExpenses] = await Promise.all([
+      const [recurringIncome, recurringExpenses, normalIncome, normalExpenses, installmentsExpenses] = await Promise.all([
         prisma.recurring_transactions.aggregate({
           where: {
             user_id: userId,
@@ -706,6 +706,19 @@ export class FinanceController {
               gte: firstDayNextMonth,
               lte: lastDayNextMonth
             }
+          },
+          _sum: { amount: true },
+          _count: true
+        }),
+        prisma.transactions.aggregate({
+          where: {
+            user_id: userId,
+            type: 'income',
+            transaction_date: {
+              gte: firstDayNextMonth,
+              lte: lastDayNextMonth
+            },
+            deleted_at: null
           },
           _sum: { amount: true },
           _count: true
@@ -749,13 +762,15 @@ export class FinanceController {
       ]);
 
       const forecastIncome = Number(recurringIncome._sum.amount) || 0;
+      const forecastNormalIncome = Number(normalIncome._sum.amount) || 0;
+      const forecastTotalIncome = forecastIncome + forecastNormalIncome;
       const forecastRecurringExpenses = Number(recurringExpenses._sum.amount) || 0;
       const forecastNormalExpenses = Number(normalExpenses._sum.amount) || 0;
       const forecastInstallmentsExpenses = Number(installmentsExpenses._sum.amount) || 0;
       const forecastExpenses = forecastRecurringExpenses + forecastNormalExpenses + forecastInstallmentsExpenses + creditCardNextBillExpenses;
-      const forecastBalance = forecastIncome - forecastExpenses;
+      const forecastBalance = forecastTotalIncome - forecastExpenses;
 
-      const [recurringIncomeList, recurringExpenseList, normalExpensesList, installmentsList] = await Promise.all([
+      const [recurringIncomeList, recurringExpenseList, normalIncomeList, normalExpensesList, installmentsList] = await Promise.all([
         prisma.recurring_transactions.findMany({
           where: {
             user_id: userId,
@@ -786,6 +801,22 @@ export class FinanceController {
             description: true,
             amount: true,
             next_due_date: true
+          }
+        }),
+        prisma.transactions.findMany({
+          where: {
+            user_id: userId,
+            type: 'income',
+            transaction_date: {
+              gte: firstDayNextMonth,
+              lte: lastDayNextMonth
+            },
+            deleted_at: null
+          },
+          select: {
+            description: true,
+            amount: true,
+            transaction_date: true
           }
         }),
         prisma.transactions.findMany({
@@ -836,11 +867,12 @@ export class FinanceController {
       res.json({
         period: period === 'next_month' ? 'Próximo Mês' : 'Mês Atual',
         forecast: {
-          income: forecastIncome,
+          income: forecastTotalIncome,
           expenses: forecastExpenses,
           balance: forecastBalance,
           breakdown: {
             recurring_income: recurringIncomeList,
+            normal_income: normalIncomeList,
             recurring_expenses: recurringExpenseList,
             normal_expenses: normalExpensesList,
             installments: installmentsList,

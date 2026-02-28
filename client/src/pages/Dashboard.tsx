@@ -31,6 +31,11 @@ interface Forecast {
         amount: number;
         next_due_date: string;
       }>;
+      normal_income: Array<{
+        description: string;
+        amount: number;
+        transaction_date: string;
+      }>;
       normal_expenses: Array<{
         description: string;
         amount: number;
@@ -572,7 +577,7 @@ export function Dashboard() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl">
                   <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Receitas</p>
                   <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(forecast.forecast.income)}</p>
@@ -608,6 +613,33 @@ export function Dashboard() {
                               <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
                                 {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {forecast.forecast.breakdown.normal_income.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                      <ArrowDownLeft size={16} className="text-green-500" />
+                      Receitas Normais
+                    </h3>
+                    <div className="space-y-2">
+                      {forecast.forecast.breakdown.normal_income.map((item, idx) => (
+                        <div key={`norm-inc-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                              <ArrowDownLeft size={14} className="text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white">{item.description}</p>
+                              <p className="text-xs text-gray-500 dark:text-slate-400">
+                                {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                               </p>
                             </div>
                           </div>
