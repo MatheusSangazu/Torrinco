@@ -845,83 +845,101 @@ export function Dashboard() {
 
             <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
               {/* Resumo no Modal */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
-                <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
-                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Receitas</p>
-                  <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">
-                    {formatCurrency(transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0))}
-                  </p>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl border border-red-100/50 dark:border-red-900/30">
-                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Saídas</p>
-                  <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">
-                    {formatCurrency(transactions.filter(t => t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || '')).reduce((sum, t) => sum + t.amount, 0))}
-                  </p>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-1">
-                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Atual</p>
-                  <p className={clsx(
-                    "text-base sm:text-lg font-bold truncate",
-                    (summary?.cash_balance || 0) >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
-                  )}>{formatCurrency(summary?.cash_balance || 0)}</p>
-                </div>
-              </div>
+              {(() => {
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                
+                const filtered = transactions.filter(t => {
+                  const isCashType = t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''));
+                  const isPastOrPresent = new Date(t.transaction_date) <= today;
+                  return isCashType && isPastOrPresent;
+                });
 
-              {/* Lista de Transações que compõem o saldo */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-4">
-                  <MoreHorizontal size={16} />
-                  Movimentações do Período
-                </h3>
+                const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                const currentBalance = totalIncome - totalExpense;
 
-                <div className="space-y-3">
-                  {transactions
-                    .filter(t => t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || '')))
-                    .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
-                    .map((t) => (
-                      <div key={t.id} className="group flex justify-between items-center p-4 bg-gray-50/50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700 rounded-xl border border-transparent hover:border-gray-100 dark:hover:border-slate-600 transition-all shadow-sm hover:shadow-md">
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className={clsx(
-                            "p-3 rounded-xl shrink-0 transition-transform group-hover:scale-110",
-                            t.type === 'income' ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400" : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
-                          )}>
-                            {t.type === 'income' ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-gray-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              {t.description}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
-                                {t.payment_method === 'pix' ? 'Pix' : t.payment_method === 'debit' ? 'Débito' : 'Dinheiro'}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                {new Date(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0 ml-4">
-                          <span className={clsx(
-                            "text-base font-bold",
-                            t.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-white"
-                          )}>
-                            {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
-                          </span>
-                        </div>
+                return (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+                      <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Receitas</p>
+                        <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">
+                          {formatCurrency(totalIncome)}
+                        </p>
                       </div>
-                    ))}
-
-                  {transactions.filter(t => t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''))).length === 0 && (
-                    <div className="text-center py-12">
-                      <div className="inline-flex p-4 bg-gray-50 dark:bg-slate-800 rounded-full mb-3 text-gray-400">
-                        <Wallet size={32} />
+                      <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl border border-red-100/50 dark:border-red-900/30">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Saídas</p>
+                        <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">
+                          {formatCurrency(totalExpense)}
+                        </p>
                       </div>
-                      <p className="text-gray-500 dark:text-slate-400">Nenhuma movimentação em dinheiro neste período.</p>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-1">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Atual</p>
+                        <p className={clsx(
+                          "text-base sm:text-lg font-bold truncate",
+                          currentBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                        )}>{formatCurrency(currentBalance)}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
+
+                    {/* Lista de Transações que compõem o saldo */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-4">
+                        <MoreHorizontal size={16} />
+                        Movimentações Realizadas
+                      </h3>
+
+                      <div className="space-y-3">
+                        {filtered
+                          .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+                          .map((t) => (
+                            <div key={t.id} className="group flex justify-between items-center p-4 bg-gray-50/50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700 rounded-xl border border-transparent hover:border-gray-100 dark:hover:border-slate-600 transition-all shadow-sm hover:shadow-md">
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className={clsx(
+                                  "p-3 rounded-xl shrink-0 transition-transform group-hover:scale-110",
+                                  t.type === 'income' ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400" : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                                )}>
+                                  {t.type === 'income' ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-gray-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                    {t.description}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
+                                      {t.payment_method === 'pix' ? 'Pix' : t.payment_method === 'debit' ? 'Débito' : 'Dinheiro'}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      {new Date(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0 ml-4">
+                                <span className={clsx(
+                                  "text-base font-bold",
+                                  t.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-white"
+                                )}>
+                                  {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+
+                        {filtered.length === 0 && (
+                          <div className="text-center py-12">
+                            <div className="inline-flex p-4 bg-gray-50 dark:bg-slate-800 rounded-full mb-3 text-gray-400">
+                              <Wallet size={32} />
+                            </div>
+                            <p className="text-gray-500 dark:text-slate-400">Nenhuma movimentação realizada neste período.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
