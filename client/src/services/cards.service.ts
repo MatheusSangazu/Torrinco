@@ -11,7 +11,9 @@ export interface CreditCard {
   dueDay: number;
   closingDate: Date;
   dueDate: Date;
-  status: 'open' | 'closed';
+  status: 'open' | 'closed' | 'paid';
+  isPaid?: boolean;
+  paymentId?: number;
   transactionCount: number;
   color: string;
 }

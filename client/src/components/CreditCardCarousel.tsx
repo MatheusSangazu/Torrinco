@@ -1,30 +1,102 @@
 import { useState, useEffect } from 'react';
-import { CreditCard as CreditCardIcon, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { CreditCard as CreditCardIcon, ChevronLeft, ChevronRight, Plus, Check, Loader2, RotateCcw } from 'lucide-react';
 import { cardsService, type CreditCard } from '../services/cards.service';
+import { api } from '../services/api';
+import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
 interface CreditCardCarouselProps {
   className?: string;
+  onPaymentSuccess?: () => void;
 }
 
-export function CreditCardCarousel({ className }: CreditCardCarouselProps) {
+export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCarouselProps) {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+
+  const fetchCards = async () => {
+    try {
+      setLoading(true);
+      const data = await cardsService.list();
+      setCards(data);
+    } catch (error) {
+      console.error('Erro ao carregar cartões:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCards = async () => {
-      try {
-        const data = await cardsService.list();
-        setCards(data);
-      } catch (error) {
-        console.error('Erro ao carregar cartões:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchCards();
   }, []);
+
+  const handlePayBill = async (card: CreditCard) => {
+    if (card.currentBill <= 0) return;
+
+    const toastId = toast.loading(`Registrando pagamento do cartão ${card.name}...`);
+    try {
+      setPaying(true);
+      const today = new Date().toISOString().split('T')[0];
+      
+      const paymentData = {
+        amount: card.currentBill,
+        type: 'expense',
+        description: `Pagamento Fatura ${card.name} (Dashboard)`,
+        category: 'Pagamento de Cartão',
+        payment_method: 'pix',
+        transaction_date: today,
+        status: 'paid',
+        entity_id: null
+      };
+
+      await api.post('/finance/transactions', paymentData);
+      
+      toast.success(`Fatura ${card.name} paga com sucesso!`, { id: toastId });
+      
+      // Recarrega os cartões para atualizar o saldo e status
+      await fetchCards();
+      
+      // Notifica o componente pai para atualizar o saldo do dashboard
+      if (onPaymentSuccess) {
+        onPaymentSuccess();
+      }
+      
+    } catch (error) {
+      console.error('Erro ao pagar fatura:', error);
+      toast.error('Erro ao registrar pagamento.', { id: toastId });
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleUndoPayment = async (card: CreditCard) => {
+    if (!card.paymentId) {
+      toast.error('ID do pagamento não encontrado para desfazer.');
+      return;
+    }
+
+    if (!window.confirm(`Deseja desfazer o pagamento do cartão ${card.name}?`)) return;
+
+    const toastId = toast.loading('Desfazendo pagamento...');
+    try {
+      setPaying(true);
+      await api.delete(`/finance/transactions/${card.paymentId}`);
+      toast.success(`Pagamento do cartão ${card.name} desfeito.`, { id: toastId });
+      
+      await fetchCards();
+      
+      if (onPaymentSuccess) {
+        onPaymentSuccess();
+      }
+    } catch (error) {
+      console.error('Erro ao desfazer pagamento:', error);
+      toast.error('Erro ao desfazer pagamento.', { id: toastId });
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -57,12 +129,14 @@ export function CreditCardCarousel({ className }: CreditCardCarouselProps) {
   };
 
   const getStatusColor = (status: string) => {
+    if (status === 'paid') return 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30';
     return status === 'open' 
       ? 'bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30'
       : 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30';
   };
 
   const getStatusText = (status: string) => {
+    if (status === 'paid') return 'Paga';
     return status === 'open' ? 'Aberto' : 'Fechado';
   };
 
@@ -150,12 +224,35 @@ export function CreditCardCarousel({ className }: CreditCardCarouselProps) {
           <div className="flex items-start justify-between mb-3 sm:mb-4">
             <div className="min-w-0">
               <h3 className="font-semibold text-base sm:text-lg truncate">{currentCard.name}</h3>
-              <span className={clsx(
-                'text-xs px-2 py-1 rounded-full border inline-block',
-                getStatusColor(currentCard.status)
-              )}>
-                {getStatusText(currentCard.status)}
-              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={clsx(
+                  'text-xs px-2 py-1 rounded-full border inline-block',
+                  getStatusColor(currentCard.status)
+                )}>
+                  {getStatusText(currentCard.status)}
+                </span>
+                {currentCard.currentBill > 0 && currentCard.status !== 'paid' && (
+                  <button
+                    onClick={() => handlePayBill(currentCard)}
+                    disabled={paying}
+                    className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-white border border-green-500/30 hover:bg-green-500/40 transition-colors flex items-center gap-1"
+                  >
+                    {paying ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                    Pagar Fatura
+                  </button>
+                )}
+                {currentCard.status === 'paid' && (
+                  <button
+                    onClick={() => handleUndoPayment(currentCard)}
+                    disabled={paying}
+                    className="text-xs px-2 py-1 rounded-full bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors flex items-center gap-1"
+                    title="Desfazer pagamento"
+                  >
+                    {paying ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                    Desfazer
+                  </button>
+                )}
+              </div>
             </div>
             <div className="text-right ml-2 shrink-0">
               <p className="text-xs text-white/80">Fatura Atual</p>

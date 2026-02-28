@@ -118,6 +118,28 @@ export class CardsController {
 
         const isClosed = today > billPeriod.closingDate;
 
+        // Verificar se já existe um pagamento registrado para esta fatura
+        const paymentExists = await prisma.transactions.findFirst({
+          where: {
+            user_id: userId,
+            type: 'expense',
+            category: 'Pagamento de Cartão',
+            description: {
+              contains: card.name,
+              mode: 'insensitive'
+            },
+            deleted_at: null
+          },
+          orderBy: {
+            transaction_date: 'desc'
+          }
+        });
+
+        // Só consideramos o pagamento se ele estiver dentro do período da fatura ou próximo ao vencimento
+        const isPaid = paymentExists && 
+          new Date(paymentExists.transaction_date) >= new Date(billPeriod.startDate.getTime() - 86400000) &&
+          new Date(paymentExists.transaction_date) <= new Date(billPeriod.dueDate.getTime() + 86400000);
+
         return {
           id: card.id,
           name: card.name,
@@ -130,7 +152,9 @@ export class CardsController {
           periodEnd: billPeriod.endDate,
           closingDate: billPeriod.closingDate,
           dueDate: billPeriod.dueDate,
-          status: isClosed ? 'closed' : 'open',
+          status: isPaid ? 'paid' : (isClosed ? 'closed' : 'open'),
+          isPaid: !!isPaid,
+          paymentId: isPaid ? paymentExists.id : undefined,
           transactionCount: transactions.length,
           transactions,
           color: card.color || 'from-purple-600 to-indigo-700',

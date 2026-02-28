@@ -558,7 +558,8 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             transaction_date: dateFilter,
-            deleted_at: null
+            deleted_at: null,
+            category: { not: 'Pagamento de Cartão' }
           },
           _sum: { amount: true }
         }),
@@ -939,6 +940,28 @@ export class FinanceController {
 
       const totalExpenses = transactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
+      // Verificar se já existe um pagamento registrado para esta fatura
+      const paymentExists = await prisma.transactions.findFirst({
+        where: {
+          user_id: userId,
+          type: 'expense',
+          category: 'Pagamento de Cartão',
+          description: {
+            contains: card.name,
+            mode: 'insensitive'
+          },
+          deleted_at: null
+        },
+        orderBy: {
+          transaction_date: 'desc'
+        }
+      });
+
+      // Só consideramos o pagamento se ele estiver dentro do período da fatura ou próximo ao vencimento
+      const isPaid = paymentExists && 
+        new Date(paymentExists.transaction_date) >= new Date(previousMonthClosingDate.getTime() - 86400000) &&
+        new Date(paymentExists.transaction_date) <= new Date(dueDate.getTime() + 86400000);
+
       res.json({
         card: {
           id: card.id,
@@ -946,7 +969,8 @@ export class FinanceController {
           color: card.color,
           limit: card.credit_limit,
           closingDay,
-          dueDay
+          dueDay,
+          availableLimit: Number(card.credit_limit) - totalExpenses
         },
         bill: {
           startDate: previousMonthClosingDate,
@@ -969,7 +993,10 @@ export class FinanceController {
               installment_count: t.purchase_installments.installment_count,
               installment_value: Number(t.purchase_installments.installment_value)
             } : null
-          }))
+          })),
+          status: isPaid ? 'paid' : (today > currentMonthClosingDate ? 'closed' : 'open'),
+          isPaid: !!isPaid,
+          paymentId: isPaid ? paymentExists.id : undefined
         }
       });
     } catch (error) {

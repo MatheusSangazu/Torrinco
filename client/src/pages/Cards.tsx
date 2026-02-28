@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard as CreditCardIcon, Plus, Pencil, Trash2, X, Check, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { CreditCard as CreditCardIcon, Plus, Pencil, Trash2, X, Check, AlertCircle, ChevronDown, ChevronUp, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { cardsService, type CreditCard, type CreateCardDTO } from '../services/cards.service';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
@@ -31,25 +31,11 @@ interface Bill {
   totalExpenses: number;
   totalPayments: number;
   billAmount: number;
-  status: 'paid' | 'pending' | 'overdue';
+  status: 'paid' | 'pending' | 'overdue' | 'closed' | 'open';
   transactionCount: number;
   transactions: Transaction[];
-}
-
-interface BillTransaction {
-  id: number;
-  description: string;
-  amount: number;
-  transaction_date: Date;
-  type: 'income' | 'expense';
-  category?: string;
-  installment_number?: number;
-  installment_id?: number;
-  purchase_installments?: {
-    description: string;
-    installment_count: number;
-    installment_value: number;
-  };
+  isPaid?: boolean;
+  paymentId?: number;
 }
 
 interface BillDetails {
@@ -67,8 +53,12 @@ interface BillDetails {
     closingDate: Date;
     dueDate: Date;
     totalExpenses: number;
+    totalPayments: number;
+    billAmount: number;
     transactionCount: number;
-    transactions: BillTransaction[];
+    transactions: Transaction[];
+    status: 'paid' | 'pending' | 'overdue' | 'closed' | 'open';
+    paymentId?: number;
   };
 }
 
@@ -109,9 +99,66 @@ export function Cards() {
     color: 'from-purple-600 to-indigo-700'
   });
 
+  const [paying, setPaying] = useState(false);
+
   useEffect(() => {
     fetchCards();
   }, []);
+
+  const handlePayBill = async () => {
+    if (!billDetails || !billModalCard) return;
+
+    try {
+      setPaying(true);
+      const today = new Date().toISOString().split('T')[0];
+      
+      const paymentData = {
+        amount: billDetails.bill.totalExpenses,
+        type: 'expense',
+        description: `Pagamento Fatura ${billModalCard.name} - ${formatDate(billDetails.bill.dueDate)}`,
+        category: 'Pagamento de Cartão',
+        payment_method: 'pix',
+        transaction_date: today,
+        status: 'paid',
+        entity_id: null // Pagamento de fatura não é uma compra NO cartão
+      };
+
+      await api.post('/finance/transactions', paymentData);
+      
+      toast.success('Pagamento da fatura registrado com sucesso!');
+      handleCloseBillModal();
+      fetchCards();
+    } catch (error) {
+      console.error('Erro ao registrar pagamento da fatura:', error);
+      toast.error('Erro ao registrar pagamento da fatura.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleUndoPayment = async () => {
+    if (!billDetails?.bill.paymentId || !billModalCard) {
+      toast.error('Não foi possível encontrar o ID do pagamento para desfazer.');
+      return;
+    }
+
+    if (!window.confirm(`Deseja desfazer o pagamento do cartão ${billModalCard.name}?`)) return;
+
+    const toastId = toast.loading('Desfazendo pagamento...');
+    try {
+      setPaying(true);
+      await api.delete(`/finance/transactions/${billDetails.bill.paymentId}`);
+      toast.success(`Pagamento do cartão ${billModalCard.name} desfeito.`, { id: toastId });
+      
+      handleCloseBillModal();
+      fetchCards();
+    } catch (error) {
+      console.error('Erro ao desfazer pagamento:', error);
+      toast.error('Erro ao desfazer pagamento.', { id: toastId });
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const fetchCards = async () => {
     try {
@@ -276,9 +323,9 @@ export function Cards() {
     try {
       let data;
       if (type === 'current') {
-        data = await cardsService.getBill(card.id);
+        data = await cardsService.getBill(card.id) as BillDetails;
       } else {
-        data = await cardsService.getNextBill(card.id);
+        data = await cardsService.getNextBill(card.id) as BillDetails;
       }
       setBillDetails(data);
     } catch (error) {
@@ -814,13 +861,44 @@ export function Cards() {
               )}
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-700">
+            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-700 flex gap-3">
               <button
                 onClick={handleCloseBillModal}
-                className="w-full px-4 py-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-300 rounded-xl transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-300 rounded-xl transition-colors"
               >
                 Fechar
               </button>
+              {billModalType === 'current' && billDetails && billDetails.bill.totalExpenses > 0 && billDetails.bill.status !== 'paid' && (
+                <button
+                  onClick={handlePayBill}
+                  disabled={paying}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {paying ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Check size={18} />
+                  )}
+                  Pagar Fatura
+                </button>
+              )}
+              {billDetails?.bill.status === 'paid' && (
+                <div className="flex-1 flex gap-2">
+                  <div className="flex-1 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-800 flex items-center justify-center gap-2 font-medium">
+                    <CheckCircle2 size={18} />
+                    Fatura Paga
+                  </div>
+                  <button
+                    onClick={handleUndoPayment}
+                    disabled={paying}
+                    className="px-4 py-2 bg-gray-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-500 rounded-xl transition-colors flex items-center justify-center gap-2"
+                    title="Desfazer pagamento"
+                  >
+                    {paying ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
+                    Desfazer
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

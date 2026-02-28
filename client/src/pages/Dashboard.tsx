@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard } from 'lucide-react';
+import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard as CreditCardIcon, Loader2, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../services/api';
 import { remindersService, type Reminder } from '../services/reminders.service';
 import { CreditCardCarousel } from '../components/CreditCardCarousel';
+import toast from 'react-hot-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Summary {
@@ -103,68 +104,68 @@ export function Dashboard() {
   const [chartData, setChartData] = useState<Array<{name: string; receitas: number; despesas: number}>>([]);
   const [showForecastModal, setShowForecastModal] = useState(false);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Calculate date range for next 7 days
+      const today = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(today.getDate() + 7);
+      
+      const startDateStr = today.toISOString().split('T')[0];
+      const endDateStr = nextWeek.toISOString().split('T')[0];
+
+      // Calculate date range for last 6 months (chart)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      const startDateChart = sixMonthsAgo.toISOString().split('T')[0];
+
+      const [summaryRes, transactionsRes, dueRes, eventsRes, forecastRes, chartRes] = await Promise.all([
+        api.get(`/finance/summary?period=${period}`),
+        api.get(`/finance/transactions?end_date=${endDateStr}`),
+        api.get('/recurring/due?days=7'),
+        api.get(`/calendar?start_date=${startDateStr}&end_date=${endDateStr}`),
+        api.get('/finance/forecast?period=next_month'),
+        api.get(`/finance/transactions?start_date=${startDateChart}`)
+      ]);
+
+      setSummary(summaryRes.data.month_summary);
+      setForecast(forecastRes.data);
+      setTransactions(transactionsRes.data.transactions);
+      setChartData(generateChartData(chartRes.data.transactions));
+
+      const dueReminders = await remindersService.listDue();
+      setReminders(dueReminders);
+      
+      // Combine recurring transactions and events
+      const recurring = (dueRes.data.dueTransactions || []).map((item: RecurringTransaction) => ({
+        ...item,
+        itemType: 'recurring' as const
+      }));
+      
+      const events = (eventsRes.data.events || []).map((item: Event) => ({
+        ...item,
+        itemType: 'event' as const
+      }));
+
+      // Sort by date
+      const combined = [...recurring, ...events].sort((a, b) => {
+        const dateA = a.itemType === 'recurring' ? new Date(a.next_due_date) : new Date(a.event_date);
+        const dateB = b.itemType === 'recurring' ? new Date(b.next_due_date) : new Date(b.event_date);
+        return dateA.getTime() - dateB.getTime();
+      });
+
+      setAgendaItems(combined);
+    } catch (error) {
+      console.error('Erro ao carregar dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Calculate date range for next 7 days
-        const today = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(today.getDate() + 7);
-        
-        const startDateStr = today.toISOString().split('T')[0];
-        const endDateStr = nextWeek.toISOString().split('T')[0];
-
-        // Calculate date range for last 6 months (chart)
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-        sixMonthsAgo.setDate(1);
-        const startDateChart = sixMonthsAgo.toISOString().split('T')[0];
-
-        const [summaryRes, transactionsRes, dueRes, eventsRes, forecastRes, chartRes] = await Promise.all([
-          api.get(`/finance/summary?period=${period}`),
-          api.get(`/finance/transactions?end_date=${endDateStr}`),
-          api.get('/recurring/due?days=7'),
-          api.get(`/calendar?start_date=${startDateStr}&end_date=${endDateStr}`),
-          api.get('/finance/forecast?period=next_month'),
-          api.get(`/finance/transactions?start_date=${startDateChart}`)
-        ]);
-
-        setSummary(summaryRes.data.month_summary);
-        setForecast(forecastRes.data);
-        setTransactions(transactionsRes.data.transactions);
-        setChartData(generateChartData(chartRes.data.transactions));
-
-        const dueReminders = await remindersService.listDue();
-        setReminders(dueReminders);
-        
-        // Combine recurring transactions and events
-        const recurring = (dueRes.data.dueTransactions || []).map((item: RecurringTransaction) => ({
-          ...item,
-          itemType: 'recurring' as const
-        }));
-        
-        const events = (eventsRes.data.events || []).map((item: Event) => ({
-          ...item,
-          itemType: 'event' as const
-        }));
-
-        // Sort by date
-        const combined = [...recurring, ...events].sort((a, b) => {
-          const dateA = a.itemType === 'recurring' ? new Date(a.next_due_date) : new Date(a.event_date);
-          const dateB = b.itemType === 'recurring' ? new Date(b.next_due_date) : new Date(b.event_date);
-          return dateA.getTime() - dateB.getTime();
-        });
-
-        setAgendaItems(combined);
-      } catch (error) {
-        console.error('Erro ao carregar dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [period]);
 
@@ -181,7 +182,21 @@ export function Dashboard() {
       case 'TRANSPORTE': return Fuel;
       case 'ALIMENTAÇÃO': return Utensils;
       case 'VENDAS': return TrendingUp;
+      case 'PAGAMENTO DE CARTÃO': return CreditCardIcon;
       default: return MoreHorizontal;
+    }
+  };
+
+  const handleDeleteTransaction = async (id: number | string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta transação? Isso reverterá o pagamento.')) return;
+    
+    try {
+      await api.delete(`/finance/transactions/${id}`);
+      toast.success('Transação excluída com sucesso!');
+      fetchData();
+    } catch (error) {
+      console.error('Erro ao excluir transação:', error);
+      toast.error('Erro ao excluir transação.');
     }
   };
 
@@ -317,7 +332,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        <CreditCardCarousel className="xl:hidden" />
+        <CreditCardCarousel className="xl:hidden" onPaymentSuccess={fetchData} />
 
         {/* Card Agenda (Recorrências) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
@@ -494,7 +509,7 @@ export function Dashboard() {
         </div>
 
         <div className="xl:col-span-1 hidden xl:block">
-          <CreditCardCarousel />
+          <CreditCardCarousel onPaymentSuccess={fetchData} />
         </div>
       </div>
 
@@ -536,17 +551,26 @@ export function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={clsx(
-                        "block font-bold",
-                        transaction.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-white"
-                      )}>
-                        {transaction.type === 'expense' ? '-' : '+'} {formatCurrency(transaction.amount)}
-                      </span>
-                      <div className="flex items-center justify-end gap-1 text-xs text-gray-400 mt-1">
-                        {transaction.type === 'income' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
-                        {transaction.status}
+                    <div className="text-right flex items-center gap-4">
+                      <div>
+                        <span className={clsx(
+                          "block font-bold",
+                          transaction.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-white"
+                        )}>
+                          {transaction.type === 'expense' ? '-' : '+'} {formatCurrency(transaction.amount)}
+                        </span>
+                        <div className="flex items-center justify-end gap-1 text-xs text-gray-400 mt-1">
+                          {transaction.type === 'income' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
+                          {transaction.status}
+                        </div>
                       </div>
+                      <button
+                        onClick={() => handleDeleteTransaction(transaction.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        title="Excluir transação"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -748,7 +772,7 @@ export function Dashboard() {
                   return Object.values(cardBills).length > 0 ? (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-3 flex items-center gap-2">
-                        <CreditCard size={16} className="text-blue-500" />
+                        <CreditCardIcon size={16} className="text-blue-500" />
                         Faturas de Cartão
                       </h3>
                       <div className="space-y-4">
