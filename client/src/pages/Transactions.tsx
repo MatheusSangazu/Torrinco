@@ -207,31 +207,31 @@ export function Transactions() {
       const rawAmount = formData.amount.toString().replace(',', '.');
       const finalAmount = parseFloat(rawAmount);
 
+      const commonPayload = {
+        description: formData.description,
+        amount: finalAmount,
+        type: formData.type,
+        category: formData.category,
+        category_id: formData.category_id ? Number(formData.category_id) : null,
+        income_source_id: formData.income_source_id ? Number(formData.income_source_id) : null,
+        entity_id: formData.entity_id ? Number(formData.entity_id) : null,
+        status: formData.status,
+        payment_method: formData.payment_method,
+        is_recurring: formData.isRecurring
+      };
+
       if (formData.isInstallment && formData.type === 'expense' && formData.payment_method === 'credit') {
         const payload = {
-          entity_id: Number(formData.entity_id),
-          description: formData.description,
-          amount: finalAmount,
+          ...commonPayload,
           installment_count: parseInt(formData.installmentCount),
-          start_date: formData.date,
-          category: formData.category,
-          category_id: formData.category_id ? Number(formData.category_id) : undefined
+          start_date: formData.date
         };
 
         await installmentsService.create(payload);
       } else {
         const payload = {
-          description: formData.description,
-          amount: finalAmount,
-          type: formData.type,
-          category: formData.category,
-          category_id: formData.category_id ? Number(formData.category_id) : null,
-          income_source_id: formData.income_source_id ? Number(formData.income_source_id) : null,
-          entity_id: formData.entity_id ? Number(formData.entity_id) : null,
-          transaction_date: formData.date,
-          status: formData.status,
-          payment_method: formData.payment_method,
-          is_recurring: formData.isRecurring
+          ...commonPayload,
+          transaction_date: formData.date
         };
 
         if (editingTransaction) {

@@ -177,6 +177,12 @@ export class RecurringController {
         if (cat) finalCategoryName = cat.name;
       }
 
+      // Mapear status 'pending' para 'active' se vier do frontend (visto que recorrência é sempre active/inactive)
+      let finalStatus = status;
+      if (status === 'pending' || status === 'paid') {
+        finalStatus = 'active';
+      }
+
       const updated = await prisma.recurring_transactions.update({
         where: { id: Number(id) },
         data: {
@@ -185,7 +191,7 @@ export class RecurringController {
           category: finalCategoryName ?? undefined,
           category_id: finalCategoryId,
           frequency: frequency ?? undefined,
-          status: status ?? undefined,
+          status: (finalStatus as any) ?? undefined,
           entity_id: entity_id !== undefined ? (entity_id ? parseInt(entity_id) : null) : undefined,
           payment_method: payment_method ?? undefined
         }
