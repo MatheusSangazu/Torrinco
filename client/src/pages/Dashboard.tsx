@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard as CreditCardIcon, Loader2, Trash2 } from 'lucide-react';
+import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard as CreditCardIcon, Loader2, Trash2, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../services/api';
 import { remindersService, type Reminder } from '../services/reminders.service';
@@ -64,6 +64,7 @@ interface Transaction {
   amount: number;
   type: 'income' | 'expense';
   category: string;
+  payment_method?: string;
   categories?: {
     name: string;
     color: string;
@@ -103,6 +104,7 @@ export function Dashboard() {
   const [period, setPeriod] = useState<'month' | 'all'>('month');
   const [chartData, setChartData] = useState<Array<{name: string; receitas: number; despesas: number}>>([]);
   const [showForecastModal, setShowForecastModal] = useState(false);
+  const [showCashDetailsModal, setShowCashDetailsModal] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -116,6 +118,10 @@ export function Dashboard() {
       const startDateStr = today.toISOString().split('T')[0];
       const endDateStr = nextWeek.toISOString().split('T')[0];
 
+      // Calculate date range for current month (cash details)
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const startDateMonth = firstDayOfMonth.toISOString().split('T')[0];
+
       // Calculate date range for last 6 months (chart)
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
@@ -124,7 +130,7 @@ export function Dashboard() {
 
       const [summaryRes, transactionsRes, dueRes, eventsRes, forecastRes, chartRes] = await Promise.all([
         api.get(`/finance/summary?period=${period}`),
-        api.get(`/finance/transactions?end_date=${endDateStr}`),
+        api.get(`/finance/transactions?start_date=${period === 'month' ? startDateMonth : '1970-01-01'}&end_date=${endDateStr}`),
         api.get('/recurring/due?days=7'),
         api.get(`/calendar?start_date=${startDateStr}&end_date=${endDateStr}`),
         api.get('/finance/forecast?period=next_month'),
@@ -273,13 +279,16 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-4 gap-4">
 
         {/* Card Saldo em Dinheiro */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
+        <div 
+          onClick={() => setShowCashDetailsModal(true)}
+          className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+        >
           <div className="absolute top-4 right-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 animate-pulse">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
             LIVE
           </div>
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
+            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform">
               <Wallet size={24} />
             </div>
             <span className="text-gray-500 dark:text-slate-400 font-medium">Saldo {period === 'month' ? 'do Mês' : 'Acumulado'}</span>
@@ -292,8 +301,8 @@ export function Dashboard() {
               <p className="text-sm text-gray-500 dark:text-slate-400">
                 Receitas: <span className="font-semibold text-green-600">{summary ? formatCurrency(summary.income || 0) : 'R$ 0,00'}</span>
               </p>
-              <p className="text-xs text-gray-400">
-                Descontando: <span className="font-medium">dinheiro, pix e débito</span>
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                Ver detalhes <ArrowUpRight size={12} className="text-blue-500" />
               </p>
             </div>
           </div>
@@ -586,8 +595,8 @@ export function Dashboard() {
 
       {/* Modal de Detalhes da Previsão */}
       {showForecastModal && forecast && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100 dark:border-slate-700">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Detalhes da Previsão - {forecast.period}</h2>
@@ -595,7 +604,7 @@ export function Dashboard() {
                   onClick={() => setShowForecastModal(false)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
                 >
-                  <MoreHorizontal size={20} />
+                  <X size={20} />
                 </button>
               </div>
             </div>
@@ -807,6 +816,111 @@ export function Dashboard() {
                     </div>
                   ) : null;
                 })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Saldo em Dinheiro */}
+      {showCashDetailsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-slate-700">
+            <div className="p-6 border-b border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                    <Wallet size={20} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-800 dark:text-white">Extrato do Saldo em Dinheiro</h2>
+                </div>
+                <button 
+                  onClick={() => setShowCashDetailsModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              {/* Resumo no Modal */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+                <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Receitas</p>
+                  <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">
+                    {formatCurrency(transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0))}
+                  </p>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl border border-red-100/50 dark:border-red-900/30">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Saídas</p>
+                  <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">
+                    {formatCurrency(transactions.filter(t => t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || '')).reduce((sum, t) => sum + t.amount, 0))}
+                  </p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-1">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Atual</p>
+                  <p className={clsx(
+                    "text-base sm:text-lg font-bold truncate",
+                    (summary?.cash_balance || 0) >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                  )}>{formatCurrency(summary?.cash_balance || 0)}</p>
+                </div>
+              </div>
+
+              {/* Lista de Transações que compõem o saldo */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-4">
+                  <MoreHorizontal size={16} />
+                  Movimentações do Período
+                </h3>
+
+                <div className="space-y-3">
+                  {transactions
+                    .filter(t => t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || '')))
+                    .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+                    .map((t) => (
+                      <div key={t.id} className="group flex justify-between items-center p-4 bg-gray-50/50 dark:bg-slate-700/30 hover:bg-white dark:hover:bg-slate-700 rounded-xl border border-transparent hover:border-gray-100 dark:hover:border-slate-600 transition-all shadow-sm hover:shadow-md">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className={clsx(
+                            "p-3 rounded-xl shrink-0 transition-transform group-hover:scale-110",
+                            t.type === 'income' ? "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400" : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                          )}>
+                            {t.type === 'income' ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {t.description}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded">
+                                {t.payment_method === 'pix' ? 'Pix' : t.payment_method === 'debit' ? 'Débito' : 'Dinheiro'}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <span className={clsx(
+                            "text-base font-bold",
+                            t.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-white"
+                          )}>
+                            {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                  {transactions.filter(t => t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''))).length === 0 && (
+                    <div className="text-center py-12">
+                      <div className="inline-flex p-4 bg-gray-50 dark:bg-slate-800 rounded-full mb-3 text-gray-400">
+                        <Wallet size={32} />
+                      </div>
+                      <p className="text-gray-500 dark:text-slate-400">Nenhuma movimentação em dinheiro neste período.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
