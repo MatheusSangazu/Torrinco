@@ -71,7 +71,6 @@ export class RecurringController {
           description,
           amount: parseFloat(amount),
           category: finalCategoryName,
-          category_id: finalCategoryId,
           type,
           frequency,
           start_date: startDate,
@@ -79,10 +78,6 @@ export class RecurringController {
           status: 'active',
           entity_id: entity_id ? parseInt(entity_id) : null,
           payment_method: payment_method || 'cash'
-        },
-        include: {
-          categories: true,
-          financial_entities: true
         }
       });
 
@@ -100,7 +95,6 @@ export class RecurringController {
               amount: recurringTransaction.amount,
               type: recurringTransaction.type,
               category: recurringTransaction.category,
-              category_id: recurringTransaction.category_id,
               description: recurringTransaction.description,
               transaction_date: startDate,
               status: 'paid',
@@ -189,7 +183,6 @@ export class RecurringController {
           description: description ?? undefined,
           amount: amount ? parseFloat(amount) : undefined,
           category: finalCategoryName ?? undefined,
-          category_id: finalCategoryId,
           frequency: frequency ?? undefined,
           status: (finalStatus as any) ?? undefined,
           entity_id: entity_id !== undefined ? (entity_id ? parseInt(entity_id) : null) : undefined,
