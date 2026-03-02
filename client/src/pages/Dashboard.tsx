@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard as CreditCardIcon, Loader2, Trash2, X } from 'lucide-react';
+import { Wallet, Calendar, ArrowUpRight, ArrowDownLeft, MoreHorizontal, Music, Fuel, TrendingUp, Utensils, AlertCircle, Clock, TrendingDown, BarChart3, Bell, CheckCircle2, Check, CreditCard as CreditCardIcon, Loader2, Trash2, X, RotateCcw } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../services/api';
 import { remindersService, type Reminder } from '../services/reminders.service';
 import { CreditCardCarousel } from '../components/CreditCardCarousel';
 import toast from 'react-hot-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface Summary {
   income: number;
@@ -100,6 +101,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [currentMonthForecast, setCurrentMonthForecast] = useState<Forecast | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -108,6 +110,10 @@ export function Dashboard() {
   const [chartData, setChartData] = useState<Array<{name: string; receitas: number; despesas: number}>>([]);
   const [showForecastModal, setShowForecastModal] = useState(false);
   const [showCashDetailsModal, setShowCashDetailsModal] = useState(false);
+  const [showCurrentMonthDetailsModal, setShowCurrentMonthDetailsModal] = useState(false);
+  const [showUndoPaymentModal, setShowUndoPaymentModal] = useState(false);
+  const [undoPaymentId, setUndoPaymentId] = useState<number | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -131,17 +137,19 @@ export function Dashboard() {
       sixMonthsAgo.setDate(1);
       const startDateChart = sixMonthsAgo.toISOString().split('T')[0];
 
-      const [summaryRes, transactionsRes, dueRes, eventsRes, forecastRes, chartRes] = await Promise.all([
+      const [summaryRes, transactionsRes, dueRes, eventsRes, forecastRes, currentMonthForecastRes, chartRes] = await Promise.all([
         api.get(`/finance/summary?period=${period}`),
         api.get(`/finance/transactions?start_date=${period === 'month' ? startDateMonth : '1970-01-01'}&end_date=${endDateStr}`),
         api.get('/recurring/due?days=7'),
         api.get(`/calendar?start_date=${startDateStr}&end_date=${endDateStr}`),
         api.get('/finance/forecast?period=next_month'),
+        api.get('/finance/forecast?period=month'),
         api.get(`/finance/transactions?start_date=${startDateChart}`)
       ]);
 
       setSummary(summaryRes.data.month_summary);
       setForecast(forecastRes.data);
+      setCurrentMonthForecast(currentMonthForecastRes.data);
       setTransactions(transactionsRes.data.transactions);
       setChartData(generateChartData(chartRes.data.transactions));
 
@@ -178,6 +186,56 @@ export function Dashboard() {
     fetchData();
   }, [period]);
 
+  const handlePayCardBill = async (bill: any) => {
+    const toastId = toast.loading('Registrando pagamento...');
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const dueDate = new Date(bill.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+      
+      const paymentData = {
+        amount: bill.transactions.reduce((sum: number, t: any) => sum + t.amount, 0),
+        type: 'expense',
+        description: `Pagamento Fatura ${bill.card_name} - ${dueDate}`,
+        category: 'Pagamento de Cartão',
+        payment_method: 'pix',
+        transaction_date: today,
+        status: 'paid',
+        entity_id: null
+      };
+
+      await api.post('/finance/transactions', paymentData);
+      toast.success('Pagamento registrado!', { id: toastId });
+      fetchData();
+    } catch (error) {
+      console.error('Erro ao pagar fatura:', error);
+      toast.error('Erro ao registrar pagamento.', { id: toastId });
+    }
+  };
+
+  const handleUndoCardPayment = (paymentId: number) => {
+    setUndoPaymentId(paymentId);
+    setShowUndoPaymentModal(true);
+  };
+
+  const confirmUndoCardPayment = async () => {
+    if (!undoPaymentId) return;
+    
+    const toastId = toast.loading('Desfazendo pagamento...');
+    try {
+      setIsUndoing(true);
+      await api.delete(`/finance/transactions/${undoPaymentId}`);
+      toast.success('Pagamento desfeito!', { id: toastId });
+      setShowUndoPaymentModal(false);
+      setUndoPaymentId(null);
+      fetchData();
+    } catch (error) {
+      console.error('Erro ao desfazer pagamento:', error);
+      toast.error('Erro ao desfazer pagamento.', { id: toastId });
+    } finally {
+      setIsUndoing(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -196,17 +254,9 @@ export function Dashboard() {
     }
   };
 
-  const handleDeleteTransaction = async (id: number | string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta transação? Isso reverterá o pagamento.')) return;
-    
-    try {
-      await api.delete(`/finance/transactions/${id}`);
-      toast.success('Transação excluída com sucesso!');
-      fetchData();
-    } catch (error) {
-      console.error('Erro ao excluir transação:', error);
-      toast.error('Erro ao excluir transação.');
-    }
+  const handleDeleteTransaction = (id: number | string) => {
+    setUndoPaymentId(Number(id));
+    setShowUndoPaymentModal(true);
   };
 
   const generateChartData = (transactions: Transaction[]) => {
@@ -345,6 +395,35 @@ export function Dashboard() {
         </div>
 
         <CreditCardCarousel className="xl:hidden" onPaymentSuccess={fetchData} />
+
+        {/* Card Detalhes Mês Atual */}
+        <div 
+          onClick={() => setShowCurrentMonthDetailsModal(true)}
+          className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer"
+        >
+          <div className="absolute top-4 right-4 bg-torrinco-100 dark:bg-torrinco-900/30 text-torrinco-600 dark:text-torrinco-400 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+            <BarChart3 size={12} />
+            MÊS ATUAL
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-torrinco-100 dark:bg-torrinco-900/30 rounded-xl text-torrinco-600 dark:text-torrinco-400">
+              <BarChart3 size={24} />
+            </div>
+            <span className="text-gray-500 dark:text-slate-400 font-medium">Resumo Detalhado</span>
+          </div>
+          <div>
+            <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
+              {summary ? formatCurrency(summary.balance || 0) : 'R$ 0,00'}
+            </h3>
+            <div className="mt-1 space-y-1">
+              <p className="text-sm text-gray-500 dark:text-slate-400 flex items-center justify-between">
+                <span>Saldo Líquido</span>
+                <ArrowUpRight size={14} className="text-blue-500" />
+              </p>
+              <p className="text-xs text-gray-400">Clique para ver gastos por categoria</p>
+            </div>
+          </div>
+        </div>
 
         {/* Card Agenda (Recorrências) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden group hover:shadow-md transition-shadow">
@@ -837,12 +916,23 @@ export function Dashboard() {
                   </div>
                   <h2 className="text-xl font-bold text-gray-800 dark:text-white">Extrato do Saldo em Dinheiro</h2>
                 </div>
-                <button 
-                  onClick={() => setShowCashDetailsModal(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      setShowCashDetailsModal(false);
+                      setShowCurrentMonthDetailsModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors border border-blue-100 dark:border-blue-900/30"
+                  >
+                    DETALHES MÊS ATUAL
+                  </button>
+                  <button 
+                    onClick={() => setShowCashDetailsModal(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -952,6 +1042,191 @@ export function Dashboard() {
           </div>
         </div>
       )}
+      {/* Modal de Detalhes do Mês Atual */}
+      {showCurrentMonthDetailsModal && currentMonthForecast && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-slate-700">
+            <div className="p-6 border-b border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                    <BarChart3 size={20} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-800 dark:text-white">Detalhes do Mês Atual</h2>
+                </div>
+                <button 
+                  onClick={() => setShowCurrentMonthDetailsModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+                <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Entradas</p>
+                  <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">{formatCurrency(currentMonthForecast.forecast.income)}</p>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl border border-red-100/50 dark:border-red-900/30">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Saídas</p>
+                  <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">{formatCurrency(currentMonthForecast.forecast.expenses)}</p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-1">
+                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Final Previsto</p>
+                  <p className={clsx(
+                    "text-base sm:text-lg font-bold truncate",
+                    currentMonthForecast.forecast.balance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                  )}>{formatCurrency(currentMonthForecast.forecast.balance)}</p>
+                </div>
+              </div>
+
+              {/* Breakdown similar ao forecast */}
+              <div className="space-y-8">
+                {/* Entradas */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <TrendingUp size={16} className="text-green-500" />
+                    Entradas (Previstas + Reais)
+                  </h3>
+                  <div className="space-y-2">
+                    {[...currentMonthForecast.forecast.breakdown.normal_income, ...currentMonthForecast.forecast.breakdown.recurring_income]
+                      .sort((a, b) => new Date(a.transaction_date || a.next_due_date).getTime() - new Date(b.transaction_date || b.next_due_date).getTime())
+                      .map((item, idx) => (
+                        <div key={`income-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
+                            <p className="text-xs text-gray-500 dark:text-slate-400">
+                              {new Date(item.transaction_date || item.next_due_date).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                          <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Saídas */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-slate-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <TrendingDown size={16} className="text-red-500" />
+                    Saídas (Previstas + Reais)
+                  </h3>
+                  <div className="space-y-4">
+                    {/* Despesas Normais e Recorrências */}
+                    <div className="space-y-2">
+                      {[...currentMonthForecast.forecast.breakdown.normal_expenses, ...currentMonthForecast.forecast.breakdown.recurring_expenses, ...currentMonthForecast.forecast.breakdown.installments]
+                        .sort((a, b) => new Date(a.transaction_date || a.next_due_date).getTime() - new Date(b.transaction_date || b.next_due_date).getTime())
+                        .map((item, idx) => (
+                          <div key={`expense-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-gray-500 dark:text-slate-400">
+                                  {new Date(item.transaction_date || item.next_due_date).toLocaleDateString('pt-BR')}
+                                </p>
+                                {item.installment_number && (
+                                  <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 px-1.5 py-0.5 rounded">
+                                    Parcela {item.installment_number}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(item.amount)}</span>
+                          </div>
+                        ))}
+                    </div>
+
+                    {/* Faturas de Cartão */}
+                    {(() => {
+                      const cardBills = currentMonthForecast.forecast.breakdown.credit_card_bills.reduce((acc: any, item: any) => {
+                        const key = `${item.card_name}-${item.card_color}`;
+                        if (!acc[key]) {
+                          acc[key] = {
+                            card_id: item.card_id,
+                            card_name: item.card_name,
+                            card_color: item.card_color,
+                            due_date: item.due_date,
+                            is_paid: item.is_paid,
+                            payment_id: item.payment_id,
+                            transactions: []
+                          };
+                        }
+                        acc[key].transactions.push(item);
+                        return acc;
+                      }, {});
+
+                      return Object.values(cardBills).map((cardGroup: any, cardIdx) => (
+                        <div key={`card-current-${cardIdx}`} className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100/50 dark:border-blue-900/20">
+                          <div className="flex items-center gap-3 p-3 border-b border-blue-100/50 dark:border-blue-900/20">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cardGroup.card_color }} />
+                            <h4 className="text-sm font-bold text-gray-800 dark:text-white">{cardGroup.card_name}</h4>
+                            
+                            <div className="ml-auto flex items-center gap-3">
+                              {cardGroup.is_paid ? (
+                                <button
+                                  onClick={() => handleUndoCardPayment(cardGroup.payment_id)}
+                                  className="flex items-center gap-1.5 px-2 py-1 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 text-[10px] font-bold rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors border border-green-200 dark:border-green-800"
+                                  title="Clique para desfazer o pagamento"
+                                >
+                                  <Check size={12} />
+                                  PAGA
+                                  <RotateCcw size={10} className="ml-0.5 opacity-60" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handlePayCardBill(cardGroup)}
+                                  className="flex items-center gap-1.5 px-2 py-1 bg-torrinco-600 text-white text-[10px] font-bold rounded-lg hover:bg-torrinco-700 transition-colors shadow-sm"
+                                >
+                                  <CreditCardIcon size={12} />
+                                  PAGAR FATURA
+                                </button>
+                              )}
+                              <span className={clsx("text-sm font-bold", cardGroup.is_paid ? "text-gray-400 line-through" : "text-blue-600")}>
+                                {formatCurrency(cardGroup.transactions.reduce((sum: number, t: any) => sum + t.amount, 0))}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-3 space-y-2">
+                            {cardGroup.transactions.map((item: any, idx: number) => (
+                              <div key={`cc-current-${cardIdx}-${idx}`} className="flex justify-between items-center text-xs">
+                                <div className="min-w-0">
+                                  <p className="text-gray-700 dark:text-gray-300 truncate">{item.description}</p>
+                                  <p className="text-[10px] text-gray-500">
+                                    {new Date(item.transaction_date).toLocaleDateString('pt-BR')}
+                                    {item.is_projected && <span className="ml-2 text-orange-500 font-medium">(Previsto)</span>}
+                                  </p>
+                                </div>
+                                <span className="font-medium text-gray-600">{formatCurrency(item.amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Confirmação para Desfazer Pagamento */}
+      <ConfirmModal
+        isOpen={showUndoPaymentModal}
+        onClose={() => {
+          setShowUndoPaymentModal(false);
+          setUndoPaymentId(null);
+        }}
+        onConfirm={confirmUndoCardPayment}
+        title="Desfazer Pagamento?"
+        message="Tem certeza que deseja excluir o registro de pagamento? Isso fará com que a obrigação volte a aparecer como pendente."
+        confirmLabel="DESFAZER"
+        cancelLabel="CANCELAR"
+        isLoading={isUndoing}
+        type="warning"
+      />
     </div>
   );
 }

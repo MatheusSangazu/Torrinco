@@ -88,7 +88,7 @@ export function Cards() {
   const [cardBills, setCardBills] = useState<Record<number, Bill[]>>({});
   const [loadingBills, setLoadingBills] = useState<Record<number, boolean>>({});
   const [billModalOpen, setBillModalOpen] = useState(false);
-  const [billModalType, setBillModalType] = useState<'current' | 'next'>('current');
+  const [billModalType, setBillModalType] = useState<'current' | 'next' | 'previous'>('current');
   const [billModalCard, setBillModalCard] = useState<CreditCard | null>(null);
   const [billDetails, setBillDetails] = useState<BillDetails | null>(null);
   const [loadingBillDetails, setLoadingBillDetails] = useState(false);
@@ -321,7 +321,7 @@ export function Cards() {
     }
   };
 
-  const handleOpenBillModal = async (card: CreditCard, type: 'current' | 'next') => {
+  const handleOpenBillModal = async (card: CreditCard, type: 'current' | 'next' | 'previous') => {
     setBillModalType(type);
     setBillModalCard(card);
     setBillModalOpen(true);
@@ -331,8 +331,10 @@ export function Cards() {
       let data;
       if (type === 'current') {
         data = await cardsService.getBill(card.id) as BillDetails;
-      } else {
+      } else if (type === 'next') {
         data = await cardsService.getNextBill(card.id) as BillDetails;
+      } else {
+        data = await cardsService.getPreviousBill(card.id) as BillDetails;
       }
       setBillDetails(data);
     } catch (error) {
@@ -471,18 +473,24 @@ export function Cards() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-3 gap-3 pt-2">
+                    <button
+                      onClick={() => handleOpenBillModal(card, 'previous')}
+                      className="text-[10px] text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center justify-center gap-1 py-2 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Fatura anterior
+                    </button>
                     <button
                       onClick={() => handleOpenBillModal(card, 'current')}
-                      className="text-xs text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
+                      className="text-[10px] text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
                     >
-                      Ver fatura atual
+                      Fatura atual
                     </button>
                     <button
                       onClick={() => handleOpenBillModal(card, 'next')}
-                      className="text-xs text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
+                      className="text-[10px] text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
                     >
-                      Ver fatura seguinte
+                      Fatura seguinte
                     </button>
                   </div>
 

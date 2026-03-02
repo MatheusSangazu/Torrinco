@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
+import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 
 interface BillPeriod {
   startDate: Date;
@@ -74,6 +75,15 @@ export class CardsController {
         }
       });
 
+      // Buscar recorrências no crédito para o usuário
+      const recurringTransactions = await prisma.recurring_transactions.findMany({
+        where: {
+          user_id: userId,
+          status: 'active',
+          payment_method: 'credit'
+        }
+      });
+
       const cardsWithDetails = await Promise.all(cards.map(async card => {
         const closingDay = card.closing_day || 1;
         const dueDay = card.due_day || 10;
@@ -105,11 +115,28 @@ export class CardsController {
           }
         });
 
-        const totalExpenses = transactions
+        // Adicionar recorrências projetadas para o cartão neste período
+        const cardRecurring = recurringTransactions.filter(rt => rt.entity_id === card.id);
+        const projectedRecs = projectRecurringTransactions(
+          cardRecurring,
+          billPeriod.startDate,
+          billPeriod.endDate,
+          transactions
+        );
+
+        const allTransactions = [
+          ...transactions,
+          ...projectedRecs.map(pr => ({
+            ...pr,
+            is_projected: true
+          }))
+        ];
+
+        const totalExpenses = allTransactions
           .filter(t => t.type === 'expense')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
-        const totalPayments = transactions
+        const totalPayments = allTransactions
           .filter(t => t.type === 'income')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
@@ -154,8 +181,8 @@ export class CardsController {
           status: isPaid ? 'paid' : (isClosed ? 'closed' : 'open'),
           isPaid: !!isPaid,
           paymentId: isPaid ? paymentExists.id : undefined,
-          transactionCount: transactions.length,
-          transactions,
+          transactionCount: allTransactions.length,
+          transactions: allTransactions,
           color: card.color || 'from-purple-600 to-indigo-700',
           isCurrentBill
         };

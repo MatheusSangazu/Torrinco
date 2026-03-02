@@ -62,5 +62,10 @@ export const cardsService = {
   getNextBill: async (cardId: number) => {
     const response = await api.get(`/finance/cards/${cardId}/next-bill`);
     return response.data;
+  },
+
+  getPreviousBill: async (cardId: number) => {
+    const response = await api.get(`/finance/cards/${cardId}/previous-bill`);
+    return response.data;
   }
 };

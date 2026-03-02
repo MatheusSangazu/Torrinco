@@ -16,5 +16,6 @@ router.put('/transactions/:id', FinanceController.update);
 router.delete('/transactions/:id', FinanceController.delete);
 router.get('/cards/:cardId/bill', FinanceController.getCardBill);
 router.get('/cards/:cardId/next-bill', FinanceController.getCardNextBill);
+router.get('/cards/:cardId/previous-bill', FinanceController.getCardPreviousBill);
 
 export default router;

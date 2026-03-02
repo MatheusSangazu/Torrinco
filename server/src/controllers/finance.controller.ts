@@ -2,10 +2,11 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import { addMonths } from '../lib/date-utils.js';
+import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 
 export class FinanceController {
   /**
-   * Projeção de transações recorrentes
+   * Projeção de transações recorrentes (Mantido para compatibilidade interna se necessário, mas prefira a lib)
    */
   private static projectRecurringTransactions(
     recurringTransactions: any[],
@@ -13,72 +14,7 @@ export class FinanceController {
     end: Date,
     transactionsForCheck: any[]
   ): any[] {
-    const projectedRecurring: any[] = [];
-    
-    for (const rt of recurringTransactions) {
-      const rtStartDate = new Date(rt.start_date);
-
-      let currentDate = new Date(rtStartDate);
-
-      if (rt.frequency === 'monthly') {
-        const monthsDiff = (start.getFullYear() - rtStartDate.getFullYear()) * 12 + (start.getMonth() - rtStartDate.getMonth());
-        if (monthsDiff > 0) {
-          currentDate = addMonths(rtStartDate, monthsDiff);
-        }
-      } else if (rt.frequency === 'yearly') {
-        const yearsDiff = start.getFullYear() - rtStartDate.getFullYear();
-        if (yearsDiff > 0) {
-          currentDate.setFullYear(rtStartDate.getFullYear() + yearsDiff);
-        }
-      } else {
-        while (currentDate < start) {
-          if (rt.frequency === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-          else if (rt.frequency === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
-        }
-      }
-
-      while (currentDate < start) {
-        if (rt.frequency === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-        else if (rt.frequency === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
-        else if (rt.frequency === 'monthly') currentDate = addMonths(currentDate, 1);
-        else if (rt.frequency === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + 1);
-      }
-
-      while (currentDate <= end) {
-        const existingTransaction = transactionsForCheck.find(t => 
-          t.is_recurring && 
-          t.type === rt.type &&
-          t.description === rt.description && 
-          Math.abs(Number(t.amount) - Number(rt.amount)) < 0.01 &&
-          new Date(t.transaction_date).getDate() === currentDate.getDate() &&
-          new Date(t.transaction_date).getMonth() === currentDate.getMonth() &&
-          new Date(t.transaction_date).getFullYear() === currentDate.getFullYear()
-        );
-
-        if (!existingTransaction) {
-          projectedRecurring.push({
-            id: `rec-${rt.id}-${currentDate.getTime()}`,
-            amount: rt.amount,
-            type: rt.type,
-            category: rt.category,
-            description: rt.description,
-            transaction_date: new Date(currentDate),
-            status: 'pending',
-            is_recurring: true,
-            is_projected: true,
-            payment_method: rt.payment_method || 'pix',
-            entity_id: rt.entity_id
-          });
-        }
-        
-        if (rt.frequency === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-        else if (rt.frequency === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
-        else if (rt.frequency === 'monthly') currentDate = addMonths(currentDate, 1);
-        else if (rt.frequency === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + 1);
-      }
-    }
-    
-    return projectedRecurring;
+    return projectRecurringTransactions(recurringTransactions, start, end, transactionsForCheck);
   }
 
   /**
@@ -604,33 +540,20 @@ export class FinanceController {
         userId = Number(target_user_id);
       }
 
-      let dateFilter: any = {};
+      const today = new Date();
+      let forecastStart: Date;
+      let forecastEnd: Date;
 
       if (period === 'next_month') {
-        const today = new Date();
-        const firstDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-        const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-        firstDayNextMonth.setHours(0, 0, 0, 0);
-        lastDayNextMonth.setHours(23, 59, 59, 999);
-        dateFilter = {
-          gte: firstDayNextMonth,
-          lte: lastDayNextMonth
-        };
-      } else if (period === 'month') {
-        const today = new Date();
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        firstDayOfMonth.setHours(0, 0, 0, 0);
-        lastDayOfMonth.setHours(23, 59, 59, 999);
-        dateFilter = {
-          gte: firstDayOfMonth,
-          lte: lastDayOfMonth
-        };
+        forecastStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        forecastEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+      } else {
+        forecastStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        forecastEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       }
-
-      const today = new Date();
-      const firstDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+      
+      forecastStart.setHours(0, 0, 0, 0);
+      forecastEnd.setHours(23, 59, 59, 999);
 
       const creditCards = await prisma.financial_entities.findMany({
         where: {
@@ -642,20 +565,42 @@ export class FinanceController {
           name: true,
           color: true,
           closing_day: true,
-          due_day: true
+          due_day: true,
+          credit_limit: true
         }
       });
 
-      let creditCardNextBillExpenses = 0;
-      const creditCardNextBillTransactions: any[] = [];
+      let creditCardBillExpenses = 0;
+      const creditCardBillTransactions: any[] = [];
+
+      const recurringTransactionsForBill = await prisma.recurring_transactions.findMany({
+        where: {
+          user_id: userId,
+          status: 'active',
+          payment_method: 'credit'
+        }
+      });
 
       for (const card of creditCards) {
         const closingDay = card.closing_day || 15;
-        const currentMonthClosingDate = new Date(today.getFullYear(), today.getMonth(), closingDay, 23, 59, 59, 999);
-        const nextMonthClosingDate = new Date(today.getFullYear(), today.getMonth() + 1, closingDay, 23, 59, 59, 999);
+        const dueDay = card.due_day || 25;
 
-        const billStartDate = new Date(today.getFullYear(), today.getMonth(), closingDay + 1, 0, 0, 0, 0);
-        const billEndDate = nextMonthClosingDate;
+        // Determinar qual fatura vence no período do forecast
+        // Uma fatura que vence em Março (dueDay) geralmente fecha em Fevereiro (closingDay)
+        // O período de compras dela é de Janeiro (closingDay + 1) até Fevereiro (closingDay)
+        
+        let billDueDate = new Date(forecastStart.getFullYear(), forecastStart.getMonth(), dueDay);
+        
+        // Se o dueDay for menor que o closingDay, a fatura fecha no mês anterior ao vencimento
+        // Se o dueDay for maior ou igual ao closingDay, a fatura fecha no mesmo mês do vencimento (raro, mas possível)
+        let billEndDate: Date;
+        if (dueDay < closingDay) {
+          billEndDate = new Date(billDueDate.getFullYear(), billDueDate.getMonth() - 1, closingDay, 23, 59, 59, 999);
+        } else {
+          billEndDate = new Date(billDueDate.getFullYear(), billDueDate.getMonth(), closingDay, 23, 59, 59, 999);
+        }
+        
+        const billStartDate = new Date(billEndDate.getFullYear(), billEndDate.getMonth() - 1, closingDay + 1, 0, 0, 0, 0);
 
         const cardTransactions = await prisma.transactions.findMany({
           where: {
@@ -671,19 +616,66 @@ export class FinanceController {
           select: {
             description: true,
             amount: true,
-            transaction_date: true
+            transaction_date: true,
+            is_recurring: true
           }
         });
 
-        const cardTotal = cardTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-        creditCardNextBillExpenses += cardTotal;
-        creditCardNextBillTransactions.push(...cardTransactions.map(t => ({
-          description: t.description,
-          amount: Number(t.amount),
-          transaction_date: t.transaction_date,
-          card_name: card.name,
-          card_color: card.color,
-          type: 'credit_card_bill' as const
+        // Adicionar recorrências projetadas para o cartão
+        const projectedRecs = FinanceController.projectRecurringTransactions(
+          recurringTransactionsForBill.filter(rt => rt.entity_id === card.id),
+          billStartDate,
+          billEndDate,
+          cardTransactions
+        );
+
+        const allCardTransactions = [
+          ...cardTransactions.map(t => ({
+            description: t.description,
+            amount: Number(t.amount),
+            transaction_date: t.transaction_date,
+            card_name: card.name,
+            card_color: card.color,
+            type: 'credit_card_bill' as const
+          })),
+          ...projectedRecs.map(t => ({
+            description: t.description,
+            amount: Number(t.amount),
+            transaction_date: t.transaction_date,
+            card_name: card.name,
+            card_color: card.color,
+            type: 'credit_card_bill' as const,
+            is_projected: true
+          }))
+        ];
+
+        const cardTotal = allCardTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+        
+        // Verificar se já existe um pagamento registrado para esta fatura no forecast
+        const paymentExists = await prisma.transactions.findFirst({
+          where: {
+            user_id: userId,
+            type: 'expense',
+            category: 'Pagamento de Cartão',
+            description: { contains: card.name },
+            deleted_at: null,
+            transaction_date: {
+              gte: new Date(billStartDate.getTime() - 86400000 * 5),
+              lte: new Date(billDueDate.getTime() + 86400000 * 10)
+            }
+          }
+        });
+
+        const isPaid = !!paymentExists;
+
+        creditCardBillExpenses += isPaid ? 0 : cardTotal; // Se já pagou, não conta como despesa pendente no forecast
+        
+        creditCardBillTransactions.push(...allCardTransactions.map(t => ({
+          ...t,
+          card_id: card.id,
+          due_date: billDueDate,
+          is_paid: isPaid,
+          payment_id: paymentExists?.id
         })));
       }
 
@@ -694,8 +686,8 @@ export class FinanceController {
             type: 'income',
             status: 'active',
             next_due_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             }
           },
           _sum: { amount: true },
@@ -706,9 +698,10 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             status: 'active',
+            payment_method: { not: 'credit' }, // Não contar recorrências no crédito aqui, já contadas na fatura
             next_due_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             }
           },
           _sum: { amount: true },
@@ -719,8 +712,8 @@ export class FinanceController {
             user_id: userId,
             type: 'income',
             transaction_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             },
             deleted_at: null
           },
@@ -732,13 +725,14 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             transaction_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             },
             deleted_at: null,
             installment_id: null,
+            category: { not: 'Pagamento de Cartão' },
             payment_method: {
-              not: 'credit_card'
+              notIn: ['credit', 'credit_card']
             }
           },
           _sum: { amount: true },
@@ -749,15 +743,15 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             transaction_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             },
             deleted_at: null,
             installment_id: {
               not: null
             },
             payment_method: {
-              not: 'credit_card'
+              notIn: ['credit', 'credit_card']
             }
           },
           _sum: { amount: true },
@@ -765,14 +759,9 @@ export class FinanceController {
         })
       ]);
 
-      const forecastIncome = Number(recurringIncome._sum.amount) || 0;
-      const forecastNormalIncome = Number(normalIncome._sum.amount) || 0;
-      const forecastTotalIncome = forecastIncome + forecastNormalIncome;
-      const forecastRecurringExpenses = Number(recurringExpenses._sum.amount) || 0;
-      const forecastNormalExpenses = Number(normalExpenses._sum.amount) || 0;
-      const forecastInstallmentsExpenses = Number(installmentsExpenses._sum.amount) || 0;
-      const forecastExpenses = forecastRecurringExpenses + forecastNormalExpenses + forecastInstallmentsExpenses + creditCardNextBillExpenses;
-      const forecastBalance = forecastTotalIncome - forecastExpenses;
+      const forecastIncomeTotal = (Number(recurringIncome._sum.amount) || 0) + (Number(normalIncome._sum.amount) || 0);
+      const forecastExpensesTotal = (Number(recurringExpenses._sum.amount) || 0) + (Number(normalExpenses._sum.amount) || 0) + (Number(installmentsExpenses._sum.amount) || 0) + creditCardBillExpenses;
+      const forecastBalance = forecastIncomeTotal - forecastExpensesTotal;
 
       const [recurringIncomeList, recurringExpenseList, normalIncomeList, normalExpensesList, installmentsList] = await Promise.all([
         prisma.recurring_transactions.findMany({
@@ -781,8 +770,8 @@ export class FinanceController {
             type: 'income',
             status: 'active',
             next_due_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             }
           },
           select: {
@@ -796,9 +785,10 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             status: 'active',
+            payment_method: { not: 'credit' },
             next_due_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             }
           },
           select: {
@@ -812,8 +802,8 @@ export class FinanceController {
             user_id: userId,
             type: 'income',
             transaction_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             },
             deleted_at: null
           },
@@ -828,13 +818,14 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             transaction_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             },
             deleted_at: null,
             installment_id: null,
+            category: { not: 'Pagamento de Cartão' },
             payment_method: {
-              not: 'credit_card'
+              notIn: ['credit', 'credit_card']
             }
           },
           select: {
@@ -848,15 +839,15 @@ export class FinanceController {
             user_id: userId,
             type: 'expense',
             transaction_date: {
-              gte: firstDayNextMonth,
-              lte: lastDayNextMonth
+              gte: forecastStart,
+              lte: forecastEnd
             },
             deleted_at: null,
             installment_id: {
               not: null
             },
             payment_method: {
-              not: 'credit_card'
+              notIn: ['credit', 'credit_card']
             }
           },
           select: {
@@ -871,8 +862,8 @@ export class FinanceController {
       res.json({
         period: period === 'next_month' ? 'Próximo Mês' : 'Mês Atual',
         forecast: {
-          income: forecastTotalIncome,
-          expenses: forecastExpenses,
+          income: forecastIncomeTotal,
+          expenses: forecastExpensesTotal,
           balance: forecastBalance,
           breakdown: {
             recurring_income: recurringIncomeList,
@@ -880,7 +871,7 @@ export class FinanceController {
             recurring_expenses: recurringExpenseList,
             normal_expenses: normalExpensesList,
             installments: installmentsList,
-            credit_card_bills: creditCardNextBillTransactions
+            credit_card_bills: creditCardBillTransactions
           }
         }
       });
@@ -941,7 +932,54 @@ export class FinanceController {
         }
       });
 
-      const totalExpenses = transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      // Adicionar recorrências projetadas para o cartão
+      const recurringTransactions = await prisma.recurring_transactions.findMany({
+        where: {
+          user_id: userId,
+          status: 'active',
+          payment_method: 'credit',
+          entity_id: Number(cardId)
+        },
+        include: {
+          categories: true
+        }
+      });
+
+      const projectedRecs = projectRecurringTransactions(
+        recurringTransactions,
+        previousMonthClosingDate,
+        currentMonthClosingDate,
+        transactions
+      );
+
+      const allTransactions = [
+        ...transactions.map(t => ({
+          id: t.id,
+          description: t.description,
+          amount: Number(t.amount),
+          transaction_date: t.transaction_date,
+          type: t.type,
+          category: t.categories?.name,
+          installment_number: t.installment_number,
+          installment_id: t.installment_id,
+          purchase_installments: t.purchase_installments ? {
+            description: t.purchase_installments.description,
+            installment_count: t.purchase_installments.installment_count,
+            installment_value: Number(t.purchase_installments.installment_value)
+          } : null
+        })),
+        ...projectedRecs.map(pr => ({
+          id: pr.id,
+          description: pr.description,
+          amount: Number(pr.amount),
+          transaction_date: pr.transaction_date,
+          type: pr.type,
+          category: pr.categories?.name || pr.category,
+          is_projected: true
+        }))
+      ];
+
+      const totalExpenses = allTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
       // Verificar se já existe um pagamento registrado para esta fatura
       const paymentExists = await prisma.transactions.findFirst({
@@ -980,22 +1018,8 @@ export class FinanceController {
           closingDate: currentMonthClosingDate,
           dueDate,
           totalExpenses,
-          transactionCount: transactions.length,
-          transactions: transactions.map(t => ({
-            id: t.id,
-            description: t.description,
-            amount: Number(t.amount),
-            transaction_date: t.transaction_date,
-            type: t.type,
-            category: t.categories?.name,
-            installment_number: t.installment_number,
-            installment_id: t.installment_id,
-            purchase_installments: t.purchase_installments ? {
-              description: t.purchase_installments.description,
-              installment_count: t.purchase_installments.installment_count,
-              installment_value: Number(t.purchase_installments.installment_value)
-            } : null
-          })),
+          transactionCount: allTransactions.length,
+          transactions: allTransactions,
           status: isPaid ? 'paid' : (today > currentMonthClosingDate ? 'closed' : 'open'),
           isPaid: !!isPaid,
           paymentId: isPaid ? paymentExists.id : undefined
@@ -1057,7 +1081,54 @@ export class FinanceController {
         }
       });
 
-      const totalExpenses = transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      // Adicionar recorrências projetadas para o cartão
+      const recurringTransactions = await prisma.recurring_transactions.findMany({
+        where: {
+          user_id: userId,
+          status: 'active',
+          payment_method: 'credit',
+          entity_id: Number(cardId)
+        },
+        include: {
+          categories: true
+        }
+      });
+
+      const projectedRecs = projectRecurringTransactions(
+        recurringTransactions,
+        currentMonthClosingDate,
+        nextMonthClosingDate,
+        transactions
+      );
+
+      const allTransactions = [
+        ...transactions.map(t => ({
+          id: t.id,
+          description: t.description,
+          amount: Number(t.amount),
+          transaction_date: t.transaction_date,
+          type: t.type,
+          category: t.categories?.name,
+          installment_number: t.installment_number,
+          installment_id: t.installment_id,
+          purchase_installments: t.purchase_installments ? {
+            description: t.purchase_installments.description,
+            installment_count: t.purchase_installments.installment_count,
+            installment_value: Number(t.purchase_installments.installment_value)
+          } : null
+        })),
+        ...projectedRecs.map(pr => ({
+          id: pr.id,
+          description: pr.description,
+          amount: Number(pr.amount),
+          transaction_date: pr.transaction_date,
+          type: pr.type,
+          category: pr.categories?.name || pr.category,
+          is_projected: true
+        }))
+      ];
+
+      const totalExpenses = allTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
       res.json({
         card: {
@@ -1074,22 +1145,154 @@ export class FinanceController {
           closingDate: nextMonthClosingDate,
           dueDate: nextMonthDueDate,
           totalExpenses,
-          transactionCount: transactions.length,
-          transactions: transactions.map(t => ({
-            id: t.id,
-            description: t.description,
-            amount: Number(t.amount),
-            transaction_date: t.transaction_date,
-            type: t.type,
-            category: t.categories?.name,
-            installment_number: t.installment_number,
-            installment_id: t.installment_id,
-            purchase_installments: t.purchase_installments ? {
-              description: t.purchase_installments.description,
-              installment_count: t.purchase_installments.installment_count,
-              installment_value: Number(t.purchase_installments.installment_value)
-            } : null
-          }))
+          transactionCount: allTransactions.length,
+          transactions: allTransactions
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getCardPreviousBill(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { cardId } = req.params;
+      const userId = req.userId!;
+
+      const card = await prisma.financial_entities.findFirst({
+        where: {
+          id: Number(cardId),
+          user_id: userId,
+          type: 'credit_card'
+        }
+      });
+
+      if (!card) {
+        return res.status(404).json({ error: 'Card not found' });
+      }
+
+      const closingDay = card.closing_day || 15;
+      const dueDay = card.due_day || 25;
+
+      const today = new Date();
+      // Fatura atual (período de fechamento anterior até fechamento atual)
+      let currentMonthClosingDate = new Date(today.getFullYear(), today.getMonth(), closingDay, 23, 59, 59, 999);
+      let previousMonthClosingDate = new Date(today.getFullYear(), today.getMonth() - 1, closingDay + 1, 0, 0, 0, 0);
+
+      if (today > currentMonthClosingDate) {
+        previousMonthClosingDate.setMonth(today.getMonth());
+        previousMonthClosingDate.setDate(closingDay + 1);
+        currentMonthClosingDate.setMonth(today.getMonth() + 1);
+      }
+
+      // Fatura anterior é um mês antes da atual
+      const billEndDate = new Date(previousMonthClosingDate.getTime() - 1);
+      const billStartDate = new Date(billEndDate.getFullYear(), billEndDate.getMonth() - 1, closingDay + 1, 0, 0, 0, 0);
+      const dueDate = new Date(billEndDate.getFullYear(), billEndDate.getMonth(), dueDay);
+
+      const transactions = await prisma.transactions.findMany({
+        where: {
+          user_id: userId,
+          entity_id: Number(cardId),
+          type: 'expense',
+          transaction_date: {
+            gte: billStartDate,
+            lte: billEndDate
+          },
+          deleted_at: null
+        },
+        include: {
+          categories: true,
+          purchase_installments: true
+        },
+        orderBy: {
+          transaction_date: 'desc'
+        }
+      });
+
+      // Adicionar recorrências projetadas para o cartão
+      const recurringTransactions = await prisma.recurring_transactions.findMany({
+        where: {
+          user_id: userId,
+          status: 'active',
+          payment_method: 'credit',
+          entity_id: Number(cardId)
+        },
+        include: {
+          categories: true
+        }
+      });
+
+      const projectedRecs = projectRecurringTransactions(
+        recurringTransactions,
+        billStartDate,
+        billEndDate,
+        transactions
+      );
+
+      const allTransactions = [
+        ...transactions.map(t => ({
+          id: t.id,
+          description: t.description,
+          amount: Number(t.amount),
+          transaction_date: t.transaction_date,
+          type: t.type,
+          category: t.categories?.name,
+          installment_number: t.installment_number,
+          installment_id: t.installment_id,
+          purchase_installments: t.purchase_installments ? {
+            description: t.purchase_installments.description,
+            installment_count: t.purchase_installments.installment_count,
+            installment_value: Number(t.purchase_installments.installment_value)
+          } : null
+        })),
+        ...projectedRecs.map(pr => ({
+          id: pr.id,
+          description: pr.description,
+          amount: Number(pr.amount),
+          transaction_date: pr.transaction_date,
+          type: pr.type,
+          category: pr.categories?.name || pr.category,
+          is_projected: true
+        }))
+      ];
+
+      const totalExpenses = allTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const paymentExists = await prisma.transactions.findFirst({
+        where: {
+          user_id: userId,
+          type: 'expense',
+          category: 'Pagamento de Cartão',
+          description: { contains: card.name },
+          deleted_at: null,
+          transaction_date: {
+            gte: new Date(billStartDate.getTime() - 86400000 * 5),
+            lte: new Date(dueDate.getTime() + 86400000 * 10)
+          }
+        }
+      });
+
+      res.json({
+        card: {
+          id: card.id,
+          name: card.name,
+          color: card.color,
+          limit: card.credit_limit,
+          closingDay,
+          dueDay
+        },
+        bill: {
+          startDate: billStartDate,
+          endDate: billEndDate,
+          closingDate: billEndDate,
+          dueDate,
+          totalExpenses,
+          transactionCount: allTransactions.length,
+          transactions: allTransactions,
+          status: paymentExists ? 'paid' : 'closed',
+          isPaid: !!paymentExists,
+          paymentId: paymentExists ? paymentExists.id : undefined
         }
       });
     } catch (error) {
