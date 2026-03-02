@@ -481,8 +481,12 @@ export class FinanceController {
       const [
         income,
         expense,
-        expenseCash
+        totalIncomeUntilNow,
+        totalExpenseCashUntilNow,
+        realTransactionsForPeriod,
+        recurringTransactions
       ] = await Promise.all([
+        // Receitas do mês para o resumo
         prisma.transactions.aggregate({
           where: {
             user_id: userId,
@@ -492,6 +496,7 @@ export class FinanceController {
           },
           _sum: { amount: true }
         }),
+        // Despesas do mês para o resumo (exceto pagamento de cartão)
         prisma.transactions.aggregate({
           where: {
             user_id: userId,
@@ -502,25 +507,74 @@ export class FinanceController {
           },
           _sum: { amount: true }
         }),
+        // Saldo Acumulado: Todas as receitas até hoje (incluindo meses passados)
+        prisma.transactions.aggregate({
+          where: {
+            user_id: userId,
+            type: 'income',
+            transaction_date: { lte: now },
+            deleted_at: null
+          },
+          _sum: { amount: true }
+        }),
+        // Saldo Acumulado: Todas as despesas em dinheiro/pix/débito até hoje
         prisma.transactions.aggregate({
           where: {
             user_id: userId,
             type: 'expense',
             payment_method: { in: ['cash', 'pix', 'debit'] },
-            transaction_date: dateFilter,
+            transaction_date: { lte: now },
             deleted_at: null
           },
           _sum: { amount: true }
+        }),
+        // Buscar transações reais do período para evitar duplicidade com recorrências
+        prisma.transactions.findMany({
+          where: {
+            user_id: userId,
+            transaction_date: dateFilter,
+            deleted_at: null
+          }
+        }),
+        // Buscar recorrências ativas
+        prisma.recurring_transactions.findMany({
+          where: {
+            user_id: userId,
+            status: 'active'
+          }
         })
       ]);
 
-      const cashBalance = (Number(income._sum.amount) || 0) - (Number(expenseCash._sum.amount) || 0);
+      // Projetar recorrências para o período do resumo (apenas para planejamento)
+      let recurringIncomeTotal = 0;
+      let recurringExpenseTotal = 0;
+
+      if (dateFilter && dateFilter.gte && dateFilter.lte) {
+        const projections = projectRecurringTransactions(
+          recurringTransactions,
+          dateFilter.gte,
+          dateFilter.lte,
+          realTransactionsForPeriod
+        );
+
+        recurringIncomeTotal = projections
+          .filter(p => p.type === 'income')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        
+        recurringExpenseTotal = projections
+          .filter(p => p.type === 'expense')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+      }
+
+      const totalIncomePeriod = (Number(income._sum.amount) || 0) + recurringIncomeTotal;
+      const totalExpensePeriod = (Number(expense._sum.amount) || 0) + recurringExpenseTotal;
+      const cashBalance = (Number(totalIncomeUntilNow._sum.amount) || 0) - (Number(totalExpenseCashUntilNow._sum.amount) || 0);
 
       res.json({
         month_summary: {
-          income: income._sum.amount || 0,
-          expense: expense._sum.amount || 0,
-          balance: (Number(income._sum.amount) || 0) - (Number(expense._sum.amount) || 0),
+          income: totalIncomePeriod,
+          expense: totalExpensePeriod,
+          balance: totalIncomePeriod - totalExpensePeriod,
           cash_balance: cashBalance
         }
       });

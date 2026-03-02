@@ -413,14 +413,14 @@ export function Dashboard() {
           </div>
           <div>
             <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
-              {summary ? formatCurrency(summary.balance || 0) : 'R$ 0,00'}
+              {currentMonthForecast ? formatCurrency(currentMonthForecast.forecast.balance) : 'R$ 0,00'}
             </h3>
             <div className="mt-1 space-y-1">
               <p className="text-sm text-gray-500 dark:text-slate-400 flex items-center justify-between">
-                <span>Saldo Líquido</span>
+                <span>Saldo Final Previsto</span>
                 <ArrowUpRight size={14} className="text-blue-500" />
               </p>
-              <p className="text-xs text-gray-400">Clique para ver gastos por categoria</p>
+              <p className="text-xs text-gray-400">Clique para ver o que falta pagar</p>
             </div>
           </div>
         </div>
@@ -942,6 +942,7 @@ export function Dashboard() {
                 const today = new Date();
                 today.setHours(23, 59, 59, 999);
                 
+                // Filtrar transações que afetam o caixa e já aconteceram
                 const filtered = transactions.filter(t => {
                   const isCashType = t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''));
                   const isPastOrPresent = new Date(t.transaction_date) <= today;
@@ -950,29 +951,41 @@ export function Dashboard() {
 
                 const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
                 const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
-                const currentBalance = totalIncome - totalExpense;
+                
+                // O saldo real vem do resumo do backend (que é acumulado)
+                const currentBalance = summary?.cash_balance || 0;
+                // O saldo anterior é o saldo atual menos o que aconteceu este mês
+                const previousBalance = currentBalance - (totalIncome - totalExpense);
 
                 return (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+                      <div className="bg-gray-50 dark:bg-slate-700/30 p-3 sm:p-4 rounded-xl border border-gray-100/50 dark:border-slate-700/50">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Anterior</p>
+                        <p className="text-base sm:text-lg font-bold text-gray-600 dark:text-slate-300 truncate">
+                          {formatCurrency(previousBalance)}
+                        </p>
+                      </div>
                       <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
-                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Receitas</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Receitas (Mês)</p>
                         <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">
                           {formatCurrency(totalIncome)}
                         </p>
                       </div>
                       <div className="bg-red-50 dark:bg-red-900/20 p-3 sm:p-4 rounded-xl border border-red-100/50 dark:border-red-900/30">
-                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Total Saídas</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saídas (Mês)</p>
                         <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400 truncate">
                           {formatCurrency(totalExpense)}
                         </p>
                       </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-1">
-                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Atual</p>
-                        <p className={clsx(
-                          "text-base sm:text-lg font-bold truncate",
-                          currentBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
-                        )}>{formatCurrency(currentBalance)}</p>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-xl border border-blue-100/50 dark:border-blue-900/30 col-span-2 sm:col-span-3">
+                        <div className="flex justify-between items-center">
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium">Saldo Disponível Agora</p>
+                          <p className={clsx(
+                            "text-xl sm:text-2xl font-bold truncate",
+                            currentBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+                          )}>{formatCurrency(currentBalance)}</p>
+                        </div>
                       </div>
                     </div>
 
