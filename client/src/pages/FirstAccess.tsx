@@ -82,8 +82,8 @@ export function FirstAccess() {
         password,
       });
 
-      const { accessToken, user } = response.data;
-      login(accessToken, user);
+      const { accessToken, user, refreshToken } = response.data;
+      login(accessToken, refreshToken, user);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Falha ao definir senha. Tente novamente.');

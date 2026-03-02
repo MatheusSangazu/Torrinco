@@ -55,7 +55,7 @@ export const firstAccessLimiter = rateLimit({
 
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 200,
   message: {
     error: 'Muitas requisições. Tente novamente em 15 minutos.',
     retryAfter: '15 minutos'

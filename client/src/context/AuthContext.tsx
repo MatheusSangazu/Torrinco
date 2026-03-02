@@ -10,7 +10,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User) => void;
+  login: (token: string, refreshToken: string, user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -36,8 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .catch(error => {
           console.error('Failed to fetch user:', error);
-          // Se o token for inválido, faz logout
-          logout();
+          // Se o token for inválido, o axios interceptor tentará o refresh. 
+          // Só fazemos logout aqui se realmente não houver como recuperar.
+          if (error.response?.status === 401 && !localStorage.getItem('refreshToken')) {
+            logout();
+          }
         })
         .finally(() => {
           setIsLoading(false);
@@ -47,14 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = (newToken: string, newRefreshToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
+    localStorage.setItem('refreshToken', newRefreshToken);
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setToken(null);
     setUser(null);
   };

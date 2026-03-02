@@ -19,9 +19,10 @@ Sistema completo de gestão financeira pessoal e empresarial com dashboard, cont
 - Express 5.2
 - TypeScript 5.9
 - Prisma 7.4 (ORM)
-- JWT (autenticação)
+- JWT (Autenticação com Access/Refresh Tokens)
+- Rate Limiting (Segurança de API)
 - Evolution API (WhatsApp)
-- XLSX (exportação)
+- XLSX (Exportação)
 
 ### Banco de Dados
 - MySQL/MariaDB
@@ -30,26 +31,28 @@ Sistema completo de gestão financeira pessoal e empresarial com dashboard, cont
 
 ```
 torrinco/
-├── client/          Frontend React
-├── server/          Backend API
-└── package.json     Scripts raiz
+├── client/          Frontend React (Vite)
+├── server/          Backend API (Node/Express)
+└── docs/            Documentação de Integrações (n8n/AI)
 ```
 
 ## Funcionalidades
 
-- Dashboard financeiro com métricas em tempo real e extrato detalhado de saldo
+- Dashboard financeiro com métricas em tempo real e extrato detalhado de saldo acumulado
 - Gerenciamento de transações (receitas/despesas) com filtros por tipo de pagamento
 - Controle inteligente de cartões de crédito, faturas e pagamentos (com opção de desfazer)
-- Sistema de parcelamento de compras automático
-- Previsão financeira detalhada para o próximo mês
+- Sistema de parcelamento de compras automático e projeção de recorrências no crédito
+- Previsão financeira detalhada para o mês atual e próximo mês
 - Fontes de renda personalizáveis e categorização dinâmica
 - Orçamentos e metas financeiras por categoria
 - Calendário interativo de pagamentos e compromissos
 - Lembretes automáticos integrados
 - Relatórios e exportação (Excel/WhatsApp)
-- Autenticação JWT com controle de acesso por níveis
+- Autenticação JWT segura com renovação automática (Access Token 1h / Refresh Token 7d)
+- Proteção de API contra ataques de força bruta (Rate Limiting)
 - Integração com Evolution API para automação via WhatsApp
-- PWA (Progressive Web App) 100% responsivo para mobile
+- PWA (Progressive Web App) 100% responsivo para mobile e desktop
+- Temas Claro e Escuro (Dark Mode) adaptativo
 
 ## Instalação
 
@@ -82,13 +85,7 @@ Para desenvolvimento local, use o arquivo `.env` na raiz do projeto com todas as
 ```env
 PORT=3001
 DATABASE_URL="mysql://user:password@host:3306/finance_bot"
-DATABASE_USER=user
-DATABASE_PASSWORD=password
-DATABASE_NAME=finance_bot
-DATABASE_HOST=host
-DATABASE_PORT=3306
 JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
 EVOLUTION_API_URL=https://your-evolution-api-url
 EVOLUTION_API_KEY=your-api-key
 EVOLUTION_INSTANCE_NAME=your-instance
@@ -98,6 +95,11 @@ ALLOWED_ORIGINS=https://torrinco.forjacorp.com
 **Client**:
 ```env
 VITE_API_URL=https://apiTorrinco.forjacorp.com
+```
+
+## Deploy
+
+O projeto está configurado para ser executado em ambiente de produção com suporte a HTTPS e cabeçalhos de segurança CORS. Certifique-se de que as variáveis `ALLOWED_ORIGINS` e `VITE_API_URL` apontem para os domínios corretos.
 ```
 
 ## Desenvolvimento

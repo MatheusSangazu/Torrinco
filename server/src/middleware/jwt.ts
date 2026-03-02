@@ -6,7 +6,7 @@ const { sign, verify } = pkg;
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const ACCESS_TOKEN_EXPIRES_IN = '1h';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';
 
 console.log('✅ JWT module loaded');
