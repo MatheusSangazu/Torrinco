@@ -733,34 +733,26 @@ export class FinanceController {
         })));
       }
 
-      const [recurringIncome, recurringExpenses, normalIncome, normalExpenses, installmentsExpenses] = await Promise.all([
-        prisma.recurring_transactions.aggregate({
+      const [allActiveRecurring, realTransactionsForPeriod, normalIncome, normalExpenses, installmentsExpenses] = await Promise.all([
+        // Buscar todas as recorrências ativas para projeção manual
+        prisma.recurring_transactions.findMany({
           where: {
             user_id: userId,
-            type: 'income',
-            status: 'active',
-            next_due_date: {
-              gte: forecastStart,
-              lte: forecastEnd
-            }
-          },
-          _sum: { amount: true },
-          _count: true
+            status: 'active'
+          }
         }),
-        prisma.recurring_transactions.aggregate({
+        // Buscar transações reais do período para evitar duplicidade
+        prisma.transactions.findMany({
           where: {
             user_id: userId,
-            type: 'expense',
-            status: 'active',
-            payment_method: { not: 'credit' }, // Não contar recorrências no crédito aqui, já contadas na fatura
-            next_due_date: {
+            transaction_date: {
               gte: forecastStart,
               lte: forecastEnd
-            }
-          },
-          _sum: { amount: true },
-          _count: true
+            },
+            deleted_at: null
+          }
         }),
+        // Agregações de transações normais (não recorrentes)
         prisma.transactions.aggregate({
           where: {
             user_id: userId,
@@ -771,8 +763,7 @@ export class FinanceController {
             },
             deleted_at: null
           },
-          _sum: { amount: true },
-          _count: true
+          _sum: { amount: true }
         }),
         prisma.transactions.aggregate({
           where: {
@@ -789,8 +780,7 @@ export class FinanceController {
               notIn: ['credit', 'credit_card']
             }
           },
-          _sum: { amount: true },
-          _count: true
+          _sum: { amount: true }
         }),
         prisma.transactions.aggregate({
           where: {
@@ -808,49 +798,34 @@ export class FinanceController {
               notIn: ['credit', 'credit_card']
             }
           },
-          _sum: { amount: true },
-          _count: true
+          _sum: { amount: true }
         })
       ]);
 
-      const forecastIncomeTotal = (Number(recurringIncome._sum.amount) || 0) + (Number(normalIncome._sum.amount) || 0);
-      const forecastExpensesTotal = (Number(recurringExpenses._sum.amount) || 0) + (Number(normalExpenses._sum.amount) || 0) + (Number(installmentsExpenses._sum.amount) || 0) + creditCardBillExpenses;
+      // Projetar recorrências para o período do forecast
+      // Separamos as que são no cartão das que não são
+      const recurringNotCredit = allActiveRecurring.filter(rt => rt.payment_method !== 'credit');
+      
+      const projections = projectRecurringTransactions(
+        recurringNotCredit,
+        forecastStart,
+        forecastEnd,
+        realTransactionsForPeriod
+      );
+
+      const recurringIncomeTotal = projections
+        .filter(p => p.type === 'income')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      
+      const recurringExpenseTotal = projections
+        .filter(p => p.type === 'expense')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+
+      const forecastIncomeTotal = recurringIncomeTotal + (Number(normalIncome._sum.amount) || 0);
+      const forecastExpensesTotal = recurringExpenseTotal + (Number(normalExpenses._sum.amount) || 0) + (Number(installmentsExpenses._sum.amount) || 0) + creditCardBillExpenses;
       const forecastBalance = forecastIncomeTotal - forecastExpensesTotal;
 
-      const [recurringIncomeList, recurringExpenseList, normalIncomeList, normalExpensesList, installmentsList] = await Promise.all([
-        prisma.recurring_transactions.findMany({
-          where: {
-            user_id: userId,
-            type: 'income',
-            status: 'active',
-            next_due_date: {
-              gte: forecastStart,
-              lte: forecastEnd
-            }
-          },
-          select: {
-            description: true,
-            amount: true,
-            next_due_date: true
-          }
-        }),
-        prisma.recurring_transactions.findMany({
-          where: {
-            user_id: userId,
-            type: 'expense',
-            status: 'active',
-            payment_method: { not: 'credit' },
-            next_due_date: {
-              gte: forecastStart,
-              lte: forecastEnd
-            }
-          },
-          select: {
-            description: true,
-            amount: true,
-            next_due_date: true
-          }
-        }),
+      const [normalIncomeList, normalExpensesList, installmentsList] = await Promise.all([
         prisma.transactions.findMany({
           where: {
             user_id: userId,
@@ -912,6 +887,23 @@ export class FinanceController {
           }
         })
       ]);
+
+      // Formatar listas de recorrências para o retorno
+      const recurringIncomeList = projections
+        .filter(p => p.type === 'income')
+        .map(p => ({
+          description: p.description,
+          amount: p.amount,
+          next_due_date: p.transaction_date.toISOString()
+        }));
+
+      const recurringExpenseList = projections
+        .filter(p => p.type === 'expense')
+        .map(p => ({
+          description: p.description,
+          amount: p.amount,
+          next_due_date: p.transaction_date.toISOString()
+        }));
 
       res.json({
         period: period === 'next_month' ? 'Próximo Mês' : 'Mês Atual',
