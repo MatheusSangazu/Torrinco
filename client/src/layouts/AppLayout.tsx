@@ -164,7 +164,7 @@ export function AppLayout() {
 
       {/* Main Content Area */}
       <main className={clsx(
-        "flex-1 p-6 lg:p-8 transition-all duration-300 mt-16 lg:mt-0",
+        "flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-300 mt-16 lg:mt-0",
         isSidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
       )}>
         <Outlet />

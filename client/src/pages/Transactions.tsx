@@ -638,16 +638,16 @@ export function Transactions() {
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 w-full sm:w-auto pl-14 sm:pl-0">
+                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-6 w-full sm:w-auto pl-12 sm:pl-0">
                   <span className={clsx(
-                    "font-bold text-base sm:text-lg",
+                    "font-bold text-base sm:text-lg shrink-0",
                     transaction.type === 'income' ? "text-green-600 dark:text-green-400" : "text-gray-900 dark:text-white"
                   )}>
                     {transaction.type === 'expense' ? '- ' : '+ '}
                     {formatCurrency(transaction.amount)}
                   </span>
                   
-                  <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 sm:gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button 
                       onClick={() => openEditModal(transaction)}
                       className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" 

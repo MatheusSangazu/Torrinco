@@ -400,97 +400,97 @@ export function Cards() {
             const limitTextColor = getLimitTextColor(limitPercentage);
             
             return (
-              <div key={card.id} className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
+              <div key={card.id} className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={clsx("p-3 rounded-xl", getCardIconColor(card.color).bg, getCardIconColor(card.color).text)}>
-                      <CreditCardIcon size={24} />
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className={clsx("p-2 sm:p-3 rounded-xl", getCardIconColor(card.color).bg, getCardIconColor(card.color).text)}>
+                      <CreditCardIcon size={20} className="sm:w-6 sm:h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-white">{card.name}</h3>
-                      <span className={clsx("text-xs font-semibold", card.status === 'open' ? "text-green-500" : "text-orange-500")}>
+                      <h3 className="font-bold text-sm sm:text-base text-gray-800 dark:text-white truncate max-w-[120px] sm:max-w-none">{card.name}</h3>
+                      <span className={clsx("text-[10px] sm:text-xs font-semibold", card.status === 'open' ? "text-green-500" : "text-orange-500")}>
                         {card.status === 'open' ? 'Em aberto' : 'Fechado'}
                       </span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 sm:gap-2">
                     <button
                       onClick={() => handleEdit(card)}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
+                      className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
                     >
-                      <Pencil size={16} />
+                      <Pencil size={14} className="sm:w-4 sm:h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(card.id)}
-                      className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-gray-400 dark:text-slate-500 hover:text-red-500 transition-colors"
+                      className="p-1.5 sm:p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-gray-400 dark:text-slate-500 hover:text-red-500 transition-colors"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} className="sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <div className="flex justify-between text-sm mb-2">
+                    <div className="flex justify-between text-xs sm:text-sm mb-2">
                       <span className="text-gray-600 dark:text-slate-400">Fatura atual</span>
                       <span className={clsx("font-bold", limitTextColor)}>{formatCurrency(card.currentBill)}</span>
                     </div>
-                    <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-2 sm:h-3 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div 
                         className={clsx("h-full transition-all duration-300", limitColor)}
                         style={{ width: `${Math.min(limitPercentage, 100)}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-xs mt-1">
+                    <div className="flex justify-between text-[10px] sm:text-xs mt-1">
                       <span className="text-gray-400 dark:text-slate-500">{limitPercentage}% utilizado</span>
-                      <span className="text-gray-400 dark:text-slate-500">Disponível: {formatCurrency(card.availableLimit)}</span>
+                      <span className="text-gray-400 dark:text-slate-500">Disp: {formatCurrency(card.availableLimit)}</span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Limite total</p>
-                      <p className="font-semibold text-gray-800 dark:text-white">{formatCurrency(card.limit)}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 mb-0.5 sm:mb-1 uppercase tracking-tighter">Limite</p>
+                      <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-white truncate">{formatCurrency(card.limit)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Fechamento</p>
-                      <p className="font-semibold text-gray-800 dark:text-white">Dia {card.closingDay}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 mb-0.5 sm:mb-1 uppercase tracking-tighter">Fecha</p>
+                      <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-white">Dia {card.closingDay}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Vencimento</p>
-                      <p className="font-semibold text-gray-800 dark:text-white">Dia {card.dueDay}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-slate-700">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Próx. fechamento</p>
-                      <p className="text-sm font-medium text-gray-800 dark:text-white">{formatDate(card.closingDate)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Próx. vencimento</p>
-                      <p className="text-sm font-medium text-gray-800 dark:text-white">{formatDate(card.dueDate)}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 mb-0.5 sm:mb-1 uppercase tracking-tighter">Vence</p>
+                      <p className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-white">Dia {card.dueDay}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4 pt-2 border-t border-gray-100 dark:border-slate-700">
+                    <div>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 mb-0.5 sm:mb-1 uppercase tracking-tighter">Próx. fecha</p>
+                      <p className="text-xs font-medium text-gray-800 dark:text-white">{formatDate(card.closingDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 mb-0.5 sm:mb-1 uppercase tracking-tighter">Próx. vence</p>
+                      <p className="text-xs font-medium text-gray-800 dark:text-white">{formatDate(card.dueDate)}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-3 pt-2">
                     <button
                       onClick={() => handleOpenBillModal(card, 'previous')}
-                      className="text-[10px] text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center justify-center gap-1 py-2 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                      className="text-[9px] sm:text-[10px] text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center justify-center gap-1 py-1.5 sm:py-2 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors leading-tight"
                     >
-                      Fatura anterior
+                      Anterior
                     </button>
                     <button
                       onClick={() => handleOpenBillModal(card, 'current')}
-                      className="text-[10px] text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
+                      className="text-[9px] sm:text-[10px] text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-1.5 sm:py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors leading-tight font-bold"
                     >
-                      Fatura atual
+                      Atual
                     </button>
                     <button
                       onClick={() => handleOpenBillModal(card, 'next')}
-                      className="text-[10px] text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
+                      className="text-[9px] sm:text-[10px] text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-1.5 sm:py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors leading-tight font-bold"
                     >
-                      Fatura seguinte
+                      Seguinte
                     </button>
                   </div>
 
