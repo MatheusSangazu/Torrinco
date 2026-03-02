@@ -27,26 +27,33 @@ interface Forecast {
         description: string;
         amount: number;
         next_due_date: string;
+        transaction_date?: string;
       }>;
       recurring_expenses: Array<{
         description: string;
         amount: number;
         next_due_date: string;
+        transaction_date?: string;
+        installment_number?: number;
       }>;
       normal_income: Array<{
         description: string;
         amount: number;
         transaction_date: string;
+        next_due_date?: string;
       }>;
       normal_expenses: Array<{
         description: string;
         amount: number;
         transaction_date: string;
+        next_due_date?: string;
+        installment_number?: number;
       }>;
       installments: Array<{
         description: string;
         amount: number;
         transaction_date: string;
+        next_due_date?: string;
         installment_number: number;
       }>;
       credit_card_bills: Array<{
@@ -55,6 +62,11 @@ interface Forecast {
         transaction_date: string;
         card_name: string;
         card_color: string;
+        card_id?: number;
+        is_paid?: boolean;
+        payment_id?: number;
+        is_projected?: boolean;
+        due_date?: string;
       }>;
     };
   };
@@ -1105,13 +1117,17 @@ export function Dashboard() {
                   </h3>
                   <div className="space-y-2">
                     {[...currentMonthForecast.forecast.breakdown.normal_income, ...currentMonthForecast.forecast.breakdown.recurring_income]
-                      .sort((a, b) => new Date(a.transaction_date || a.next_due_date).getTime() - new Date(b.transaction_date || b.next_due_date).getTime())
+                      .sort((a, b) => {
+                        const dateA = new Date(a.transaction_date || a.next_due_date || '').getTime();
+                        const dateB = new Date(b.transaction_date || b.next_due_date || '').getTime();
+                        return dateA - dateB;
+                      })
                       .map((item, idx) => (
                         <div key={`income-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                             <p className="text-xs text-gray-500 dark:text-slate-400">
-                              {new Date(item.transaction_date || item.next_due_date).toLocaleDateString('pt-BR')}
+                              {new Date(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR')}
                             </p>
                           </div>
                           <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
@@ -1130,14 +1146,18 @@ export function Dashboard() {
                     {/* Despesas Normais e Recorrências */}
                     <div className="space-y-2">
                       {[...currentMonthForecast.forecast.breakdown.normal_expenses, ...currentMonthForecast.forecast.breakdown.recurring_expenses, ...currentMonthForecast.forecast.breakdown.installments]
-                        .sort((a, b) => new Date(a.transaction_date || a.next_due_date).getTime() - new Date(b.transaction_date || b.next_due_date).getTime())
+                        .sort((a, b) => {
+                          const dateA = new Date(a.transaction_date || a.next_due_date || '').getTime();
+                          const dateB = new Date(b.transaction_date || b.next_due_date || '').getTime();
+                          return dateA - dateB;
+                        })
                         .map((item, idx) => (
                           <div key={`expense-${idx}`} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <div className="flex items-center gap-2">
                                 <p className="text-xs text-gray-500 dark:text-slate-400">
-                                  {new Date(item.transaction_date || item.next_due_date).toLocaleDateString('pt-BR')}
+                                  {new Date(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR')}
                                 </p>
                                 {item.installment_number && (
                                   <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 px-1.5 py-0.5 rounded">
