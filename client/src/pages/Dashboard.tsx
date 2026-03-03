@@ -297,6 +297,22 @@ export function Dashboard() {
     return data;
   };
 
+  const calculateCashBalance = () => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    
+    const filtered = transactions.filter(t => {
+      const isCashType = t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''));
+      const isPastOrPresent = new Date(t.transaction_date) <= today;
+      return isCashType && isPastOrPresent;
+    });
+
+    const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    
+    return totalIncome - totalExpense;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
@@ -360,7 +376,7 @@ export function Dashboard() {
           </div>
           <div>
             <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
-              {summary ? formatCurrency(summary.cash_balance || 0) : 'R$ 0,00'}
+              {formatCurrency(calculateCashBalance())}
             </h3>
             <div className="mt-1 space-y-1">
               <p className="text-sm text-gray-500 dark:text-slate-400">
@@ -964,20 +980,11 @@ export function Dashboard() {
                 const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
                 const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
                 
-                // O saldo real vem do resumo do backend (que é acumulado)
-                const currentBalance = summary?.cash_balance || 0;
-                // O saldo anterior é o saldo atual menos o que aconteceu este mês
-                const previousBalance = currentBalance - (totalIncome - totalExpense);
+                const currentBalance = totalIncome - totalExpense;
 
                 return (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
-                      <div className="bg-gray-50 dark:bg-slate-700/30 p-3 sm:p-4 rounded-xl border border-gray-100/50 dark:border-slate-700/50">
-                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Saldo Anterior</p>
-                        <p className="text-base sm:text-lg font-bold text-gray-600 dark:text-slate-300 truncate">
-                          {formatCurrency(previousBalance)}
-                        </p>
-                      </div>
                       <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-xl border border-green-100/50 dark:border-green-900/30">
                         <p className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-medium mb-1">Receitas (Mês)</p>
                         <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400 truncate">
