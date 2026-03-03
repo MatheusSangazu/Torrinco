@@ -626,6 +626,14 @@ export class FinanceController {
       forecastStart.setHours(0, 0, 0, 0);
       forecastEnd.setHours(23, 59, 59, 999);
 
+      console.log('[DEBUG] Forecast period:', {
+        period,
+        forecastStart: forecastStart.toISOString(),
+        forecastEnd: forecastEnd.toISOString(),
+        forecastStartLocal: forecastStart.toLocaleString('pt-BR'),
+        forecastEndLocal: forecastEnd.toLocaleString('pt-BR')
+      });
+
       const creditCards = await prisma.financial_entities.findMany({
         where: {
           user_id: userId,
@@ -833,6 +841,14 @@ export class FinanceController {
       const forecastIncomeTotal = (Number(recurringIncome._sum.amount) || 0) + (Number(normalIncome._sum.amount) || 0);
       const forecastExpensesTotal = (Number(recurringExpenses._sum.amount) || 0) + (Number(normalExpenses._sum.amount) || 0) + (Number(installmentsExpenses._sum.amount) || 0) + creditCardBillExpenses;
       const forecastBalance = forecastIncomeTotal - forecastExpensesTotal;
+
+      console.log('[DEBUG] Forecast totals:', {
+        recurringIncome: recurringIncome._sum.amount,
+        normalIncome: normalIncome._sum.amount,
+        forecastIncomeTotal,
+        forecastExpensesTotal,
+        forecastBalance
+      });
 
       const [recurringIncomeList, recurringExpenseList, normalIncomeList, normalExpensesList, installmentsList] = await Promise.all([
         prisma.recurring_transactions.findMany({
