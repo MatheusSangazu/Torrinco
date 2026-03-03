@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DayPicker } from 'react-day-picker';
 import { Calendar as CalendarIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
@@ -14,17 +14,29 @@ interface DatePickerProps {
   className?: string;
 }
 
+function parseLocalDate(dateString: string): Date | undefined {
+  if (!dateString) return undefined;
+  const parts = dateString.split('-');
+  if (parts.length !== 3) return undefined;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return undefined;
+  const date = new Date(year, month, day);
+  return isValid(date) ? date : undefined;
+}
+
 export function DatePicker({ label, value, onChange, required, className = '' }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    value ? parseISO(value) : undefined
+    value ? parseLocalDate(value) : undefined
   );
 
   // Update internal state when prop changes
   useEffect(() => {
     if (value) {
-      const date = parseISO(value);
-      if (isValid(date)) {
+      const date = parseLocalDate(value);
+      if (date) {
         setSelectedDate(date);
       }
     }

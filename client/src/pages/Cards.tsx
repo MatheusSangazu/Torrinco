@@ -112,7 +112,8 @@ export function Cards() {
 
     try {
       setPaying(true);
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       
       const paymentData = {
         amount: billDetails.bill.totalExpenses,
@@ -120,7 +121,7 @@ export function Cards() {
         description: `Pagamento Fatura ${billModalCard.name} - ${formatDate(billDetails.bill.dueDate)}`,
         category: 'Pagamento de Cartão',
         payment_method: 'pix',
-        transaction_date: today,
+        transaction_date: todayStr,
         status: 'paid',
         entity_id: null // Pagamento de fatura não é uma compra NO cartão
       };

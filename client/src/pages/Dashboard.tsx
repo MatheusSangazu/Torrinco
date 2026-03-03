@@ -201,7 +201,8 @@ export function Dashboard() {
   const handlePayCardBill = async (bill: any) => {
     const toastId = toast.loading('Registrando pagamento...');
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const dueDate = new Date(bill.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
       
       const paymentData = {
@@ -210,7 +211,7 @@ export function Dashboard() {
         description: `Pagamento Fatura ${bill.card_name} - ${dueDate}`,
         category: 'Pagamento de Cartão',
         payment_method: 'pix',
-        transaction_date: today,
+        transaction_date: todayStr,
         status: 'paid',
         entity_id: null
       };

@@ -3,6 +3,22 @@ import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 
+function parseLocalDate(dateString: string): Date {
+  if (!dateString) {
+    return new Date();
+  }
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+  }
+  return new Date(dateString);
+}
+
 interface BillPeriod {
   startDate: Date;
   endDate: Date;

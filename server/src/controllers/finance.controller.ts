@@ -4,6 +4,22 @@ import type { JwtRequest } from '../middleware/jwt.js';
 import { addMonths } from '../lib/date-utils.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 
+function parseLocalDate(dateString: string): Date {
+  if (!dateString) {
+    return new Date();
+  }
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+  }
+  return new Date(dateString);
+}
+
 export class FinanceController {
   /**
    * Projeção de transações recorrentes (Mantido para compatibilidade interna se necessário, mas prefira a lib)
@@ -111,7 +127,7 @@ export class FinanceController {
           category_id: finalCategoryId,
           income_source_id: finalIncomeSourceId,
           description,
-          transaction_date: new Date(transaction_date),
+          transaction_date: parseLocalDate(transaction_date),
           status: status || 'paid',
           is_recurring: is_recurring || false,
           payment_method: payment_method || 'cash'
@@ -311,7 +327,7 @@ export class FinanceController {
           category_id: category_id ? Number(category_id) : (category_id === null ? null : undefined),
           income_source_id: finalIncomeSourceId !== undefined ? finalIncomeSourceId : undefined,
           description: description ?? undefined,
-          transaction_date: transaction_date ? new Date(transaction_date) : undefined,
+          transaction_date: transaction_date ? parseLocalDate(transaction_date) : undefined,
           status: status ?? undefined,
           entity_id: entity_id ? Number(entity_id) : (entity_id === null ? null : undefined),
           payment_method: payment_method ?? undefined,
