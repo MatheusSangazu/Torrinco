@@ -14,7 +14,8 @@ function parseLocalDate(dateString: string): Date {
     const month = parseInt(parts[1] || '0', 10) - 1;
     const day = parseInt(parts[2] || '0', 10);
     if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      return new Date(Date.UTC(year, month, day));
+      const date = new Date(year, month, day, 12, 0, 0);
+      return date;
     }
   }
   return new Date(dateString);
@@ -117,16 +118,6 @@ export class FinanceController {
       }
 
       const parsedDate = parseLocalDate(transaction_date);
-      
-      console.log('[DEBUG] Creating transaction:', {
-        description,
-        amount: parseFloat(amount),
-        type,
-        transaction_date_input: transaction_date,
-        transaction_date_parsed: parsedDate.toISOString(),
-        transaction_date_parsed_local: parsedDate.toLocaleString('pt-BR'),
-        is_recurring: is_recurring || false
-      });
 
       const transaction = await prisma.transactions.create({
         data: {
@@ -149,12 +140,6 @@ export class FinanceController {
           categories: true,
           income_sources: true
         }
-      });
-
-      console.log('[DEBUG] Transaction created:', {
-        id: transaction.id,
-        transaction_date: transaction.transaction_date.toISOString(),
-        transaction_date_local: transaction.transaction_date.toLocaleString('pt-BR')
       });
 
       res.status(201).json({ transaction });
@@ -180,12 +165,12 @@ export class FinanceController {
        if (start_date || end_date) {
          where.transaction_date = {};
          if (start_date) {
-           const startDate = new Date(start_date as string);
+           const startDate = parseLocalDate(start_date as string);
            startDate.setHours(0, 0, 0, 0);
            where.transaction_date.gte = startDate;
          }
          if (end_date) {
-           const endDate = new Date(end_date as string);
+           const endDate = parseLocalDate(end_date as string);
            endDate.setHours(23, 59, 59, 999);
            where.transaction_date.lte = endDate;
          }
@@ -641,14 +626,6 @@ export class FinanceController {
         forecastEnd = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
       }
 
-      console.log('[DEBUG] Forecast period:', {
-        period,
-        forecastStart: forecastStart.toISOString(),
-        forecastEnd: forecastEnd.toISOString(),
-        forecastStartLocal: forecastStart.toLocaleString('pt-BR'),
-        forecastEndLocal: forecastEnd.toLocaleString('pt-BR')
-      });
-
       const creditCards = await prisma.financial_entities.findMany({
         where: {
           user_id: userId,
@@ -857,13 +834,7 @@ export class FinanceController {
       const forecastExpensesTotal = (Number(recurringExpenses._sum.amount) || 0) + (Number(normalExpenses._sum.amount) || 0) + (Number(installmentsExpenses._sum.amount) || 0) + creditCardBillExpenses;
       const forecastBalance = forecastIncomeTotal - forecastExpensesTotal;
 
-      console.log('[DEBUG] Forecast totals:', {
-        recurringIncome: recurringIncome._sum.amount,
-        normalIncome: normalIncome._sum.amount,
-        forecastIncomeTotal,
-        forecastExpensesTotal,
-        forecastBalance
-      });
+
 
       const [recurringIncomeList, recurringExpenseList, normalIncomeList, normalExpensesList, installmentsList] = await Promise.all([
         prisma.recurring_transactions.findMany({
@@ -915,18 +886,6 @@ export class FinanceController {
             amount: true,
             transaction_date: true
           }
-        }).then(transactions => {
-          console.log('[DEBUG] Normal income list found:', transactions.length, 'transactions');
-          transactions.forEach(t => {
-            console.log('[DEBUG] Normal income transaction:', {
-              id: t.id,
-              description: t.description,
-              amount: t.amount,
-              transaction_date: t.transaction_date.toISOString(),
-              transaction_date_local: t.transaction_date.toLocaleString('pt-BR')
-            });
-          });
-          return transactions;
         }),
         prisma.transactions.findMany({
           where: {

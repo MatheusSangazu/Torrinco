@@ -2,6 +2,23 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 
+function parseLocalDate(dateString: string): Date {
+  if (!dateString) {
+    return new Date();
+  }
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0] || '0', 10);
+    const month = parseInt(parts[1] || '0', 10) - 1;
+    const day = parseInt(parts[2] || '0', 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      const date = new Date(year, month, day, 12, 0, 0);
+      return date;
+    }
+  }
+  return new Date(dateString);
+}
+
 /**
  * Função auxiliar para calcular a próxima data de vencimento
  */
@@ -33,6 +50,8 @@ export class RecurringController {
       const { description, amount, category, category_id, type, frequency, start_date, entity_id, payment_method } = req.body;
       const userId = req.userId!;
 
+      console.log('DEBUG: createTransaction body', { start_date, frequency, type });
+
       if (!description || !amount || !type || !frequency || !start_date) {
         return res.status(400).json({ 
           error: 'Description, amount, type, frequency and start_date are required' 
@@ -43,18 +62,52 @@ export class RecurringController {
         return res.status(400).json({ error: 'Type must be income or expense' });
       }
 
-      const startDate = new Date(start_date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      startDate.setHours(0, 0, 0, 0);
+      const startDate = parseLocalDate(start_date);
+      console.log('DEBUG: parsed startDate (local 12:00)', startDate.toISOString());
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
 
+      console.log('DEBUG: calculated today (local 12:00)', today.toISOString());
+      
       let nextDueDate: Date;
 
-      if (startDate >= today) {
+      const isToday = startDate.getFullYear() === today.getFullYear() &&
+                      startDate.getMonth() === today.getMonth() &&
+                      startDate.getDate() === today.getDate();
+
+      console.log('DEBUG: isToday', isToday);
+
+      // Se a data de início é hoje ou futuro, a próxima data é a própria data de início
+      if (startDate.getTime() >= today.getTime()) {
         nextDueDate = startDate;
       } else {
+        // Se é passado, calcular a próxima ocorrência a partir da data de início até chegar em hoje ou futuro
+        // Mas a lógica original apenas calculava UMA vez.
+        // Se a data for muito antiga, deveria avançar até hoje?
+        // A lógica original:
+        // if (startDate >= today || isToday) nextDueDate = startDate
+        // else nextDueDate = calculateNextDueDate(frequency, startDate)
+        
+        // Se startDate é ontem, nextDueDate vira hoje (se diário) ou mês que vem (se mensal).
+        // Vamos manter a lógica original mas com datas UTC
         nextDueDate = calculateNextDueDate(frequency, startDate);
+        
+        // Se a frequência for mensal e a data for mês passado, isso traz para este mês.
+        // Se for 2 meses atrás, ainda fica no passado?
+        // O comportamento original parecia assumir apenas um passo.
+        // Se o usuário cria algo antigo, talvez queira apenas registrar o histórico e começar a cobrar?
+        // Vamos manter o comportamento simples: se passou, calcula o próximo.
+        // Se ainda estiver no passado, o job de cron ou listDue vai pegar depois?
+        
+        // Ajuste: Se a data de início for no passado, o createTransaction DEVERIA criar a transação do passado?
+        // O código original criava SE fosse "isToday".
+        // Se for passado, ele NÃO cria a transação passada. Ele apenas agenda a próxima.
+        // Isso significa que se eu criar algo com data de ontem, ele agenda para mês que vem (se mensal) e NÃO cria a de ontem.
+        // O usuário pode achar isso estranho. Mas é o comportamento original.
       }
+      
+      console.log('DEBUG: calculated nextDueDate', nextDueDate.toISOString());
 
       // Resolver category_id e category name se necessário
       let finalCategoryId = category_id ? parseInt(category_id) : null;
@@ -82,7 +135,7 @@ export class RecurringController {
       });
 
       // Se a data de início for hoje, já gerar a primeira transação real
-      if (startDate.getTime() === today.getTime()) {
+      if (isToday) {
         const account = await prisma.accounts.findFirst({
           where: { users: { some: { id: userId } } }
         });
@@ -266,7 +319,7 @@ export class RecurringController {
           category: recurringTransaction.category,
           category_id: recurringTransaction.category_id,
           description: recurringTransaction.description,
-          transaction_date: transaction_date ? new Date(transaction_date) : new Date(),
+          transaction_date: transaction_date ? parseLocalDate(transaction_date) : new Date(),
           status: 'paid',
           is_recurring: true,
           recurring_transaction_id: recurringTransaction.id,
@@ -300,7 +353,9 @@ export class RecurringController {
       const userId = req.userId!;
 
       const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + Number(days));
+      // Ajustar para UTC para garantir comparação consistente com o banco
+      dueDate.setUTCDate(dueDate.getUTCDate() + Number(days));
+      dueDate.setUTCHours(23, 59, 59, 999);
 
       const dueTransactions = await prisma.recurring_transactions.findMany({
         where: {

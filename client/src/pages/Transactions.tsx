@@ -79,6 +79,14 @@ export function Transactions() {
     return `${year}-${month}-${day}`;
   };
 
+  const formatDisplayDate = (dateString: string | Date): string => {
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  };
+
   // Form State
   const [formData, setFormData] = useState({
     type: 'expense',
@@ -636,7 +644,7 @@ export function Transactions() {
                          </>
                       )}
                       <span className="hidden sm:inline">•</span>
-                      <span className="shrink-0 text-xs">{new Date(transaction.transaction_date).toLocaleDateString()}</span>
+                      <span className="shrink-0 text-xs">{formatDisplayDate(transaction.transaction_date)}</span>
                     </div>
                   </div>
                 </div>

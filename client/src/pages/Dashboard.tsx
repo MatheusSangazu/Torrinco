@@ -978,8 +978,21 @@ export function Dashboard() {
                   return isCashType && isPastOrPresent;
                 });
 
-                const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                let totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
                 const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                
+                // Adicionar receitas recorrentes do forecast que ainda não foram pagas
+                if (currentMonthForecast?.forecast?.breakdown?.recurring_income) {
+                  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+                  
+                  currentMonthForecast.forecast.breakdown.recurring_income.forEach(recurringIncome => {
+                    const dueDate = new Date(recurringIncome.next_due_date || recurringIncome.transaction_date || '');
+                    if (dueDate >= currentMonthStart && dueDate <= currentMonthEnd) {
+                      totalIncome += Number(recurringIncome.amount || 0);
+                    }
+                  });
+                }
                 
                 const currentBalance = totalIncome - totalExpense;
 
