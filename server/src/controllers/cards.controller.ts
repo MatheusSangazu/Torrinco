@@ -13,7 +13,7 @@ function parseLocalDate(dateString: string): Date {
     const month = parseInt(parts[1] || '0', 10) - 1;
     const day = parseInt(parts[2] || '0', 10);
     if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      return new Date(year, month, day);
+      return new Date(Date.UTC(year, month, day));
     }
   }
   return new Date(dateString);
@@ -30,10 +30,10 @@ function calculateBillPeriod(closingDay: number, dueDay: number, referenceDate: 
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
   
-  let closingDate = new Date(year, month, closingDay);
+  let closingDate = new Date(Date.UTC(year, month, closingDay));
   
   if (referenceDate > closingDate) {
-    closingDate = new Date(year, month + 1, closingDay);
+    closingDate = new Date(Date.UTC(year, month + 1, closingDay));
   }
   
   const previousClosingDate = new Date(closingDate);
@@ -41,9 +41,9 @@ function calculateBillPeriod(closingDay: number, dueDay: number, referenceDate: 
   
   let dueDate = new Date(closingDate);
   if (dueDay < closingDay) {
-    dueDate = new Date(closingDate.getFullYear(), closingDate.getMonth() + 1, dueDay);
+    dueDate = new Date(Date.UTC(closingDate.getFullYear(), closingDate.getMonth() + 1, dueDay));
   } else {
-    dueDate = new Date(closingDate.getFullYear(), closingDate.getMonth(), dueDay);
+    dueDate = new Date(Date.UTC(closingDate.getFullYear(), closingDate.getMonth(), dueDay));
   }
   
   return {
@@ -55,12 +55,12 @@ function calculateBillPeriod(closingDay: number, dueDay: number, referenceDate: 
 }
 
 function calculateHistoricalBillPeriod(closingDay: number, dueDay: number, year: number, month: number): BillPeriod {
-  const closingDate = new Date(year, month, closingDay);
-  const previousClosingDate = new Date(year, month - 1, closingDay);
+  const closingDate = new Date(Date.UTC(year, month, closingDay));
+  const previousClosingDate = new Date(Date.UTC(year, month - 1, closingDay));
   
-  let dueDate = new Date(year, month, dueDay);
+  let dueDate = new Date(Date.UTC(year, month, dueDay));
   if (dueDay < closingDay) {
-    dueDate = new Date(year, month + 1, dueDay);
+    dueDate = new Date(Date.UTC(year, month + 1, dueDay));
   }
   
   return {

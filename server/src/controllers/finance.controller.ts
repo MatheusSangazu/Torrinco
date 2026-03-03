@@ -14,7 +14,7 @@ function parseLocalDate(dateString: string): Date {
     const month = parseInt(parts[1] || '0', 10) - 1;
     const day = parseInt(parts[2] || '0', 10);
     if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      return new Date(year, month, day);
+      return new Date(Date.UTC(year, month, day));
     }
   }
   return new Date(dateString);
@@ -634,15 +634,12 @@ export class FinanceController {
       let forecastEnd: Date;
 
       if (period === 'next_month') {
-        forecastStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-        forecastEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+        forecastStart = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 1, 0, 0, 0));
+        forecastEnd = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999));
       } else {
-        forecastStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        forecastEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        forecastStart = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1, 0, 0, 0));
+        forecastEnd = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
       }
-      
-      forecastStart.setHours(0, 0, 0, 0);
-      forecastEnd.setHours(23, 59, 59, 999);
 
       console.log('[DEBUG] Forecast period:', {
         period,
