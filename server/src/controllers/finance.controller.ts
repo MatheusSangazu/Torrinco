@@ -116,6 +116,18 @@ export class FinanceController {
         }
       }
 
+      const parsedDate = parseLocalDate(transaction_date);
+      
+      console.log('[DEBUG] Creating transaction:', {
+        description,
+        amount: parseFloat(amount),
+        type,
+        transaction_date_input: transaction_date,
+        transaction_date_parsed: parsedDate.toISOString(),
+        transaction_date_parsed_local: parsedDate.toLocaleString('pt-BR'),
+        is_recurring: is_recurring || false
+      });
+
       const transaction = await prisma.transactions.create({
         data: {
           account_id: accountId,
@@ -127,7 +139,7 @@ export class FinanceController {
           category_id: finalCategoryId,
           income_source_id: finalIncomeSourceId,
           description,
-          transaction_date: parseLocalDate(transaction_date),
+          transaction_date: parsedDate,
           status: status || 'paid',
           is_recurring: is_recurring || false,
           payment_method: payment_method || 'cash'
@@ -137,6 +149,12 @@ export class FinanceController {
           categories: true,
           income_sources: true
         }
+      });
+
+      console.log('[DEBUG] Transaction created:', {
+        id: transaction.id,
+        transaction_date: transaction.transaction_date.toISOString(),
+        transaction_date_local: transaction.transaction_date.toLocaleString('pt-BR')
       });
 
       res.status(201).json({ transaction });
@@ -895,10 +913,23 @@ export class FinanceController {
             deleted_at: null
           },
           select: {
+            id: true,
             description: true,
             amount: true,
             transaction_date: true
           }
+        }).then(transactions => {
+          console.log('[DEBUG] Normal income list found:', transactions.length, 'transactions');
+          transactions.forEach(t => {
+            console.log('[DEBUG] Normal income transaction:', {
+              id: t.id,
+              description: t.description,
+              amount: t.amount,
+              transaction_date: t.transaction_date.toISOString(),
+              transaction_date_local: t.transaction_date.toLocaleString('pt-BR')
+            });
+          });
+          return transactions;
         }),
         prisma.transactions.findMany({
           where: {
