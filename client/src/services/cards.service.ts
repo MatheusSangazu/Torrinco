@@ -14,6 +14,7 @@ export interface CreditCard {
   status: 'open' | 'closed' | 'paid';
   isPaid?: boolean;
   paymentId?: number;
+  billId?: number;
   transactionCount: number;
   color: string;
 }
@@ -32,6 +33,11 @@ export interface UpdateCardDTO {
   closing_day?: number;
   due_day?: number;
   color?: string;
+}
+
+export interface PayBillDTO {
+  payment_method?: string;
+  payment_date?: string;
 }
 
 export const cardsService = {
@@ -54,8 +60,10 @@ export const cardsService = {
     await api.delete(`/cards/${id}`);
   },
 
+  // --- Faturas (via billing.service no backend) ---
+
   getBill: async (cardId: number) => {
-    const response = await api.get(`/finance/cards/${cardId}/bill`);
+    const response = await api.get(`/cards/${cardId}/bill`);
     return response.data;
   },
 
@@ -67,5 +75,29 @@ export const cardsService = {
   getPreviousBill: async (cardId: number) => {
     const response = await api.get(`/finance/cards/${cardId}/previous-bill`);
     return response.data;
+  },
+
+  /** Histórico de faturas (formato novo: period_start, total_amount, status, bill_id...). */
+  getBillHistory: async (cardId: number, months: number = 6) => {
+    const response = await api.get(`/cards/${cardId}/bills?months=${months}`);
+    return response.data.bills;
+  },
+
+  /** Detalhe de uma fatura por id (via billing.service). */
+  getBillDetails: async (cardId: number, billId: number) => {
+    const response = await api.get(`/cards/${cardId}/bills/${billId}`);
+    return response.data;
+  },
+
+  /** Registra pagamento de uma fatura (cria transação vinculada por FK no backend). */
+  payBill: async (cardId: number, billId: number, data?: PayBillDTO) => {
+    const response = await api.post(`/cards/${cardId}/bills/${billId}/pay`, data ?? {});
+    return response.data.bill;
+  },
+
+  /** Desfaz o pagamento de uma fatura (via FK no backend, não string matching). */
+  undoBillPayment: async (cardId: number, billId: number) => {
+    const response = await api.post(`/cards/${cardId}/bills/${billId}/undo`);
+    return response.data.bill;
   }
 };

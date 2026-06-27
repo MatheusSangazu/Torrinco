@@ -1,206 +1,65 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
-import { projectRecurringTransactions } from '../lib/transaction-projection.js';
+import * as billing from '../services/billing.service.js';
 
-function parseLocalDate(dateString: string): Date {
-  if (!dateString) {
-    return new Date();
+/** Mapeia códigos de erro do service de billing para status HTTP. */
+function billingErrorStatus(code: string): number {
+  switch (code) {
+    case 'CARD_NOT_FOUND':
+    case 'BILL_NOT_FOUND':
+    case 'USER_NOT_FOUND':
+      return 404;
+    case 'BILL_NOT_OPEN':
+    case 'BILL_ALREADY_PAID':
+    case 'BILL_NOT_PAID':
+      return 409;
+    default:
+      return 400;
   }
-  const parts = dateString.split('-');
-  if (parts.length === 3) {
-    const year = parseInt(parts[0] || '0', 10);
-    const month = parseInt(parts[1] || '0', 10) - 1;
-    const day = parseInt(parts[2] || '0', 10);
-    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      return new Date(Date.UTC(year, month, day));
-    }
-  }
-  return new Date(dateString);
-}
-
-interface BillPeriod {
-  startDate: Date;
-  endDate: Date;
-  closingDate: Date;
-  dueDate: Date;
-}
-
-function calculateBillPeriod(closingDay: number, dueDay: number, referenceDate: Date = new Date()): BillPeriod {
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth();
-  
-  let closingDate = new Date(Date.UTC(year, month, closingDay));
-  
-  if (referenceDate > closingDate) {
-    closingDate = new Date(Date.UTC(year, month + 1, closingDay));
-  }
-  
-  const previousClosingDate = new Date(closingDate);
-  previousClosingDate.setMonth(previousClosingDate.getMonth() - 1);
-  
-  let dueDate = new Date(closingDate);
-  if (dueDay < closingDay) {
-    dueDate = new Date(Date.UTC(closingDate.getFullYear(), closingDate.getMonth() + 1, dueDay));
-  } else {
-    dueDate = new Date(Date.UTC(closingDate.getFullYear(), closingDate.getMonth(), dueDay));
-  }
-  
-  return {
-    startDate: previousClosingDate,
-    endDate: closingDate,
-    closingDate,
-    dueDate
-  };
-}
-
-function calculateHistoricalBillPeriod(closingDay: number, dueDay: number, year: number, month: number): BillPeriod {
-  const closingDate = new Date(Date.UTC(year, month, closingDay));
-  const previousClosingDate = new Date(Date.UTC(year, month - 1, closingDay));
-  
-  let dueDate = new Date(Date.UTC(year, month, dueDay));
-  if (dueDay < closingDay) {
-    dueDate = new Date(Date.UTC(year, month + 1, dueDay));
-  }
-  
-  return {
-    startDate: previousClosingDate,
-    endDate: closingDate,
-    closingDate,
-    dueDate
-  };
 }
 
 export class CardsController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.userId!;
-      const { month, year } = req.query;
-      const today = new Date();
-
-      const targetMonth = month ? parseInt(month as string) : today.getMonth();
-      const targetYear = year ? parseInt(year as string) : today.getFullYear();
 
       const cards = await prisma.financial_entities.findMany({
-        where: {
-          user_id: userId,
-          type: 'credit_card'
-        },
-        orderBy: {
-          name: 'asc'
-        }
+        where: { user_id: userId, type: 'credit_card' },
+        orderBy: { name: 'asc' }
       });
 
-      // Buscar recorrências no crédito para o usuário
-      const recurringTransactions = await prisma.recurring_transactions.findMany({
-        where: {
-          user_id: userId,
-          status: 'active',
-          payment_method: 'credit'
-        }
-      });
-
+      // Para cada cartão, usa a fatura atual via billing.service (fonte única).
+      // Isso garante o mesmo total exibido na página de detalhe da fatura.
       const cardsWithDetails = await Promise.all(cards.map(async card => {
         const closingDay = card.closing_day || 1;
         const dueDay = card.due_day || 10;
-        
-        let billPeriod: BillPeriod;
-        let isCurrentBill = false;
 
-        if (month && year) {
-          billPeriod = calculateHistoricalBillPeriod(closingDay, dueDay, targetYear, targetMonth);
-        } else {
-          billPeriod = calculateBillPeriod(closingDay, dueDay, today);
-          isCurrentBill = true;
-        }
-
-        const transactions = await prisma.transactions.findMany({
-          where: {
-            entity_id: card.id,
-            transaction_date: {
-              gte: billPeriod.startDate,
-              lt: billPeriod.endDate
-            },
-            deleted_at: null
-          },
-          include: {
-            purchase_installments: true
-          },
-          orderBy: {
-            transaction_date: 'desc'
-          }
-        });
-
-        // Adicionar recorrências projetadas para o cartão neste período
-        const cardRecurring = recurringTransactions.filter(rt => rt.entity_id === card.id);
-        const projectedRecs = projectRecurringTransactions(
-          cardRecurring,
-          billPeriod.startDate,
-          billPeriod.endDate,
-          transactions
-        );
-
-        const allTransactions = [
-          ...transactions,
-          ...projectedRecs.map(pr => ({
-            ...pr,
-            is_projected: true
-          }))
-        ];
-
-        const totalExpenses = allTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-
-        const totalPayments = allTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-
-        const currentBill = totalExpenses - totalPayments;
-        const availableLimit = Number(card.credit_limit || 0) - currentBill;
-
-        const isClosed = today > billPeriod.closingDate;
-
-        // Verificar se já existe um pagamento registrado para esta fatura
-        const paymentExists = await prisma.transactions.findFirst({
-          where: {
-            user_id: userId,
-            type: 'expense',
-            category: 'Pagamento de Cartão',
-            description: {
-              contains: card.name
-            },
-            deleted_at: null
-          },
-          orderBy: {
-            transaction_date: 'desc'
-          }
-        });
-
-        // Só consideramos o pagamento se ele estiver dentro do período da fatura ou próximo ao vencimento
-        const isPaid = paymentExists && 
-          new Date(paymentExists.transaction_date) >= new Date(billPeriod.startDate.getTime() - 86400000) &&
-          new Date(paymentExists.transaction_date) <= new Date(billPeriod.dueDate.getTime() + 86400000);
+        // Garante a fatura do ciclo atual (cria se não existir) e sincroniza status.
+        const { bill } = await billing.getOrCreateCurrentBill(card.id, userId);
+        const details = await billing.getBillDetails(bill.id, userId);
+        const total = details.bill.total_amount;
 
         return {
           id: card.id,
           name: card.name,
           limit: Number(card.credit_limit || 0),
-          currentBill,
-          availableLimit,
+          currentBill: total,
+          availableLimit: Number(card.credit_limit || 0) - total,
           closingDay,
           dueDay,
-          periodStart: billPeriod.startDate,
-          periodEnd: billPeriod.endDate,
-          closingDate: billPeriod.closingDate,
-          dueDate: billPeriod.dueDate,
-          status: isPaid ? 'paid' : (isClosed ? 'closed' : 'open'),
-          isPaid: !!isPaid,
-          paymentId: isPaid ? paymentExists.id : undefined,
-          transactionCount: allTransactions.length,
-          transactions: allTransactions,
+          periodStart: bill.period_start,
+          periodEnd: bill.period_end,
+          closingDate: bill.closing_date,
+          dueDate: bill.due_date,
+          status: bill.status,
+          isPaid: bill.status === 'paid',
+          paymentId: bill.payment_transaction_id ?? undefined,
+          billId: bill.id,
+          transactionCount: details.bill.items.length,
+          transactions: details.bill.items,
           color: card.color || 'from-purple-600 to-indigo-700',
-          isCurrentBill
+          isCurrentBill: true
         };
       }));
 
@@ -273,76 +132,10 @@ export class CardsController {
       const { id } = req.params;
       const { months = 6 } = req.query;
       const userId = req.userId!;
-
-      const card = await prisma.financial_entities.findFirst({
-        where: {
-          id: Number(id),
-          user_id: userId,
-          type: 'credit_card'
-        }
-      });
-
-      if (!card) {
-        return res.status(404).json({ error: 'Card not found' });
-      }
-
-      const closingDay = card.closing_day || 1;
-      const dueDay = card.due_day || 10;
-      const historyLength = Math.min(parseInt(months as string), 24);
-
-      const bills = [];
-      const today = new Date();
-
-      for (let i = 0; i < historyLength; i++) {
-        const targetDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const billPeriod = calculateHistoricalBillPeriod(closingDay, dueDay, targetDate.getFullYear(), targetDate.getMonth());
-
-        const transactions = await prisma.transactions.findMany({
-          where: {
-            entity_id: card.id,
-            transaction_date: {
-              gte: billPeriod.startDate,
-              lt: billPeriod.endDate
-            },
-            deleted_at: null
-          },
-          include: {
-            purchase_installments: true
-          },
-          orderBy: {
-            transaction_date: 'desc'
-          }
-        });
-
-        const totalExpenses = transactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-
-        const totalPayments = transactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-
-        const billAmount = totalExpenses - totalPayments;
-        const isPaid = totalPayments >= totalExpenses;
-
-        bills.push({
-          period: `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`,
-          startDate: billPeriod.startDate,
-          endDate: billPeriod.endDate,
-          closingDate: billPeriod.closingDate,
-          dueDate: billPeriod.dueDate,
-          totalExpenses,
-          totalPayments,
-          billAmount,
-          status: isPaid ? 'paid' : (today > billPeriod.dueDate ? 'overdue' : 'pending'),
-          transactionCount: transactions.length,
-          transactions
-        });
-      }
-
+      const bills = await billing.getHistory(Number(id), userId, Number(months));
       res.json({ bills });
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      res.status(billingErrorStatus(error?.message)).json({ error: error?.message });
     }
   }
 
@@ -370,6 +163,79 @@ export class CardsController {
       res.json({ success: true });
     } catch (error) {
       next(error);
+    }
+  }
+
+  // --- Faturas (via billing.service — fonte única) ---
+
+  /** Fatura atual (aberta) do cartão. */
+  static async getCurrentBill(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const userId = req.userId!;
+      const { bill, period } = await billing.getOrCreateCurrentBill(Number(id), userId);
+      const details = await billing.getBillDetails(bill.id, userId);
+      res.json({ ...details, period });
+    } catch (error: any) {
+      if (error?.message?.startsWith('CARD_NOT_FOUND') || error?.message?.startsWith('BILL_NOT_FOUND')) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      next(error);
+    }
+  }
+
+  /** Fatura por offset (0 atual, -1 anterior, +1 próxima). */
+  static async getBillByOffset(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const offset = Number(req.query.offset ?? 0);
+      const userId = req.userId!;
+      const result = await billing.getBillByOffset(Number(id), userId, offset);
+      if (!result.bill) {
+        return res.status(404).json({ error: 'Bill not found for this period' });
+      }
+      const details = await billing.getBillDetails(result.bill.id, userId);
+      res.json({ ...details, period: result.period });
+    } catch (error: any) {
+      res.status(billingErrorStatus(error?.message)).json({ error: error?.message });
+    }
+  }
+
+  /** Detalhe de uma fatura por id. */
+  static async getBillDetails(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { billId } = req.params;
+      const userId = req.userId!;
+      const details = await billing.getBillDetails(Number(billId), userId);
+      res.json(details);
+    } catch (error: any) {
+      res.status(billingErrorStatus(error?.message)).json({ error: error?.message });
+    }
+  }
+
+  /** Registra pagamento de uma fatura (cria transação vinculada). */
+  static async payBill(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { billId } = req.params;
+      const { payment_method, payment_date } = req.body;
+      const userId = req.userId!;
+      const paidAt = payment_date ? new Date(payment_date) : undefined;
+      const bill = await billing.registerPayment(Number(billId), userId, payment_method ?? 'pix', paidAt);
+      res.json({ bill });
+    } catch (error: any) {
+      res.status(billingErrorStatus(error?.message)).json({ error: error?.message });
+    }
+  }
+
+  /** Desfaz o pagamento de uma fatura (via FK, não string matching). */
+  static async undoBillPayment(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { billId } = req.params;
+      const userId = req.userId!;
+      const bill = await billing.undoPayment(Number(billId), userId);
+      res.json({ bill });
+    } catch (error: any) {
+      res.status(billingErrorStatus(error?.message)).json({ error: error?.message });
     }
   }
 }

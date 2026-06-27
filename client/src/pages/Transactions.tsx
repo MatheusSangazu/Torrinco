@@ -81,9 +81,9 @@ export function Transactions() {
 
   const formatDisplayDate = (dateString: string | Date): string => {
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return `${day}/${month}/${year}`;
   };
 
@@ -361,6 +361,9 @@ export function Transactions() {
 
   const openEditModal = (transaction: any) => {
     setEditingTransaction(transaction);
+    const date = new Date(transaction.transaction_date);
+    const dateStr = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+    
     setFormData({
       description: transaction.description || '',
       amount: transaction.amount.toString(),
@@ -369,7 +372,7 @@ export function Transactions() {
       category_id: transaction.category_id ? transaction.category_id.toString() : '',
       income_source_id: transaction.income_source_id ? transaction.income_source_id.toString() : '',
       entity_id: transaction.entity_id ? transaction.entity_id.toString() : '',
-      date: formatDate(new Date(transaction.transaction_date)),
+      date: dateStr,
       status: transaction.status,
       payment_method: transaction.payment_method || 'pix',
       isInstallment: false,
@@ -387,6 +390,8 @@ export function Transactions() {
   };
 
   const resetForm = () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     setFormData({
       description: '',
       amount: '',
@@ -395,7 +400,7 @@ export function Transactions() {
       category_id: '',
       income_source_id: '',
       entity_id: '',
-      date: formatDate(new Date()),
+      date: dateStr,
       status: 'paid',
       payment_method: 'pix',
       isInstallment: false,

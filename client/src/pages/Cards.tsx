@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CreditCard as CreditCardIcon, Plus, Pencil, Trash2, X, Check, AlertCircle, ChevronDown, ChevronUp, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { cardsService, type CreditCard, type CreateCardDTO } from '../services/cards.service';
-import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { Input } from '../components/Input';
@@ -24,19 +23,15 @@ interface Transaction {
 }
 
 interface Bill {
-  period: string;
-  startDate: Date;
-  endDate: Date;
-  closingDate: Date;
-  dueDate: Date;
-  totalExpenses: number;
-  totalPayments: number;
-  billAmount: number;
-  status: 'paid' | 'pending' | 'overdue' | 'closed' | 'open';
-  transactionCount: number;
-  transactions: Transaction[];
-  isPaid?: boolean;
-  paymentId?: number;
+  period_start: Date;
+  period_end: Date;
+  closing_date: Date;
+  due_date: Date;
+  total_amount: number;
+  item_count: number;
+  status: 'open' | 'closed' | 'paid';
+  bill_id: number | null;
+  items: Transaction[];
 }
 
 interface BillDetails {
@@ -54,12 +49,12 @@ interface BillDetails {
     closingDate: Date;
     dueDate: Date;
     totalExpenses: number;
-    totalPayments: number;
-    billAmount: number;
     transactionCount: number;
     transactions: Transaction[];
-    status: 'paid' | 'pending' | 'overdue' | 'closed' | 'open';
+    status: 'open' | 'closed' | 'paid';
+    isPaid?: boolean;
     paymentId?: number;
+    billId?: number;
   };
 }
 
@@ -109,25 +104,17 @@ export function Cards() {
 
   const handlePayBill = async () => {
     if (!billDetails || !billModalCard) return;
+    if (!billDetails.bill.billId) {
+      toast.error('Fatura sem identificador. Recarregue a página e tente novamente.');
+      return;
+    }
 
     try {
       setPaying(true);
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      
-      const paymentData = {
-        amount: billDetails.bill.totalExpenses,
-        type: 'expense',
-        description: `Pagamento Fatura ${billModalCard.name} - ${formatDate(billDetails.bill.dueDate)}`,
-        category: 'Pagamento de Cartão',
-        payment_method: 'pix',
-        transaction_date: todayStr,
-        status: 'paid',
-        entity_id: null // Pagamento de fatura não é uma compra NO cartão
-      };
+      await cardsService.payBill(billModalCard.id, billDetails.bill.billId, {
+        payment_method: 'pix'
+      });
 
-      await api.post('/finance/transactions', paymentData);
-      
       toast.success('Pagamento da fatura registrado com sucesso!');
       handleCloseBillModal();
       fetchCards();
@@ -140,8 +127,8 @@ export function Cards() {
   };
 
   const handleUndoPayment = async () => {
-    if (!billDetails?.bill.paymentId || !billModalCard) {
-      toast.error('Não foi possível encontrar o ID do pagamento para desfazer.');
+    if (!billDetails?.bill.billId || !billModalCard) {
+      toast.error('Não foi possível encontrar a fatura para desfazer.');
       return;
     }
 
@@ -149,14 +136,14 @@ export function Cards() {
   };
 
   const confirmUndoPayment = async () => {
-    if (!billDetails?.bill.paymentId || !billModalCard) return;
+    if (!billDetails?.bill.billId || !billModalCard) return;
 
     const toastId = toast.loading('Desfazendo pagamento...');
     try {
       setPaying(true);
-      await api.delete(`/finance/transactions/${billDetails.bill.paymentId}`);
+      await cardsService.undoBillPayment(billModalCard.id, billDetails.bill.billId);
       toast.success(`Pagamento do cartão ${billModalCard.name} desfeito.`, { id: toastId });
-      
+
       handleCloseBillModal();
       fetchCards();
       setIsUndoModalOpen(false);
@@ -166,6 +153,19 @@ export function Cards() {
     } finally {
       setPaying(false);
     }
+  };
+
+  const parseDateLocal = (dateString: string | Date) => {
+    if (!dateString) return new Date();
+    if (dateString instanceof Date) return dateString;
+    const dateStr = typeof dateString === 'string' ? dateString : String(dateString);
+    const cleanDate = dateStr.split('T')[0];
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts.map(Number);
+      return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    }
+    return new Date(dateString);
   };
 
   const fetchCards = async () => {
@@ -188,8 +188,8 @@ export function Cards() {
 
     try {
       setLoadingBills(prev => ({ ...prev, [cardId]: true }));
-      const response = await api.get(`/cards/${cardId}/bills?months=6`);
-      setCardBills(prev => ({ ...prev, [cardId]: response.data.bills }));
+      const bills = await cardsService.getBillHistory(cardId, 6);
+      setCardBills(prev => ({ ...prev, [cardId]: bills }));
     } catch (error) {
       console.error('Erro ao carregar faturas:', error);
       toast.error('Erro ao carregar faturas');
@@ -307,8 +307,8 @@ export function Cards() {
   const getBillStatusColor = (status: string) => {
     switch (status) {
       case 'paid': return 'text-green-500';
-      case 'overdue': return 'text-red-500';
-      case 'pending': return 'text-amber-500';
+      case 'closed': return 'text-orange-500';
+      case 'open': return 'text-amber-500';
       default: return 'text-gray-500';
     }
   };
@@ -316,8 +316,8 @@ export function Cards() {
   const getBillStatusText = (status: string) => {
     switch (status) {
       case 'paid': return 'Paga';
-      case 'overdue': return 'Atrasada';
-      case 'pending': return 'Pendente';
+      case 'closed': return 'Fechada';
+      case 'open': return 'Em aberto';
       default: return status;
     }
   };
@@ -520,18 +520,20 @@ export function Cards() {
                         </div>
                       ) : cardBills[card.id] && cardBills[card.id].length > 0 ? (
                         <div className="space-y-3">
-                          {cardBills[card.id].map((bill) => (
+                          {cardBills[card.id].map((bill, idx) => {
+                            const billKey = bill.bill_id ? String(bill.bill_id) : `bill-${idx}`;
+                            return (
                             <div
-                              key={bill.period}
+                              key={billKey}
                               className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700"
                             >
                               <div className="flex justify-between items-start mb-3">
                                 <div>
                                   <p className="font-semibold text-gray-800 dark:text-white">
-                                    Fatura {bill.period}
+                                    Fatura {formatDate(bill.period_start)}
                                   </p>
                                   <p className="text-xs text-gray-500 dark:text-slate-400">
-                                    {formatDate(bill.startDate)} - {formatDate(bill.endDate)}
+                                    {formatDate(bill.period_start)} - {formatDate(bill.period_end)}
                                   </p>
                                 </div>
                                 <span className={clsx("text-xs font-semibold", getBillStatusColor(bill.status))}>
@@ -539,50 +541,33 @@ export function Cards() {
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                  <p className="text-xs text-gray-500 dark:text-slate-400">Despesas</p>
+                                  <p className="text-xs text-gray-500 dark:text-slate-400">Total</p>
+                                  <p className={clsx("font-bold", bill.total_amount > 0 ? "text-gray-800 dark:text-white" : "text-green-600 dark:text-green-400")}>
+                                    {formatCurrency(bill.total_amount)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500 dark:text-slate-400">Vencimento</p>
                                   <p className="font-semibold text-gray-800 dark:text-white">
-                                    {formatCurrency(bill.totalExpenses)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-500 dark:text-slate-400">Pagamentos</p>
-                                  <p className="font-semibold text-green-600 dark:text-green-400">
-                                    {formatCurrency(bill.totalPayments)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-500 dark:text-slate-400">Fatura</p>
-                                  <p className={clsx("font-bold", bill.billAmount > 0 ? "text-gray-800 dark:text-white" : "text-green-600 dark:text-green-400")}>
-                                    {formatCurrency(bill.billAmount)}
+                                    {formatDate(bill.due_date)}
                                   </p>
                                 </div>
                               </div>
 
-                              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-600 grid grid-cols-2 gap-4 text-xs">
-                                <div>
-                                  <span className="text-gray-500 dark:text-slate-400">Fechamento: </span>
-                                  <span className="text-gray-800 dark:text-white">{formatDate(bill.closingDate)}</span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500 dark:text-slate-400">Vencimento: </span>
-                                  <span className="text-gray-800 dark:text-white">{formatDate(bill.dueDate)}</span>
-                                </div>
-                              </div>
-
-                              {bill.transactionCount > 0 && (
+                              {bill.item_count > 0 && (
                                 <div className="mt-2 text-xs text-gray-500 dark:text-slate-400">
-                                  {bill.transactionCount} transação{bill.transactionCount !== 1 ? 'ões' : ''}
+                                  {bill.item_count} transação{bill.item_count !== 1 ? 'ões' : ''}
                                 </div>
                               )}
 
-                              {bill.transactionCount > 0 && (
+                              {bill.item_count > 0 && (
                                 <button
-                                  onClick={() => toggleBillExpansion(bill.period)}
+                                  onClick={() => toggleBillExpansion(billKey)}
                                   className="mt-3 w-full text-xs text-torrinco-600 dark:text-torrinco-400 hover:text-torrinco-700 dark:hover:text-torrinco-300 flex items-center justify-center gap-1 py-2 border border-torrinco-200 dark:border-torrinco-800 rounded-lg hover:bg-torrinco-50 dark:hover:bg-torrinco-900/20 transition-colors"
                                 >
-                                  {expandedBill === bill.period ? (
+                                  {expandedBill === billKey ? (
                                     <>
                                       <ChevronUp size={12} />
                                       Ocultar transações
@@ -596,9 +581,9 @@ export function Cards() {
                                 </button>
                               )}
 
-                              {expandedBill === bill.period && bill.transactions && bill.transactions.length > 0 && (
+                              {expandedBill === billKey && bill.items && bill.items.length > 0 && (
                                 <div className="mt-3 space-y-2">
-                                  {bill.transactions.map((transaction) => (
+                                  {bill.items.map((transaction) => (
                                     <div
                                       key={transaction.id}
                                       className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-gray-200 dark:border-slate-600"
@@ -616,7 +601,7 @@ export function Cards() {
                                             )}
                                           </div>
                                           <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                                            {new Date(transaction.transaction_date).toLocaleDateString('pt-BR')}
+                                            {parseDateLocal(transaction.transaction_date).toLocaleDateString('pt-BR')}
                                           </p>
                                           {transaction.installment_number && transaction.purchase_installments && (
                                             <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
@@ -638,7 +623,8 @@ export function Cards() {
                                 </div>
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="text-center py-8 text-gray-500 dark:text-slate-400">

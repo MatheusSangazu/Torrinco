@@ -73,6 +73,7 @@ model financial_entities {
   transactions          transactions[]
   purchase_installments purchase_installments[]
   recurring_transactions recurring_transactions[]
+  card_bills            card_bills[]
 
   @@index([user_id], map: "user_id")
 }
@@ -88,6 +89,30 @@ model income_sources {
 
   @@unique([user_id, name], map: "unique_user_income_source")
   @@index([user_id], map: "income_sources_user_idx")
+}
+
+/// Fatura materializada de cartão de crédito por ciclo.
+/// Status e vínculo de pagamento são a fonte única (sem heurística por string).
+model card_bills {
+  id                     Int              @id @default(autoincrement())
+  card_id                Int
+  user_id                Int
+  period_start           DateTime         @db.Date
+  period_end             DateTime         @db.Date
+  closing_date           DateTime         @db.Date
+  due_date               DateTime         @db.Date
+  status                 card_bills_status @default(open)
+  payment_transaction_id Int? @unique
+  created_at             DateTime?        @default(now()) @db.DateTime(0)
+  closed_at              DateTime?        @db.DateTime(0)
+  paid_at                DateTime?        @db.DateTime(0)
+  financial_entities     financial_entities @relation(fields: [card_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_card_fk")
+  users                  users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_user_fk")
+  transactions           transactions?    @relation("card_bill_payment", fields: [payment_transaction_id], references: [id], onUpdate: NoAction, map: "card_bills_payment_fk")
+
+  @@unique([card_id, period_start], map: "unique_card_period")
+  @@index([card_id], map: "card_bills_card_idx")
+  @@index([user_id], map: "card_bills_user_idx")
 }
 
 model recurring_events {
@@ -209,6 +234,7 @@ model transactions {
   income_sources      income_sources?      @relation(fields: [income_source_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_income_source_fk")
   purchase_installments purchase_installments? @relation(fields: [installment_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_installment_fk")
   recurring_transactions recurring_transactions? @relation("transactions_recurring_fk", fields: [recurring_transaction_id], references: [id])
+  card_bill_paid        card_bills?           @relation("card_bill_payment")
 
   @@index([account_id], map: "account_id")
   @@index([entity_id], map: "fk_transaction_entity")
@@ -256,6 +282,7 @@ model users {
   reminders              reminders[]
   purchase_installments   purchase_installments[]
   transactions           transactions[]
+  card_bills             card_bills[]
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
 
   @@index([account_id], map: "account_id")
@@ -282,6 +309,12 @@ enum accounts_status {
   active
   blocked
   cancelled
+}
+
+enum card_bills_status {
+  open
+  closed
+  paid
 }
 
 enum reminder_logs_reminder_type_new {

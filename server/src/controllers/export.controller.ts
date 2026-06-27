@@ -44,7 +44,7 @@ export class ExportController {
 
         return {
           'ID': t.id,
-          'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR'),
+          'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
           'Descrição': t.description || '-',
           'Categoria': t.categories?.name || t.category || '-',
           'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
@@ -165,8 +165,8 @@ export class ExportController {
       transactions.forEach((t, index) => {
         const emoji = t.type === 'income' ? '💵' : '💸';
         const statusEmoji = t.status === 'paid' ? '✅' : '⏳';
-        const date = formatDate(t.transaction_date);
-        const amount = formatCurrency(Number(t.amount));
+        const date = new Date(t.transaction_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        const amount = Number(t.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const category = t.categories?.name || t.category || '-';
         const entity = t.financial_entities?.name || '-';
 
@@ -191,7 +191,7 @@ export class ExportController {
 
         return {
           'ID': t.id,
-          'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR'),
+          'Data': new Date(t.transaction_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
           'Descrição': t.description || '-',
           'Categoria': t.categories?.name || t.category || '-',
           'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',

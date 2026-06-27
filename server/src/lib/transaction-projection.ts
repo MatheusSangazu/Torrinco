@@ -1,7 +1,13 @@
-import { addMonths } from './date-utils.js';
+import { advanceDate, parseDate, type Frequency } from './date-utils.js';
 
 /**
- * Projeção de transações recorrentes
+ * Projeção de transações recorrentes para um intervalo de datas.
+ * Retorna as ocorrências virtuais que ainda não foram materializadas em
+ * transações reais (para visualização no front e no forecast).
+ *
+ * Observação: esta lib existe enquanto a materialização automática
+ * (cron) não é a fonte única. Funções de avanço de data vêm de
+ * date-utils — não duplicar aqui.
  */
 export function projectRecurringTransactions(
   recurringTransactions: any[],
@@ -10,46 +16,40 @@ export function projectRecurringTransactions(
   transactionsForCheck: any[]
 ): any[] {
   const projectedRecurring: any[] = [];
-  
-  for (const rt of recurringTransactions) {
-    const rtStartDate = new Date(rt.start_date);
 
+  // Normaliza o intervalo para UTC (início do dia / fim do dia)
+  const utcStart = new Date(start);
+  utcStart.setUTCHours(0, 0, 0, 0);
+  const utcEnd = new Date(end);
+  utcEnd.setUTCHours(23, 59, 59, 999);
+
+  for (const rt of recurringTransactions) {
+    const rtStartDate = parseDate(rt.start_date);
+    const targetDay = rtStartDate.getUTCDate();
     let currentDate = new Date(rtStartDate);
 
-    if (rt.frequency === 'monthly') {
-      const monthsDiff = (start.getFullYear() - rtStartDate.getFullYear()) * 12 + (start.getMonth() - rtStartDate.getMonth());
-      if (monthsDiff > 0) {
-        currentDate = addMonths(rtStartDate, monthsDiff);
-      }
-    } else if (rt.frequency === 'yearly') {
-      const yearsDiff = start.getFullYear() - rtStartDate.getFullYear();
-      if (yearsDiff > 0) {
-        currentDate.setFullYear(rtStartDate.getFullYear() + yearsDiff);
-      }
-    } else {
-      while (currentDate < start) {
-        if (rt.frequency === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-        else if (rt.frequency === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
+    // Avança a data até a primeira ocorrência dentro/antes do intervalo,
+    // usando a função única advanceDate (elimina os blocos while duplicados).
+    while (currentDate < utcStart) {
+      currentDate = advanceDate(rt.frequency as Frequency, currentDate);
+      // Preserva o dia original em recorrências mensais/anuais (correção de virada de mês)
+      if ((rt.frequency === 'monthly' || rt.frequency === 'yearly') &&
+          currentDate.getUTCDate() !== targetDay) {
+        currentDate.setUTCDate(0);
       }
     }
 
-    while (currentDate < start) {
-      if (rt.frequency === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-      else if (rt.frequency === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
-      else if (rt.frequency === 'monthly') currentDate = addMonths(currentDate, 1);
-      else if (rt.frequency === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + 1);
-    }
-
-    while (currentDate <= end) {
-      const existingTransaction = transactionsForCheck.find(t => 
-        t.is_recurring && 
-        t.type === rt.type &&
-        t.description === rt.description && 
-        Math.abs(Number(t.amount) - Number(rt.amount)) < 0.01 &&
-        new Date(t.transaction_date).getDate() === currentDate.getDate() &&
-        new Date(t.transaction_date).getMonth() === currentDate.getMonth() &&
-        new Date(t.transaction_date).getFullYear() === currentDate.getFullYear()
-      );
+    while (currentDate <= utcEnd) {
+      const existingTransaction = transactionsForCheck.find(t => {
+        const tDate = new Date(t.transaction_date);
+        return t.is_recurring &&
+          t.type === rt.type &&
+          t.description === rt.description &&
+          Math.abs(Number(t.amount) - Number(rt.amount)) < 0.01 &&
+          tDate.getUTCDate() === currentDate.getUTCDate() &&
+          tDate.getUTCMonth() === currentDate.getUTCMonth() &&
+          tDate.getUTCFullYear() === currentDate.getUTCFullYear();
+      });
 
       if (!existingTransaction) {
         projectedRecurring.push({
@@ -69,13 +69,14 @@ export function projectRecurringTransactions(
           financial_entities: rt.financial_entities
         });
       }
-      
-      if (rt.frequency === 'daily') currentDate.setDate(currentDate.getDate() + 1);
-      else if (rt.frequency === 'weekly') currentDate.setDate(currentDate.getDate() + 7);
-      else if (rt.frequency === 'monthly') currentDate = addMonths(currentDate, 1);
-      else if (rt.frequency === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + 1);
+
+      currentDate = advanceDate(rt.frequency as Frequency, currentDate);
+      if ((rt.frequency === 'monthly' || rt.frequency === 'yearly') &&
+          currentDate.getUTCDate() !== targetDay) {
+        currentDate.setUTCDate(0);
+      }
     }
   }
-  
+
   return projectedRecurring;
 }

@@ -181,8 +181,8 @@ export function Dashboard() {
 
       // Sort by date
       const combined = [...recurring, ...events].sort((a, b) => {
-        const dateA = a.itemType === 'recurring' ? new Date(a.next_due_date) : new Date(a.event_date);
-        const dateB = b.itemType === 'recurring' ? new Date(b.next_due_date) : new Date(b.event_date);
+        const dateA = a.itemType === 'recurring' ? parseDateLocal(a.next_due_date) : parseDateLocal(a.event_date);
+        const dateB = b.itemType === 'recurring' ? parseDateLocal(b.next_due_date) : parseDateLocal(b.event_date);
         return dateA.getTime() - dateB.getTime();
       });
 
@@ -256,6 +256,24 @@ export function Dashboard() {
     }).format(value);
   };
 
+  const parseDateLocal = (dateString: string | Date) => {
+    if (!dateString) return new Date();
+    if (dateString instanceof Date) return dateString;
+    
+    // Se for string, tentamos tratar como data YYYY-MM-DD
+    const dateStr = typeof dateString === 'string' ? dateString : String(dateString);
+    const cleanDate = dateStr.split('T')[0];
+    const parts = cleanDate.split('-');
+    
+    if (parts.length === 3) {
+      const [y, m, d] = parts.map(Number);
+      // Criamos a data em UTC às 12:00 para consistência com o backend
+      return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    }
+    
+    return new Date(dateString);
+  };
+
   const getCategoryIcon = (category: string) => {
     switch ((category || '').toUpperCase()) {
       case 'ASSINATURA': return Music;
@@ -282,8 +300,8 @@ export function Dashboard() {
       const year = d.getFullYear();
       
       const monthTrans = transactions.filter(t => {
-        const tDate = new Date(t.transaction_date);
-        return tDate.getMonth() === month && tDate.getFullYear() === year;
+        const tDate = parseDateLocal(t.transaction_date);
+        return tDate.getUTCMonth() === month && tDate.getUTCFullYear() === year;
       });
 
       const income = monthTrans.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
@@ -304,7 +322,7 @@ export function Dashboard() {
     
     const filtered = transactions.filter(t => {
       const isCashType = t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''));
-      const isPastOrPresent = new Date(t.transaction_date) <= today;
+      const isPastOrPresent = parseDateLocal(t.transaction_date) <= today;
       return isCashType && isPastOrPresent;
     });
 
@@ -974,22 +992,41 @@ export function Dashboard() {
                 // Filtrar transações que afetam o caixa e já aconteceram
                 const filtered = transactions.filter(t => {
                   const isCashType = t.type === 'income' || (t.type === 'expense' && ['cash', 'pix', 'debit'].includes(t.payment_method || ''));
-                  const isPastOrPresent = new Date(t.transaction_date) <= today;
+                  const tDate = parseDateLocal(t.transaction_date);
+                  const isPastOrPresent = tDate.getTime() <= today.getTime();
                   return isCashType && isPastOrPresent;
                 });
 
                 let totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
-                const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+                let totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
                 
-                // Adicionar receitas recorrentes do forecast que ainda não foram pagas
+                // Adicionar receitas e despesas recorrentes do forecast que ainda não foram pagas
+                const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0));
+                const currentMonthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+
                 if (currentMonthForecast?.forecast?.breakdown?.recurring_income) {
-                  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                  const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-                  
                   currentMonthForecast.forecast.breakdown.recurring_income.forEach(recurringIncome => {
-                    const dueDate = new Date(recurringIncome.next_due_date || recurringIncome.transaction_date || '');
-                    if (dueDate >= currentMonthStart && dueDate <= currentMonthEnd) {
+                    const dueDate = parseDateLocal(recurringIncome.next_due_date || recurringIncome.transaction_date || '');
+                    if (dueDate.getTime() >= currentMonthStart.getTime() && dueDate.getTime() <= currentMonthEnd.getTime()) {
                       totalIncome += Number(recurringIncome.amount || 0);
+                    }
+                  });
+                }
+
+                if (currentMonthForecast?.forecast?.breakdown?.recurring_expenses) {
+                  currentMonthForecast.forecast.breakdown.recurring_expenses.forEach(recurringExpense => {
+                    const dueDate = parseDateLocal(recurringExpense.next_due_date || recurringExpense.transaction_date || '');
+                    if (dueDate.getTime() >= currentMonthStart.getTime() && dueDate.getTime() <= currentMonthEnd.getTime()) {
+                      totalExpense += Number(recurringExpense.amount || 0);
+                    }
+                  });
+                }
+
+                if (currentMonthForecast?.forecast?.breakdown?.installments) {
+                  currentMonthForecast.forecast.breakdown.installments.forEach(installment => {
+                    const dueDate = parseDateLocal(installment.transaction_date || installment.next_due_date || '');
+                    if (dueDate.getTime() >= currentMonthStart.getTime() && dueDate.getTime() <= currentMonthEnd.getTime()) {
+                      totalExpense += Number(installment.amount || 0);
                     }
                   });
                 }
@@ -1055,7 +1092,7 @@ export function Dashboard() {
                                         </span>
                                       )}
                                       <span className="text-xs text-gray-400">
-                                        {new Date(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                        {parseDateLocal(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                                       </span>
                                     </div>
                                 </div>
@@ -1139,8 +1176,8 @@ export function Dashboard() {
                   <div className="space-y-2">
                     {[...currentMonthForecast.forecast.breakdown.normal_income, ...currentMonthForecast.forecast.breakdown.recurring_income]
                       .sort((a, b) => {
-                        const dateA = new Date(a.transaction_date || a.next_due_date || '').getTime();
-                        const dateB = new Date(b.transaction_date || b.next_due_date || '').getTime();
+                        const dateA = parseDateLocal(a.transaction_date || a.next_due_date || '').getTime();
+                        const dateB = parseDateLocal(b.transaction_date || b.next_due_date || '').getTime();
                         return dateA - dateB;
                       })
                       .map((item, idx) => (
@@ -1148,7 +1185,7 @@ export function Dashboard() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                             <p className="text-xs text-gray-500 dark:text-slate-400">
-                              {new Date(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR')}
+                              {parseDateLocal(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                             </p>
                           </div>
                           <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
@@ -1168,8 +1205,8 @@ export function Dashboard() {
                     <div className="space-y-2">
                       {[...currentMonthForecast.forecast.breakdown.normal_expenses, ...currentMonthForecast.forecast.breakdown.recurring_expenses, ...currentMonthForecast.forecast.breakdown.installments]
                         .sort((a, b) => {
-                          const dateA = new Date(a.transaction_date || a.next_due_date || '').getTime();
-                          const dateB = new Date(b.transaction_date || b.next_due_date || '').getTime();
+                          const dateA = parseDateLocal(a.transaction_date || a.next_due_date || '').getTime();
+                          const dateB = parseDateLocal(b.transaction_date || b.next_due_date || '').getTime();
                           return dateA - dateB;
                         })
                         .map((item, idx) => (
@@ -1178,7 +1215,7 @@ export function Dashboard() {
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <div className="flex items-center gap-2">
                                 <p className="text-xs text-gray-500 dark:text-slate-400">
-                                  {new Date(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR')}
+                                  {parseDateLocal(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                 </p>
                                 {item.installment_number && (
                                   <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 px-1.5 py-0.5 rounded">
@@ -1248,7 +1285,7 @@ export function Dashboard() {
                                 <div className="min-w-0">
                                   <p className="text-gray-700 dark:text-gray-300 truncate">{item.description}</p>
                                   <p className="text-[10px] text-gray-500">
-                                    {new Date(item.transaction_date).toLocaleDateString('pt-BR')}
+                                    {parseDateLocal(item.transaction_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                     {item.is_projected && <span className="ml-2 text-orange-500 font-medium">(Previsto)</span>}
                                   </p>
                                 </div>

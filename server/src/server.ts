@@ -16,6 +16,8 @@ import exportRoutes from './routes/export.routes.js';
 import cardsRoutes from './routes/cards.routes.js';
 import incomeSourcesRoutes from './routes/income_sources.routes.js';
 import installmentsRoutes from './routes/installments.routes.js';
+import agentRoutes from './routes/agent.routes.js';
+import webhookRoutes from './routes/webhooks.routes.js';
 
 dotenv.config();
 
@@ -107,6 +109,8 @@ app.use('/api/export', exportRoutes);
 app.use('/api/cards', cardsRoutes);
 app.use('/api/income-sources', incomeSourcesRoutes);
 app.use('/api/installments', installmentsRoutes);
+app.use('/api/agent', agentRoutes);
+app.use('/webhooks', webhookRoutes);
 
 
 // --- Tratamento de Erros ---
@@ -118,6 +122,10 @@ const startServer = async () => {
     const { prisma } = await import('./lib/prisma.js');
     await prisma.$connect();
     console.log('✅ Conectado ao banco de dados (Prisma)');
+
+    // Registra os jobs agendados (recorrências + ciclo de faturas).
+    const { startScheduledJobs } = await import('./jobs/scheduler.js');
+    startScheduledJobs();
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);

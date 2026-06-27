@@ -11,6 +11,7 @@ router.use(authenticateJwt);
 router.post('/', RecurringController.createTransaction);
 router.get('/', RecurringController.listTransactions);
 router.get('/due', RecurringController.listDue);
+router.post('/run', RecurringController.runMaterialization); // gatilho manual para o agente/admin
 router.put('/:id', RecurringController.updateTransaction);
 router.delete('/:id', RecurringController.deleteTransaction);
 

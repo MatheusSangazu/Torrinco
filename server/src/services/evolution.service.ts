@@ -116,4 +116,48 @@ export class EvolutionService {
       return null;
     }
   }
+
+  /**
+   * Envia uma mensagem de texto com botões de resposta rápida.
+   * @param buttons Array de rótulos (ex: ["Sim", "Não"]).
+   */
+  static async sendButtons(phoneNumber: string, text: string, buttons: string[]): Promise<any> {
+    try {
+      if (!config.baseUrl || !config.apiKey || !config.instanceName) {
+        console.warn('⚠️ Evolution API não configurada corretamente no .env');
+        return null;
+      }
+
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const url = `${config.baseUrl}/message/sendButtons/${config.instanceName}`;
+
+      const body = {
+        number: cleanPhone,
+        buttons: buttons.map((id, index) => ({
+          type: 'reply',
+          reply: {
+            id: `btn_${index}`,
+            title: id
+          }
+        })),
+        text
+      };
+
+      const response = await axios.post(url, body, {
+        headers: {
+          'apikey': config.apiKey,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`✅ Mensagem com botões enviada para ${cleanPhone}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Erro ao enviar botões via Evolution API:', error.message);
+      if (error.response) {
+        console.error('Detalhes do erro:', error.response.data);
+      }
+      return null;
+    }
+  }
 }
