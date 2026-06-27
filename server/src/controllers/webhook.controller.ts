@@ -55,7 +55,7 @@ export class WebhookController {
 
     // 4) Coloca no buffer. Quando o usuário ficar 5s em silêncio, processa.
     enqueueMessage(phone, userId, message, async (flushedPhone, flushedUserId, messages) => {
-      const reply = await processConversation(flushedUserId, messages);
+      const reply = await processConversation(flushedUserId, messages, flushedPhone);
       await EvolutionService.sendText(flushedPhone, reply);
     });
   }

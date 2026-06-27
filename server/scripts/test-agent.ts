@@ -44,9 +44,9 @@ async function main() {
     receivedAt: new Date()
   };
 
-  // 4) Processa.
+  // 4) Processa (passa o telefone para manter histórico entre chamadas).
   console.log('🧠 Processando (pode levar alguns segundos)...');
-  const reply = await processConversation(user.id, [message]);
+  const reply = await processConversation(user.id, [message], user.phone_number ?? 'test');
 
   console.log('\n🤖 Resposta do agente:');
   console.log(reply);
