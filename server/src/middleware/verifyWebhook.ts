@@ -53,7 +53,8 @@ export function verifyEvolutionApiKey(req: Request, res: Response, next: NextFun
   }
 
   if (!safeEqual(received, expected)) {
-    console.warn('[security] api key inválida no webhook');
+    // DEBUG TEMP: mostra só o início (8 chars) pra comparar sem vazar segredo.
+    console.warn('[security] api key inválida. Esperado:', expected.slice(0, 8), 'len:', expected.length, '| Recebido:', received.slice(0, 8), 'len:', received.length, '| fonte:', fromBody ? 'body' : 'header');
     res.status(401).json({ error: 'api key inválida' });
     return;
   }
