@@ -21,6 +21,7 @@ export interface CreateEventInput {
   fim?: string;       // ISO datetime; default = inicio + 1h
   descricao?: string;
   local?: string;
+  convidados?: string[]; // emails — o Google envia convite automaticamente
 }
 
 export interface ListEventsInput {
@@ -61,7 +62,8 @@ export async function createEvent(userId: number, input: CreateEventInput) {
     description: input.descricao,
     location: input.local,
     start: { dateTime: startIso, timeZone: TZ },
-    end: { dateTime: endIso, timeZone: TZ }
+    end: { dateTime: endIso, timeZone: TZ },
+    attendees: input.convidados?.map(email => ({ email }))
   };
 
   const created = await calendar.events.insert({ calendarId, requestBody: event });

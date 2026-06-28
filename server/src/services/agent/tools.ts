@@ -341,7 +341,12 @@ export const TOOLS: ToolDefinition[] = [
             horario: { type: 'string', description: 'Horário de início no formato HH:mm (24h). Ex: "14:00".' },
             duracao_minutos: { type: 'number', description: 'Duração em minutos (opcional, default 60).' },
             descricao: { type: 'string', description: 'Descrição/notas do evento (opcional).' },
-            local: { type: 'string', description: 'Local do evento (opcional).' }
+            local: { type: 'string', description: 'Local do evento (opcional).' },
+            convidados: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Lista de emails dos convidados (opcional). O Google envia o convite automaticamente.'
+            }
           },
           required: ['titulo', 'data', 'horario']
         }
@@ -352,7 +357,8 @@ export const TOOLS: ToolDefinition[] = [
       inicio: buildISO(args.data, args.horario),
       fim: buildISOEnd(args.data, args.horario, args.duracao_minutos),
       descricao: args.descricao,
-      local: args.local
+      local: args.local,
+      convidados: args.convidados
     })
   },
 

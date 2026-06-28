@@ -681,7 +681,7 @@ export async function connectGoogle(userId: number) {
  */
 export async function createCalendarEvent(
   userId: number,
-  opts: { titulo: string; inicio: string; fim?: string; descricao?: string; local?: string }
+  opts: { titulo: string; inicio: string; fim?: string; descricao?: string; local?: string; convidados?: string[] }
 ) {
   try {
     return await gcal.createEvent(userId, opts);
