@@ -15,7 +15,7 @@ import { prisma } from '../../lib/prisma.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/calendar.calendar.readonly'
+  'https://www.googleapis.com/auth/calendar.readonly'
 ];
 
 /** Segredo usado para assinar o `state` do OAuth (reaproveita o JWT_SECRET). */
