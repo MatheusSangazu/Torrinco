@@ -313,8 +313,107 @@ export const TOOLS: ToolDefinition[] = [
       id: args.id ? Number(args.id) : undefined,
       conteudo: args.conteudo
     })
+  },
+
+  {
+    declaration: {
+      type: 'function',
+      function: {
+        name: 'conectar_agenda',
+        description: 'Verifica/ inicia a conexão com o Google Calendar. Use quando o usuário quiser agendar algo e ainda não tiver conectado a agenda, ou perguntar sobre o status da conexão.',
+        parameters: { type: 'object', properties: {} }
+      }
+    },
+    execute: (userId) => agent.connectGoogle(userId)
+  },
+
+  {
+    declaration: {
+      type: 'function',
+      function: {
+        name: 'criar_evento',
+        description: 'Cria um evento na agenda do Google (Google Calendar). Use quando o usuário pedir para agendar/marcar algo: reunião, consulta, compromisso. Duração padrão: 1 hora se não informada. Exija data e horário.',
+        parameters: {
+          type: 'object',
+          properties: {
+            titulo: { type: 'string', description: 'Título do evento (ex: "Reunião com o João", "Consulta médica").' },
+            data: { type: 'string', description: 'Data do evento no formato YYYY-MM-DD (ex: 2026-06-29).' },
+            horario: { type: 'string', description: 'Horário de início no formato HH:mm (24h). Ex: "14:00".' },
+            duracao_minutos: { type: 'number', description: 'Duração em minutos (opcional, default 60).' },
+            descricao: { type: 'string', description: 'Descrição/notas do evento (opcional).' },
+            local: { type: 'string', description: 'Local do evento (opcional).' }
+          },
+          required: ['titulo', 'data', 'horario']
+        }
+      }
+    },
+    execute: (userId, args) => agent.createCalendarEvent(userId, {
+      titulo: args.titulo,
+      inicio: buildISO(args.data, args.horario),
+      fim: buildISOEnd(args.data, args.horario, args.duracao_minutos),
+      descricao: args.descricao,
+      local: args.local
+    })
+  },
+
+  {
+    declaration: {
+      type: 'function',
+      function: {
+        name: 'listar_eventos',
+        description: 'Lista os eventos da agenda do Google num dia ou período. Use quando o usuário perguntar "o que tenho amanhã?", "minha agenda de hoje", "quais compromissos essa semana?".',
+        parameters: {
+          type: 'object',
+          properties: {
+            data: { type: 'string', description: 'Dia para listar (YYYY-MM-DD). Se omitir, usa hoje.' },
+            data_inicio: { type: 'string', description: 'Início do período (YYYY-MM-DD) para listar um intervalo.' },
+            data_fim: { type: 'string', description: 'Fim do período (YYYY-MM-DD).' }
+          }
+        }
+      }
+    },
+    execute: (userId, args) => agent.listCalendarEvents(userId, {
+      data_inicio: args.data_inicio ?? args.data,
+      data_fim: args.data_fim ?? args.data
+    })
+  },
+
+  {
+    declaration: {
+      type: 'function',
+      function: {
+        name: 'excluir_evento',
+        description: 'Cancela/remove um evento da agenda do Google. Use quando o usuário pedir para cancelar/desmarcar um compromisso. SEMPRE confirme antes de excluir.',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'ID do evento no Google (quando souber).' },
+            titulo: { type: 'string', description: 'Parte do título para encontrar o evento (ex: "reunião").' }
+          }
+        }
+      }
+    },
+    execute: (userId, args) => agent.deleteCalendarEvent(userId, {
+      id: args.id,
+      titulo: args.titulo
+    })
   }
 ];
+
+/** Monta datetime ISO (com fuso -03:00 São Paulo) a partir de data + horário. */
+function buildISO(data?: string, horario?: string): string {
+  const date = data ?? new Date().toISOString().slice(0, 10);
+  const hh = horario?.split(':')[0] ?? '00';
+  const mm = horario?.split(':')[1] ?? '00';
+  return new Date(`${date}T${hh}:${mm}:00-03:00`).toISOString();
+}
+
+/** Monta datetime ISO de fim somando a duração (default 60 min) ao início. */
+function buildISOEnd(data: string | undefined, horario: string | undefined, duracao?: number): string {
+  const inicio = new Date(buildISO(data, horario));
+  const minutos = Number(duracao) > 0 ? Number(duracao) : 60;
+  return new Date(inicio.getTime() + minutos * 60 * 1000).toISOString();
+}
 
 /** Mapa nome → executor, para lookup rápido ao processar tool_calls. */
 export const TOOL_EXECUTORS = new Map(TOOLS.map(t => [t.declaration.function.name, t.execute]));

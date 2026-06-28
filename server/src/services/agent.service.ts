@@ -4,6 +4,8 @@ import { createInstallmentPurchase } from './installments.service.js';
 import { createRecurring, materializeDue, listDueSoon } from './recurring.service.js';
 import { getOrCreateCurrentBill, getBillDetails, getHistory, registerPayment, undoPayment } from './billing.service.js';
 import { getSummary, getForecast } from './summary.service.js';
+import { getAuthUrl, isConnected } from './google/auth.service.js';
+import * as gcal from './google/calendar.service.js';
 import type { Frequency } from '../lib/date-utils.js';
 
 /**
@@ -648,4 +650,78 @@ export async function deleteReminder(userId: number, opts: { id?: number; conteu
     ok: true,
     excluido: { id: reminder.id, conteudo: reminder.content }
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GOOGLE CALENDAR (FASE 9.6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Verifica a conexão com o Google. Se conectado, retorna o email; se não,
+ * retorna a URL de autorização para o agente enviar no WhatsApp.
+ */
+export async function connectGoogle(userId: number) {
+  if (await isConnected(userId)) {
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { google_email: true }
+    });
+    return { conectado: true, email: user?.google_email ?? null };
+  }
+  return { conectado: false, url_autorizacao: getAuthUrl(userId) };
+}
+
+/**
+ * Cria um evento na agenda Google do usuário.
+ * Se a agenda não estiver conectada, retorna a URL de autorização (o agente
+ * orienta o usuário a conectar primeiro).
+ *
+ * Datas/horários chegam como strings ISO (geradas pelo agente a partir da
+ * linguagem natural). Duração padrão de 1h quando `fim` não informado.
+ */
+export async function createCalendarEvent(
+  userId: number,
+  opts: { titulo: string; inicio: string; fim?: string; descricao?: string; local?: string }
+) {
+  try {
+    return await gcal.createEvent(userId, opts);
+  } catch (err: any) {
+    if (err?.message === 'GOOGLE_NOT_CONNECTED' || err?.message === 'GOOGLE_TOKEN_REVOKED') {
+      return { nao_conectado: true, url_autorizacao: getAuthUrl(userId) };
+    }
+    throw err;
+  }
+}
+
+/** Lista eventos da agenda Google num período (default: hoje). */
+export async function listCalendarEvents(
+  userId: number,
+  opts: { data_inicio?: string; data_fim?: string }
+) {
+  try {
+    return await gcal.listEvents(userId, {
+      dataInicio: opts.data_inicio,
+      dataFim: opts.data_fim
+    });
+  } catch (err: any) {
+    if (err?.message === 'GOOGLE_NOT_CONNECTED' || err?.message === 'GOOGLE_TOKEN_REVOKED') {
+      return { nao_conectado: true, url_autorizacao: getAuthUrl(userId) };
+    }
+    throw err;
+  }
+}
+
+/** Exclui um evento da agenda Google por id ou título. */
+export async function deleteCalendarEvent(
+  userId: number,
+  opts: { id?: string; titulo?: string }
+) {
+  try {
+    return await gcal.deleteEvent(userId, opts);
+  } catch (err: any) {
+    if (err?.message === 'GOOGLE_NOT_CONNECTED' || err?.message === 'GOOGLE_TOKEN_REVOKED') {
+      return { nao_conectado: true, url_autorizacao: getAuthUrl(userId) };
+    }
+    throw err;
+  }
 }

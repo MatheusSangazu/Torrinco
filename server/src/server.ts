@@ -18,6 +18,8 @@ import incomeSourcesRoutes from './routes/income_sources.routes.js';
 import installmentsRoutes from './routes/installments.routes.js';
 import agentRoutes from './routes/agent.routes.js';
 import webhookRoutes from './routes/webhooks.routes.js';
+import googleRoutes from './routes/google.routes.js';
+import { LegalController } from './controllers/legal.controller.js';
 
 dotenv.config();
 
@@ -96,6 +98,10 @@ app.get('/health', async (req: Request, res: Response) => {
   }
 });
 
+// Páginas legais (públicas) — exigidas pelo Google OAuth consent screen.
+app.get('/privacy', LegalController.privacy);
+app.get('/terms', LegalController.terms);
+
 //// Registro de Módulos
 app.use('/api/auth', authRoutes);
 app.use('/api/finance', financeRoutes);
@@ -110,6 +116,7 @@ app.use('/api/cards', cardsRoutes);
 app.use('/api/income-sources', incomeSourcesRoutes);
 app.use('/api/installments', installmentsRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/google', googleRoutes);
 app.use('/webhooks', webhookRoutes);
 
 
