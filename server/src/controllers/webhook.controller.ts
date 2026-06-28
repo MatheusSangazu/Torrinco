@@ -41,9 +41,9 @@ export class WebhookController {
       event: event ?? '(sem event)',
       eventKey: typeof eventKey === 'string' ? eventKey : JSON.stringify(eventKey),
       hasMessage: !!data?.message,
-      raw: JSON.stringify(req.body).slice(0, 500)
+      raw: JSON.stringify(req.body)
     });
-    if (debugLog.length > 20) debugLog.pop();
+    if (debugLog.length > 5) debugLog.pop();
 
     // Só interessa mensagem recebida (não enviada, não status).
     // A Evolution usa eventos como "messages.upsert" com type "notify" para recebidas.
@@ -105,20 +105,27 @@ function classifyMessage(data: any): IncomingMedia | null {
 
   // Áudio. A Evolution pode enviar url pública, base64 ou streaming fields.
   if (message.audioMessage) {
-    const url = extractMediaSource(message.audioMessage);
-    return { type: 'audio', url };
+    return { type: 'audio', url: extractMediaSource(message.audioMessage), rawMessage: { key: data.key, message } };
   }
 
   // Imagem.
   if (message.imageMessage) {
-    const url = extractMediaSource(message.imageMessage);
-    return { type: 'image', url, text: message.imageMessage.caption };
+    return {
+      type: 'image',
+      url: extractMediaSource(message.imageMessage),
+      text: message.imageMessage.caption,
+      rawMessage: { key: data.key, message }
+    };
   }
 
   // Documento/arquivo.
   if (message.documentMessage) {
-    const url = extractMediaSource(message.documentMessage);
-    return { type: 'file', url, fileName: message.documentMessage.fileName };
+    return {
+      type: 'file',
+      url: extractMediaSource(message.documentMessage),
+      fileName: message.documentMessage.fileName,
+      rawMessage: { key: data.key, message }
+    };
   }
 
   return null;

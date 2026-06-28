@@ -160,4 +160,43 @@ export class EvolutionService {
       return null;
     }
   }
+
+  /**
+   * Baixa uma mídia do WhatsApp (descriptografada) em base64.
+   * Espelha o nó "get base64" do n8n.
+   *
+   * O webhook da Evolution envia a URL criptografada (inútil); este endpoint
+   * recebe o objeto `message` completo e devolve o conteúdo descriptografado.
+   *
+   * @returns base64 puro (sem prefixo data:) ou null em caso de erro.
+   */
+  static async getMediaBase64(message: any): Promise<string | null> {
+    try {
+      if (!config.baseUrl || !config.apiKey || !config.instanceName) {
+        console.warn('⚠️ Evolution API não configurada');
+        return null;
+      }
+
+      const url = `${config.baseUrl}/chat/getBase64FromMediaMessage/${config.instanceName}`;
+      const response = await axios.post(
+        url,
+        { message },
+        { headers: { apikey: config.apiKey, 'Content-Type': 'application/json' } }
+      );
+
+      // Resposta padrão: { base64: "...", mimetype: "audio/ogg; codecs=opus" }
+      const base64 = response.data?.base64;
+      if (typeof base64 === 'string' && base64.length > 0) {
+        return base64;
+      }
+      console.error('[getMediaBase64] Resposta sem base64:', JSON.stringify(response.data).slice(0, 300));
+      return null;
+    } catch (error: any) {
+      console.error('❌ Erro em getMediaBase64:', error.message);
+      if (error.response) {
+        console.error('Detalhes:', JSON.stringify(error.response.data).slice(0, 300));
+      }
+      return null;
+    }
+  }
 }

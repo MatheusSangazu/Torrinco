@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as llm from '../llm.service.js';
+import { EvolutionService } from '../evolution.service.js';
 import type { WebhookMessage } from './types.js';
 
 /**
@@ -18,6 +19,8 @@ export interface IncomingMedia {
   /** URL pública (http) ou data URL base64 vinda do webhook da Evolution. */
   url?: string;
   fileName?: string;
+  /** Objeto `message` completo do webhook, usado para baixar mídia via getBase64. */
+  rawMessage?: any;
 }
 
 /** Processa a mídia e devolve um WebhookMessage normalizado. */
@@ -36,14 +39,14 @@ export async function processMedia(
       };
 
     case 'audio': {
-      if (!media.url) return unknownMessage(userId, receivedAt, 'áudio sem fonte');
       try {
-        const { buffer, name } = await resolveAudioBuffer(media.url);
+        const source = await resolveMediaSource(media);
+        if (!source) return unknownMessage(userId, receivedAt, 'áudio sem fonte');
+        const { buffer, name } = await resolveAudioBuffer(source);
         const transcription = await llm.transcribe(buffer, name);
         return {
           text: transcription,
           mediaType: 'audio',
-          mediaUrl: media.url.startsWith('data:') ? undefined : media.url,
           userId,
           receivedAt
         };
@@ -54,13 +57,14 @@ export async function processMedia(
     }
 
     case 'image': {
-      if (!media.url) return unknownMessage(userId, receivedAt, 'imagem sem fonte');
       try {
-        const description = await llm.describeImage(media.url);
+        const source = await resolveMediaSource(media);
+        if (!source) return unknownMessage(userId, receivedAt, 'imagem sem fonte');
+        // GPT-4o vision aceita URL http OU data URL base64.
+        const description = await llm.describeImage(source);
         return {
           text: `[Imagem] ${description}`,
           mediaType: 'image',
-          mediaUrl: media.url.startsWith('data:') ? undefined : media.url,
           userId,
           receivedAt
         };
@@ -91,6 +95,36 @@ function unknownMessage(userId: number, receivedAt: Date, reason: string): Webho
     userId,
     receivedAt
   };
+}
+
+/**
+ * Resolve a fonte de mídia usando a melhor estratégia disponível:
+ *  1. base64 já presente no webhook (raro, mas possível com webhook_base64=true).
+ *  2. GET getBase64FromMediaMessage na Evolution (descriptografa o .enc).
+ *  3. URL http pública direta (fallback).
+ *
+ * Retorna string pronta para uso: data URL base64 ou URL http.
+ */
+async function resolveMediaSource(media: IncomingMedia): Promise<string | null> {
+  // 1) base64 direto do webhook.
+  if (media.url?.startsWith('data:')) {
+    return media.url;
+  }
+  // 2) Pede à Evolution para descriptografar via endpoint dedicado.
+  if (media.rawMessage) {
+    const b64 = await EvolutionService.getMediaBase64(media.rawMessage);
+    if (b64) {
+      // b64 é puro (sem prefixo); converte em data URL.
+      // O mimetype default de áudio do WPP é ogg/opus; imagem é jpeg.
+      const mime = media.type === 'audio' ? 'audio/ogg' : 'image/jpeg';
+      return `data:${mime};base64,${b64}`;
+    }
+  }
+  // 3) URL http pública (só funciona se a Evolution já tiver descriptografado).
+  if (media.url?.startsWith('http') && !media.url.includes('.enc')) {
+    return media.url;
+  }
+  return null;
 }
 
 /**
