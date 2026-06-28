@@ -103,31 +103,49 @@ function classifyMessage(data: any): IncomingMedia | null {
     return { type: 'text', text: message.extendedTextMessage.text };
   }
 
-  // Áudio.
+  // Áudio. A Evolution pode enviar url pública, base64 ou streaming fields.
   if (message.audioMessage) {
-    return {
-      type: 'audio',
-      url: message.audioMessage.url
-    };
+    const url = extractMediaSource(message.audioMessage);
+    return { type: 'audio', url };
   }
 
   // Imagem.
   if (message.imageMessage) {
-    return {
-      type: 'image',
-      url: message.imageMessage.url,
-      text: message.imageMessage.caption
-    };
+    const url = extractMediaSource(message.imageMessage);
+    return { type: 'image', url, text: message.imageMessage.caption };
   }
 
   // Documento/arquivo.
   if (message.documentMessage) {
-    return {
-      type: 'file',
-      url: message.documentMessage.url,
-      fileName: message.documentMessage.fileName
-    };
+    const url = extractMediaSource(message.documentMessage);
+    return { type: 'file', url, fileName: message.documentMessage.fileName };
   }
 
   return null;
+}
+
+/**
+ * Extrai a fonte de uma mídia da Evolution, cobrindo 3 formatos possíveis:
+ *  1. `url` pública (ex: https://evo.../file.mp3).
+ *  2. `base64` (string pura ou com prefixo data:).
+ *  3. Streaming fields (directPath/mediaKey) → sem fonte direta (retorna undefined).
+ *
+ * Para base64, devolve um data URL pronto para consumo (Whisper/vision aceitam).
+ */
+function extractMediaSource(media: any): string | undefined {
+  if (!media) return undefined;
+
+  // 1) URL pública direta.
+  if (typeof media.url === 'string' && media.url.startsWith('http')) {
+    return media.url;
+  }
+
+  // 2) Base64 (puro ou com prefixo data:).
+  if (typeof media.base64 === 'string' && media.base64.length > 0) {
+    const b64 = media.base64.startsWith('data:') ? media.base64 : `data:application/octet-stream;base64,${media.base64}`;
+    return b64;
+  }
+
+  // 3) Sem fonte direta (streaming) — retorna undefined; o media.service trata.
+  return undefined;
 }

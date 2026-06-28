@@ -118,13 +118,13 @@ export async function chatWithToolResults(
   return completion.choices[0]?.message?.content ?? '';
 }
 
-/** Transcreve áudio (Whisper). Aceita URL pública ou base64 (com prefixo data). */
-export async function transcribe(audioUrlOrBase64: string): Promise<string> {
+/** Transcreve áudio (Whisper). Recebe um objeto File-like {name, type, stream}. */
+export async function transcribe(audioFile: { name: string; type: string; [k: string]: any }): Promise<string> {
   if (!client) throw new Error('LLM não configurado');
   const response = await client.audio.transcriptions.create({
     model: 'whisper-1',
-    // @ts-expect-error: o SDK aceita string (URL) ou arquivo.
-    file: audioUrlOrBase64
+    // @ts-expect-error: o SDK aceita File-like em Node.
+    file: audioFile
   });
   return response.text;
 }

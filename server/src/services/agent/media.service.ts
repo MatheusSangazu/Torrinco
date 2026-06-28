@@ -7,15 +7,15 @@ import type { WebhookMessage } from './types.js';
  *
  * Espelha os galhos do fluxo n8n:
  *  - texto  → passa direto.
- *  - áudio  → transcreve via Whisper.
- *  - imagem → descreve via GPT-4o vision.
+ *  - áudio  → transcreve via Whisper (baixa URL ou decodifica base64).
+ *  - imagem → descreve via GPT-4o vision (URL ou data URL).
  *  - arquivo → descreve o tipo/nome (sem parsear conteúdo por enquanto).
  */
 
 export interface IncomingMedia {
   type: 'text' | 'audio' | 'image' | 'file' | 'unknown';
   text?: string;
-  /** URL pública ou base64 vinda do webhook da Evolution. */
+  /** URL pública (http) ou data URL base64 vinda do webhook da Evolution. */
   url?: string;
   fileName?: string;
 }
@@ -36,13 +36,14 @@ export async function processMedia(
       };
 
     case 'audio': {
-      if (!media.url) return unknownMessage(userId, receivedAt, 'áudio sem URL');
+      if (!media.url) return unknownMessage(userId, receivedAt, 'áudio sem fonte');
       try {
-        const transcription = await llm.transcribe(media.url);
+        const audioFile = await resolveAudioFile(media.url);
+        const transcription = await llm.transcribe(audioFile);
         return {
           text: transcription,
           mediaType: 'audio',
-          mediaUrl: media.url,
+          mediaUrl: media.url.startsWith('data:') ? undefined : media.url,
           userId,
           receivedAt
         };
@@ -53,13 +54,13 @@ export async function processMedia(
     }
 
     case 'image': {
-      if (!media.url) return unknownMessage(userId, receivedAt, 'imagem sem URL');
+      if (!media.url) return unknownMessage(userId, receivedAt, 'imagem sem fonte');
       try {
         const description = await llm.describeImage(media.url);
         return {
           text: `[Imagem] ${description}`,
           mediaType: 'image',
-          mediaUrl: media.url,
+          mediaUrl: media.url.startsWith('data:') ? undefined : media.url,
           userId,
           receivedAt
         };
@@ -73,7 +74,7 @@ export async function processMedia(
       return {
         text: `[Arquivo recebido] ${media.fileName ?? 'sem nome'}. Não consigo ler o conteúdo ainda.`,
         mediaType: 'file',
-        mediaUrl: media.url,
+        mediaUrl: media.url?.startsWith('data:') ? undefined : media.url,
         userId,
         receivedAt
       };
@@ -93,8 +94,40 @@ function unknownMessage(userId: number, receivedAt: Date, reason: string): Webho
 }
 
 /**
- * Baixa uma mídia via URL da Evolution (quando vier como base64 ou endpoint).
- * Mantido para futuras extensões (ex: parsear PDF de comprovante).
+ * Resolve uma fonte de áudio (URL http OU data URL base64) para um objeto que
+ * o SDK do Whisper aceita (File-like com name/type).
+ */
+async function resolveAudioFile(source: string): Promise<{ name: string; type: string; [k: string]: any }> {
+  if (source.startsWith('data:')) {
+    // data URL: data:audio/ogg;base64,XXXX
+    const match = source.match(/^data:(audio\/[\w+.-]+);base64,(.*)$/);
+    const mime = match?.[1] ?? 'audio/ogg';
+    const b64 = match?.[2] ?? source.split(',')[1] ?? '';
+    const buf = Buffer.from(b64, 'base64');
+    const ext = mime.includes('webm') ? 'webm' : mime.includes('mp3') ? 'mp3' : 'ogg';
+    return { name: `audio.${ext}`, type: mime, size: buf.length, stream: () => bufToStream(buf) };
+  }
+
+  // URL http → baixa e devolve como File-like.
+  const response = await axios.get(source, { responseType: 'arraybuffer' });
+  const buf = Buffer.from(response.data);
+  const mime = String(response.headers['content-type'] ?? 'audio/ogg');
+  const ext = mime.includes('webm') ? 'webm' : mime.includes('mp3') ? 'mp3' : 'ogg';
+  return { name: `audio.${ext}`, type: mime, size: buf.length, stream: () => bufToStream(buf) };
+}
+
+/** Converte Buffer em Readable stream (exigência do Whisper SDK). */
+function bufToStream(buf: Buffer) {
+  const { Readable } = require('node:stream');
+  const stream = new Readable();
+  stream.push(buf);
+  stream.push(null);
+  return stream;
+}
+
+/**
+ * Baixa uma mídia via URL da Evolution (utilitário para extensões futuras,
+ * ex: parsear PDF de comprovante).
  */
 export async function downloadMedia(url: string): Promise<Buffer> {
   const response = await axios.get(url, { responseType: 'arraybuffer' });
