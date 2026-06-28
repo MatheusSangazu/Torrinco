@@ -27,6 +27,10 @@ export function verifyEvolutionApiKey(req: Request, res: Response, next: NextFun
   const expected = process.env.EVOLUTION_WEBHOOK_API_KEY;
   const isProd = process.env.NODE_ENV === 'production';
 
+  // DEBUG TEMPORÁRIO — mostra todos os headers recebidos pra descobrir o que
+  // a Evolution envia de fato. Remover depois de estabilizar.
+  console.log('[webhook] Headers recebidos:', JSON.stringify(req.headers, null, 2));
+
   if (!expected) {
     if (isProd) {
       console.error('[security] EVOLUTION_WEBHOOK_API_KEY ausente em produção — webhook recusado');
@@ -37,18 +41,28 @@ export function verifyEvolutionApiKey(req: Request, res: Response, next: NextFun
     return next();
   }
 
-  // Evolution usa o header `apikey` (case-insensitive pelo Express).
-  const received = req.headers['apikey'] as string | undefined
-    ?? req.headers['Apikey'] as string | undefined
-    ?? req.headers['APIKEY'] as string | undefined;
+  // Tenta vários nomes de header possíveis (a Evolution envia o que você
+  // configurar manualmente em webhook.headers, então pode ser qualquer nome).
+  const candidates = [
+    req.headers['apikey'],
+    req.headers['api-key'],
+    req.headers['x-api-key'],
+    req.headers['x-webhook-key'],
+    req.headers['authorization']
+  ];
+  const received = candidates.find(h => typeof h === 'string') as string | undefined;
 
   if (!received) {
+    console.warn('[security] nenhum header de auth reconhecido. Recebidos:', Object.keys(req.headers));
     res.status(401).json({ error: 'api key ausente' });
     return;
   }
 
-  if (!safeEqual(received, expected)) {
-    console.warn('[security] api key inválida no webhook');
+  // Se vier "Bearer xxx" extrai o token.
+  const token = received.startsWith('Bearer ') ? received.slice(7) : received;
+
+  if (!safeEqual(token, expected)) {
+    console.warn('[security] api key inválida no webhook. Esperado len:', expected.length, 'Recebido len:', token.length);
     res.status(401).json({ error: 'api key inválida' });
     return;
   }
