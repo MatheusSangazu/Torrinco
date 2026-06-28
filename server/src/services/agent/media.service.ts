@@ -38,8 +38,8 @@ export async function processMedia(
     case 'audio': {
       if (!media.url) return unknownMessage(userId, receivedAt, 'áudio sem fonte');
       try {
-        const audioFile = await resolveAudioFile(media.url);
-        const transcription = await llm.transcribe(audioFile);
+        const { buffer, name } = await resolveAudioBuffer(media.url);
+        const transcription = await llm.transcribe(buffer, name);
         return {
           text: transcription,
           mediaType: 'audio',
@@ -94,35 +94,23 @@ function unknownMessage(userId: number, receivedAt: Date, reason: string): Webho
 }
 
 /**
- * Resolve uma fonte de áudio (URL http OU data URL base64) para um objeto que
- * o SDK do Whisper aceita (File-like com name/type).
+ * Resolve uma fonte de áudio (URL http OU data URL base64) para um Buffer + nome.
+ * O Buffer é convertido em File pelo llm.transcribe usando o helper toFile do SDK.
  */
-async function resolveAudioFile(source: string): Promise<{ name: string; type: string; [k: string]: any }> {
+async function resolveAudioBuffer(source: string): Promise<{ buffer: Buffer; name: string }> {
   if (source.startsWith('data:')) {
-    // data URL: data:audio/ogg;base64,XXXX
-    const match = source.match(/^data:(audio\/[\w+.-]+);base64,(.*)$/);
+    const match = source.match(/^data:([\w/+.-]+);base64,(.*)$/);
     const mime = match?.[1] ?? 'audio/ogg';
     const b64 = match?.[2] ?? source.split(',')[1] ?? '';
     const buf = Buffer.from(b64, 'base64');
     const ext = mime.includes('webm') ? 'webm' : mime.includes('mp3') ? 'mp3' : 'ogg';
-    return { name: `audio.${ext}`, type: mime, size: buf.length, stream: () => bufToStream(buf) };
+    return { buffer: buf, name: `audio.${ext}` };
   }
 
-  // URL http → baixa e devolve como File-like.
   const response = await axios.get(source, { responseType: 'arraybuffer' });
-  const buf = Buffer.from(response.data);
   const mime = String(response.headers['content-type'] ?? 'audio/ogg');
   const ext = mime.includes('webm') ? 'webm' : mime.includes('mp3') ? 'mp3' : 'ogg';
-  return { name: `audio.${ext}`, type: mime, size: buf.length, stream: () => bufToStream(buf) };
-}
-
-/** Converte Buffer em Readable stream (exigência do Whisper SDK). */
-function bufToStream(buf: Buffer) {
-  const { Readable } = require('node:stream');
-  const stream = new Readable();
-  stream.push(buf);
-  stream.push(null);
-  return stream;
+  return { buffer: Buffer.from(response.data), name: `audio.${ext}` };
 }
 
 /**

@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
 
 /**
@@ -118,13 +118,13 @@ export async function chatWithToolResults(
   return completion.choices[0]?.message?.content ?? '';
 }
 
-/** Transcreve áudio (Whisper). Recebe um objeto File-like {name, type, stream}. */
-export async function transcribe(audioFile: { name: string; type: string; [k: string]: any }): Promise<string> {
+/** Transcreve áudio (Whisper). Recebe um Buffer + nome do arquivo. */
+export async function transcribe(buffer: Buffer, name: string): Promise<string> {
   if (!client) throw new Error('LLM não configurado');
+  const file = await toFile(buffer, name);
   const response = await client.audio.transcriptions.create({
     model: 'whisper-1',
-    // @ts-expect-error: o SDK aceita File-like em Node.
-    file: audioFile
+    file
   });
   return response.text;
 }
