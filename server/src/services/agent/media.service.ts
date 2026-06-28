@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as llm from '../llm.service.js';
 import { EvolutionService } from '../evolution.service.js';
+import { extractPdfText } from './pdf.service.js';
 import type { WebhookMessage } from './types.js';
 
 /**
@@ -74,14 +75,41 @@ export async function processMedia(
       }
     }
 
-    case 'file':
+    case 'file': {
+      // PDF? Extrai texto e devolve pro agente estruturar.
+      const isPdf =
+        media.fileName?.toLowerCase().endsWith('.pdf') ||
+        media.url?.includes('application/pdf');
+      if (isPdf) {
+        try {
+          const source = await resolveMediaSource(media);
+          if (!source) return unknownMessage(userId, receivedAt, 'PDF sem fonte');
+          const buffer = await resolveFileBuffer(source);
+          const text = await extractPdfText(buffer);
+          if (!text.trim()) {
+            return unknownMessage(userId, receivedAt, 'PDF sem texto extraível (provavelmente é imagem)');
+          }
+          // Trunca para não estourar o contexto do LLM (faturas podem ser grandes).
+          const truncated = text.length > 6000 ? text.slice(0, 6000) + '\n[...truncado]' : text;
+          return {
+            text: `[Fatura em PDF]\n${truncated}`,
+            mediaType: 'pdf',
+            userId,
+            receivedAt
+          };
+        } catch (err) {
+          console.error('[media] Falha ao ler PDF:', err);
+          return unknownMessage(userId, receivedAt, 'erro ao ler PDF');
+        }
+      }
+      // Outros arquivos: descreve o nome.
       return {
-        text: `[Arquivo recebido] ${media.fileName ?? 'sem nome'}. Não consigo ler o conteúdo ainda.`,
+        text: `[Arquivo recebido] ${media.fileName ?? 'sem nome'}. Ainda não consigo ler este tipo de arquivo.`,
         mediaType: 'file',
-        mediaUrl: media.url?.startsWith('data:') ? undefined : media.url,
         userId,
         receivedAt
       };
+    }
 
     default:
       return unknownMessage(userId, receivedAt, 'tipo de mídia não suportado');
@@ -153,5 +181,18 @@ async function resolveAudioBuffer(source: string): Promise<{ buffer: Buffer; nam
  */
 export async function downloadMedia(url: string): Promise<Buffer> {
   const response = await axios.get(url, { responseType: 'arraybuffer' });
+  return Buffer.from(response.data);
+}
+
+/**
+ * Resolve uma fonte (URL http OU data URL base64) para Buffer.
+ * Usado para PDFs e outros arquivos.
+ */
+async function resolveFileBuffer(source: string): Promise<Buffer> {
+  if (source.startsWith('data:')) {
+    const b64 = source.split(',')[1] ?? '';
+    return Buffer.from(b64, 'base64');
+  }
+  const response = await axios.get(source, { responseType: 'arraybuffer' });
   return Buffer.from(response.data);
 }

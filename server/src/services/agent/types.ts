@@ -7,7 +7,7 @@ export interface WebhookMessage {
   /** Texto já processado (transcrito se áudio, descrito se foto, etc). */
   text: string;
   /** Tipo original da mídia. */
-  mediaType: 'text' | 'audio' | 'image' | 'file' | 'unknown';
+  mediaType: 'text' | 'audio' | 'image' | 'file' | 'pdf' | 'unknown';
   /** URL/base64 do conteúdo original (quando aplicável). */
   mediaUrl?: string;
   /** ID do usuário dono do telefone (preenchido pelo eligibility). */
