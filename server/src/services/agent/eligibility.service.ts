@@ -27,8 +27,22 @@ export async function checkEligibility(
 
   // 3) Resolve o usuário pelo telefone.
   const cleanPhone = phone.replace(/\D/g, '');
-  const user = await prisma.users.findUnique({
-    where: { phone_number: cleanPhone },
+
+  // Normalização de nono dígito brasileiro: o WhatsApp pode enviar o número
+  // com ou sem o "9" do celular. Tentamos as 3 variações.
+  //   5579981003085 (com 9, 13 dígitos)
+  //   557981003085  (sem 9, 12 dígitos)
+  const variants = new Set<string>([cleanPhone]);
+  if (cleanPhone.length === 12 && cleanPhone.startsWith('55')) {
+    // Sem o 9 → adiciona (após DDI+DDD = 4 dígitos).
+    variants.add(cleanPhone.slice(0, 4) + '9' + cleanPhone.slice(4));
+  } else if (cleanPhone.length === 13 && cleanPhone.startsWith('55')) {
+    // Com o 9 → remove.
+    variants.add(cleanPhone.slice(0, 4) + cleanPhone.slice(5));
+  }
+
+  const user = await prisma.users.findFirst({
+    where: { phone_number: { in: [...variants] } },
     include: { accounts: true }
   });
   if (!user) {
