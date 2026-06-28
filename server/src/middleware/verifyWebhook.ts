@@ -2,15 +2,15 @@ import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 
 /**
- * Valida o webhook da Evolution API via API Key no header.
+ * Valida o webhook da Evolution API via header customizado `x-webhook-key`.
  *
- * A Evolution envia automaticamente o header `apikey` em todos os webhooks
- * (tradicional ou external), com o valor configurado em `AUTHENTICATION_API_KEY`
- * ou no token da instância. Sem isso, qualquer um que descubra a URL pode
- * forjar payloads — então bloqueamos qualquer chamada sem key válida.
+ * A Evolution NÃO envia nenhum header de auth automaticamente (confirmado em
+ * produção). Por isso, configuramos manualmente um header customizado no
+ * webhook dela (campo `headers: { "x-webhook-key": "..." }` ao configurar o
+ * webhook). Esse mesmo valor vai pra `EVOLUTION_WEBHOOK_API_KEY` no .env.
  *
- * Requer `EVOLUTION_WEBHOOK_API_KEY` no .env com o MESMO valor cadastrado
- * na Evolution. Comparação em tempo constante (anti-timing attack).
+ * Sem isso, qualquer um que descubra a URL pode forjar payloads. Comparação
+ * em tempo constante (anti-timing attack).
  *
  * Em dev sem env var: apenas avisa no log (não trava).
  */
@@ -27,10 +27,6 @@ export function verifyEvolutionApiKey(req: Request, res: Response, next: NextFun
   const expected = process.env.EVOLUTION_WEBHOOK_API_KEY;
   const isProd = process.env.NODE_ENV === 'production';
 
-  // DEBUG TEMPORÁRIO — mostra todos os headers recebidos pra descobrir o que
-  // a Evolution envia de fato. Remover depois de estabilizar.
-  console.log('[webhook] Headers recebidos:', JSON.stringify(req.headers, null, 2));
-
   if (!expected) {
     if (isProd) {
       console.error('[security] EVOLUTION_WEBHOOK_API_KEY ausente em produção — webhook recusado');
@@ -41,28 +37,21 @@ export function verifyEvolutionApiKey(req: Request, res: Response, next: NextFun
     return next();
   }
 
-  // Tenta vários nomes de header possíveis (a Evolution envia o que você
-  // configurar manualmente em webhook.headers, então pode ser qualquer nome).
-  const candidates = [
-    req.headers['apikey'],
-    req.headers['api-key'],
-    req.headers['x-api-key'],
-    req.headers['x-webhook-key'],
-    req.headers['authorization']
-  ];
-  const received = candidates.find(h => typeof h === 'string') as string | undefined;
+  // Header customizado configurado no webhook da Evolution:
+  //   headers: { "x-webhook-key": "<mesmo valor do .env>" }
+  // Aceita também Bearer x-webhook-key pra flexibilidade.
+  const received =
+    (req.headers['x-webhook-key'] as string | undefined) ??
+    (req.headers['x-api-key'] as string | undefined);
 
   if (!received) {
-    console.warn('[security] nenhum header de auth reconhecido. Recebidos:', Object.keys(req.headers));
+    console.warn('[security] header x-webhook-key ausente. Headers:', Object.keys(req.headers));
     res.status(401).json({ error: 'api key ausente' });
     return;
   }
 
-  // Se vier "Bearer xxx" extrai o token.
-  const token = received.startsWith('Bearer ') ? received.slice(7) : received;
-
-  if (!safeEqual(token, expected)) {
-    console.warn('[security] api key inválida no webhook. Esperado len:', expected.length, 'Recebido len:', token.length);
+  if (!safeEqual(received, expected)) {
+    console.warn('[security] api key inválida no webhook');
     res.status(401).json({ error: 'api key inválida' });
     return;
   }
