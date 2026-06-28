@@ -74,13 +74,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-app.use(express.json({
-  // Captura o body bruto em req.rawBody — necessário para validar a assinatura
-  // HMAC do webhook da Evolution (assinatura é calculada sobre os bytes crus).
-  verify: (req, _res, buf) => {
-    (req as any).rawBody = buf;
-  }
-}));
+app.use(express.json());
 
 // Rate limit global — protege a API inteira contra abuso/DoS.
 // Rotas sensíveis (login, reset) têm limites próprios mais apertados.
