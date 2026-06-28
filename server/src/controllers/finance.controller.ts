@@ -189,9 +189,15 @@ export class FinanceController {
       // Transações para verificação de duplicidade (inclui deletadas)
       const transactionsForCheck = transactionsRaw;
 
-      // Buscar transações recorrentes ativas que venceriam neste mês
-      const start = new Date(where.transaction_date.gte);
-      const end = new Date(where.transaction_date.lte);
+      // Buscar transações recorrentes ativas que venceriam neste período.
+      // Fallback seguro: se não houver filtro de data, usa o mês atual.
+      const now = new Date();
+      const start = where.transaction_date?.gte ? new Date(where.transaction_date.gte) : new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = where.transaction_date?.lte ? new Date(where.transaction_date.lte) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        // Sem janela válida → não projeta recorrências (evita Invalid Date no Prisma).
+        return res.json({ transactions });
+      }
 
       const recurringTransactions = await prisma.recurring_transactions.findMany({
         where: {
