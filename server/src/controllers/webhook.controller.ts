@@ -50,8 +50,14 @@ export class WebhookController {
     if (event !== 'messages.upsert') return;
 
     const isFromMe = data?.key?.fromMe === true;
-    const isGroup = !!data?.key?.remoteJid?.endsWith('@g.us');
-    const phone = data?.key?.remoteJid?.replace('@s.whatsapp.net', '') ?? '';
+    // WhatsApp usa LID (@lid) como identificador primário; o número real fica
+    // em remoteJidAlt (@s.whatsapp.net). Preferimos o número real quando existe.
+    const rawJid =
+      data?.key?.remoteJidAlt ??
+      data?.key?.remoteJid ??
+      '';
+    const isGroup = !!rawJid.endsWith('@g.us');
+    const phone = rawJid.replace('@s.whatsapp.net', '').replace('@lid', '');
 
     if (!phone || isGroup) return;
 
