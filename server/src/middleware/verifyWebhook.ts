@@ -2,15 +2,14 @@ import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 
 /**
- * Valida o webhook da Evolution API via header customizado `x-webhook-key`.
+ * Valida o webhook da Evolution API.
  *
- * A Evolution NÃO envia nenhum header de auth automaticamente (confirmado em
- * produção). Por isso, configuramos manualmente um header customizado no
- * webhook dela (campo `headers: { "x-webhook-key": "..." }` ao configurar o
- * webhook). Esse mesmo valor vai pra `EVOLUTION_WEBHOOK_API_KEY` no .env.
+ * A Evolution (v2.3.6) inclui a API key em DOIS lugares por padrão:
+ *  1. No campo `apikey` do body (confirmado em produção).
+ *  2. Opcionalmente em header customizado `x-webhook-key` que configuramos.
  *
- * Sem isso, qualquer um que descubra a URL pode forjar payloads. Comparação
- * em tempo constante (anti-timing attack).
+ * Aceitamos qualquer um dos dois. Sem validação, qualquer um que descubra
+ * a URL pode forjar payloads. Comparação em tempo constante (anti-timing).
  *
  * Em dev sem env var: apenas avisa no log (não trava).
  */
@@ -37,15 +36,18 @@ export function verifyEvolutionApiKey(req: Request, res: Response, next: NextFun
     return next();
   }
 
-  // Header customizado configurado no webhook da Evolution:
-  //   headers: { "x-webhook-key": "<mesmo valor do .env>" }
-  // Aceita também Bearer x-webhook-key pra flexibilidade.
-  const received =
+  // 1) Header customizado (se configurado no webhook da Evolution).
+  const fromHeader =
     (req.headers['x-webhook-key'] as string | undefined) ??
     (req.headers['x-api-key'] as string | undefined);
 
+  // 2) Campo `apikey` no body (a Evolution sempre envia — confirmado em prod).
+  const fromBody = typeof req.body?.apikey === 'string' ? req.body.apikey : undefined;
+
+  const received = fromHeader ?? fromBody;
+
   if (!received) {
-    console.warn('[security] header x-webhook-key ausente. Headers:', Object.keys(req.headers));
+    console.warn('[security] api key ausente (header e body). Headers:', Object.keys(req.headers));
     res.status(401).json({ error: 'api key ausente' });
     return;
   }
