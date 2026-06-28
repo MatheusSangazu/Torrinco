@@ -143,8 +143,10 @@ export async function processConversation(
       }
       try {
         const result = await executor(userId, call.arguments);
+        console.log(`[tool] ${call.name} OK:`, JSON.stringify(result).slice(0, 200));
         toolResults.push({ id: call.id, name: call.name, result });
       } catch (err: any) {
+        console.error(`[tool] ${call.name} ERRO:`, err?.message);
         toolResults.push({ id: call.id, name: call.name, result: { erro: err?.message ?? 'erro interno' } });
       }
     }
