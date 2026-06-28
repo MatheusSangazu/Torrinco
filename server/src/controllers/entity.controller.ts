@@ -16,6 +16,20 @@ export class EntityController {
         return res.status(400).json({ error: 'Name and type are required' });
       }
 
+      // Cartões de crédito PRECISAM de closing_day e due_day — sem isso a
+      // lógica de fatura não tem como calcular o ciclo e acaba inventando
+      // valores (bug antigo de fallback pra dia 1/10).
+      if (type === 'credit_card') {
+        const cd = Number(closing_day);
+        const dd = Number(due_day);
+        if (!Number.isInteger(cd) || cd < 1 || cd > 31) {
+          return res.status(400).json({ error: 'Cartão de crédito exige closing_day (1-31).' });
+        }
+        if (!Number.isInteger(dd) || dd < 1 || dd > 31) {
+          return res.status(400).json({ error: 'Cartão de crédito exige due_day (1-31).' });
+        }
+      }
+
       const entity = await prisma.financial_entities.create({
         data: {
           user_id: userId,
@@ -23,8 +37,8 @@ export class EntityController {
           type,
           balance: balance ? parseFloat(balance) : 0,
           credit_limit: credit_limit ? parseFloat(credit_limit) : 0,
-          closing_day: closing_day ? parseInt(closing_day) : null,
-          due_day: due_day ? parseInt(due_day) : null
+          closing_day: type === 'credit_card' ? Number(closing_day) : (closing_day ? Number(closing_day) : null),
+          due_day: type === 'credit_card' ? Number(due_day) : (due_day ? Number(due_day) : null)
         }
       });
 
@@ -143,6 +157,19 @@ export class EntityController {
         return res.status(404).json({ error: 'Entity not found' });
       }
 
+      // Tipo final após update (type pode não vir, usa o existente).
+      const finalType = type ?? existingEntity.type;
+      if (finalType === 'credit_card') {
+        const cd = closing_day !== undefined ? Number(closing_day) : existingEntity.closing_day;
+        const dd = due_day !== undefined ? Number(due_day) : existingEntity.due_day;
+        if (cd == null || !Number.isInteger(cd) || cd < 1 || cd > 31) {
+          return res.status(400).json({ error: 'Cartão de crédito exige closing_day (1-31).' });
+        }
+        if (dd == null || !Number.isInteger(dd) || dd < 1 || dd > 31) {
+          return res.status(400).json({ error: 'Cartão de crédito exige due_day (1-31).' });
+        }
+      }
+
       const entity = await prisma.financial_entities.update({
         where: { id: Number(id) },
         data: {
@@ -150,8 +177,8 @@ export class EntityController {
           type: type ?? undefined,
           balance: balance ? parseFloat(balance) : undefined,
           credit_limit: credit_limit ? parseFloat(credit_limit) : undefined,
-          closing_day: closing_day ? parseInt(closing_day) : undefined,
-          due_day: due_day ? parseInt(due_day) : undefined
+          closing_day: closing_day !== undefined ? (closing_day ? Number(closing_day) : null) : undefined,
+          due_day: due_day !== undefined ? (due_day ? Number(due_day) : null) : undefined
         }
       });
 

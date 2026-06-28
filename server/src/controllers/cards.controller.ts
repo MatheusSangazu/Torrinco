@@ -32,9 +32,6 @@ export class CardsController {
       // Para cada cartão, usa a fatura atual via billing.service (fonte única).
       // Isso garante o mesmo total exibido na página de detalhe da fatura.
       const cardsWithDetails = await Promise.all(cards.map(async card => {
-        const closingDay = card.closing_day || 1;
-        const dueDay = card.due_day || 10;
-
         // Garante a fatura do ciclo atual (cria se não existir) e sincroniza status.
         const { bill } = await billing.getOrCreateCurrentBill(card.id, userId);
         const details = await billing.getBillDetails(bill.id, userId);
@@ -46,8 +43,8 @@ export class CardsController {
           limit: Number(card.credit_limit || 0),
           currentBill: total,
           availableLimit: Number(card.credit_limit || 0) - total,
-          closingDay,
-          dueDay,
+          closingDay: card.closing_day,
+          dueDay: card.due_day,
           periodStart: bill.period_start,
           periodEnd: bill.period_end,
           closingDate: bill.closing_date,
@@ -81,14 +78,25 @@ export class CardsController {
         return res.status(400).json({ error: 'Name is required' });
       }
 
+      // Cartão de crédito sem closing_day/due_day quebra o cálculo de fatura.
+      // Antes o sistema aceitava e chutava dia 1/dia 10 silenciosamente.
+      const cd = Number(closing_day);
+      const dd = Number(due_day);
+      if (!Number.isInteger(cd) || cd < 1 || cd > 31) {
+        return res.status(400).json({ error: 'closing_day é obrigatório (1-31).' });
+      }
+      if (!Number.isInteger(dd) || dd < 1 || dd > 31) {
+        return res.status(400).json({ error: 'due_day é obrigatório (1-31).' });
+      }
+
       const card = await prisma.financial_entities.create({
         data: {
           user_id: userId,
           name,
           type: 'credit_card',
           credit_limit: limit ? parseFloat(limit) : 0,
-          closing_day: closing_day ? parseInt(closing_day) : null,
-          due_day: due_day ? parseInt(due_day) : null,
+          closing_day: cd,
+          due_day: dd,
           color: color || 'from-purple-600 to-indigo-700',
           // balance é usado para saldo inicial ou acumulado, vamos iniciar com 0
           balance: 0
@@ -110,13 +118,27 @@ export class CardsController {
       const { name, limit, closing_day, due_day, color } = req.body;
       const userId = req.userId!;
 
+      // Validar se vieram no update — não pode limpar pra null nem inventar.
+      if (closing_day !== undefined) {
+        const cd = Number(closing_day);
+        if (!Number.isInteger(cd) || cd < 1 || cd > 31) {
+          return res.status(400).json({ error: 'closing_day deve ser 1-31.' });
+        }
+      }
+      if (due_day !== undefined) {
+        const dd = Number(due_day);
+        if (!Number.isInteger(dd) || dd < 1 || dd > 31) {
+          return res.status(400).json({ error: 'due_day deve ser 1-31.' });
+        }
+      }
+
       const card = await prisma.financial_entities.update({
         where: { id: Number(id), user_id: userId },
         data: {
           name,
           credit_limit: limit !== undefined ? (limit ? parseFloat(limit) : 0) : undefined,
-          closing_day: closing_day !== undefined ? (closing_day ? parseInt(closing_day) : null) : undefined,
-          due_day: due_day !== undefined ? (due_day ? parseInt(due_day) : null) : undefined,
+          closing_day: closing_day !== undefined ? Number(closing_day) : undefined,
+          due_day: due_day !== undefined ? Number(due_day) : undefined,
           color: color !== undefined ? color : undefined
         }
       });

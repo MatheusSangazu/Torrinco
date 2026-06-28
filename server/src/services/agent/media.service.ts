@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as llm from '../llm.service.js';
 import { EvolutionService } from '../evolution.service.js';
-import { extractPdfText } from './pdf.service.js';
+import { classifyDoc, extractDocument } from './document.service.js';
 import type { WebhookMessage } from './types.js';
 
 /**
@@ -76,39 +76,39 @@ export async function processMedia(
     }
 
     case 'file': {
-      // PDF? Extrai texto e devolve pro agente estruturar.
-      const isPdf =
-        media.fileName?.toLowerCase().endsWith('.pdf') ||
-        media.url?.includes('application/pdf');
-      if (isPdf) {
-        try {
-          const source = await resolveMediaSource(media);
-          if (!source) return unknownMessage(userId, receivedAt, 'PDF sem fonte');
-          const buffer = await resolveFileBuffer(source);
-          const text = await extractPdfText(buffer);
-          if (!text.trim()) {
-            return unknownMessage(userId, receivedAt, 'PDF sem texto extraível (provavelmente é imagem)');
-          }
-          // Trunca para não estourar o contexto do LLM (faturas podem ser grandes).
-          const truncated = text.length > 6000 ? text.slice(0, 6000) + '\n[...truncado]' : text;
-          return {
-            text: `[Fatura em PDF]\n${truncated}`,
-            mediaType: 'pdf',
-            userId,
-            receivedAt
-          };
-        } catch (err) {
-          console.error('[media] Falha ao ler PDF:', err);
-          return unknownMessage(userId, receivedAt, 'erro ao ler PDF');
-        }
+      const fileName = media.fileName ?? 'documento';
+      const kind = classifyDoc(fileName, media.url);
+      if (kind === 'unknown') {
+        return {
+          text: `[Arquivo recebido] ${fileName}. Ainda não consigo ler este tipo de arquivo.`,
+          mediaType: 'file',
+          userId,
+          receivedAt
+        };
       }
-      // Outros arquivos: descreve o nome.
-      return {
-        text: `[Arquivo recebido] ${media.fileName ?? 'sem nome'}. Ainda não consigo ler este tipo de arquivo.`,
-        mediaType: 'file',
-        userId,
-        receivedAt
-      };
+      try {
+        const source = await resolveMediaSource(media);
+        if (!source) return unknownMessage(userId, receivedAt, `${fileName} sem fonte`);
+        const buffer = await resolveFileBuffer(source);
+        const doc = await extractDocument(buffer, fileName, kind);
+        if (doc.empty) {
+          return unknownMessage(
+            userId,
+            receivedAt,
+            `${fileName} sem texto extraível (provavelmente é imagem/scanner)`
+          );
+        }
+        // Marcador genérico — o LLM decide o que é (fatura, boleto, extrato...).
+        return {
+          text: `[Documento: ${fileName}]\n${doc.text}`,
+          mediaType: kind === 'pdf' ? 'pdf' : 'file',
+          userId,
+          receivedAt
+        };
+      } catch (err) {
+        console.error('[media] Falha ao ler documento:', err);
+        return unknownMessage(userId, receivedAt, `erro ao ler ${fileName}`);
+      }
     }
 
     default:

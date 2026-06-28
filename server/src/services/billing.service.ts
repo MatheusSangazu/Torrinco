@@ -33,6 +33,15 @@ export function computeBillPeriod(
   dueDay: number,
   refDate: Date = new Date()
 ): BillPeriod {
+  // Defensivo: se os dias chegarem null/undefined (cartão legado mal cadastrado),
+  // lança em vez de gerar NaN silencioso que corrompe a fatura.
+  if (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31) {
+    throw new Error(`closing_day inválido: ${closingDay}. Configure o cartão com dia de fechamento (1-31).`);
+  }
+  if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
+    throw new Error(`due_day inválido: ${dueDay}. Configure o cartão com dia de vencimento (1-31).`);
+  }
+
   const year = refDate.getUTCFullYear();
   const month = refDate.getUTCMonth();
 

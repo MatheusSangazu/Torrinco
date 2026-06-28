@@ -48,89 +48,131 @@ function layout(titulo: string, corpo: string): string {
 export class LegalController {
   static privacy(_req: Request, res: Response): void {
     const corpo = `
-      <p>Esta Política de Privacidade descreve como o ${APP_NAME} ("nós", "aplicativo") coleta, usa e protege as informações dos usuários. Ao usar o ${APP_NAME}, você concorda com as práticas descritas abaixo.</p>
+      <p>Esta Política de Privacidade descreve como o ${APP_NAME} ("nós", "controlador") coleta, usa e protege as informações dos usuários ("titulares"), em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD). Ao usar o ${APP_NAME}, você concorda com as práticas descritas abaixo.</p>
 
-      <h2>1. Informações que coletamos</h2>
+      <h2>1. Dados que coletamos</h2>
       <ul>
-        <li><strong>Dados financeiros informados por você:</strong> receitas, despesas, cartões de crédito, contas, faturas, categorias e recorrências que você cadastra — manualmente pelo app/PWA ou por mensagens enviadas ao assistente no WhatsApp.</li>
-        <li><strong>Conteúdo das mensagens:</strong> o texto, áudio, imagem e documentos (ex.: faturas em PDF) que você envia ao assistente são processados para registrar e consultar suas finanças.</li>
-        <li><strong>Identificador e contato:</strong> seu número de telefone (usado como identificador da conta) e, quando fornecido, e-mail.</li>
-        <li><strong>Dados de agenda (opcional):</strong> se você conectar sua agenda do Google, acessamos eventos do Google Calendar apenas para criar, listar e cancelar compromissos a seu pedido.</li>
+        <li><strong>Identificação e contato:</strong> seu número de telefone (usado como identificador principal da conta) e, quando fornecido, e-mail e nome.</li>
+        <li><strong>Dados financeiros informados por você:</strong> receitas, despesas, cartões de crédito, contas, faturas, categorias e recorrências que você cadastra — manualmente pelo app/PWA ou por mensagens ao assistente no WhatsApp.</li>
+        <li><strong>Conteúdo das mensagens:</strong> texto, áudio, imagem e documentos (ex.: faturas em PDF) enviados ao assistente são processados para registrar e consultar suas finanças.</li>
+        <li><strong>Dados de agenda (opcionais):</strong> se você conectar sua agenda do Google, acessamos eventos apenas para criar, listar e cancelar compromissos a seu pedido.</li>
+        <li><strong>Dados técnicos:</strong> endereço IP, user-agent e logs de acesso, para segurança e auditoria.</li>
       </ul>
 
-      <h2>2. Como usamos suas informações</h2>
+      <h2>2. Base legal e finalidades (LGPD)</h2>
+      <p>Tratamos seus dados com base nas seguintes hipóteses legais e para as finalidades indicadas:</p>
       <ul>
-        <li>Registrar, organizar e exibir suas transações e faturas.</li>
-        <li>Processar comandos em linguagem natural por meio de inteligência artificial (OpenAI) para responder e executar ações no app via WhatsApp.</li>
-        <li>Gerar resumos, relatórios e previsões financeiras.</li>
-        <li>Gerenciar eventos na sua agenda do Google quando solicitado.</li>
+        <li><strong>Execução de contrato (art. 7º, V):</strong> para registrar transações, gerar faturas/relatórios, cumprir o serviço contratado.</li>
+        <li><strong>Legítimo interesse (art. 7º, IX):</strong> para segurança, prevenção a fraudes, auditoria e melhorias do serviço.</li>
+        <li><strong>Consentimento (art. 8º):</strong> para integrações opcionais (ex.: Google Calendar) e para envio de conteúdo das mensagens a processadores de IA.</li>
+        <li><strong>Obrigação legal (art. 7º, II):</strong> para guarda de logs fiscais/contábeis quando aplicável.</li>
       </ul>
 
-      <h2>3. Processamento por terceiros</h2>
+      <h2>3. Inteligência artificial e transferência internacional</h2>
+      <p>Para interpretar suas mensagens e executar comandos, enviamos o <strong>conteúdo dos textos/áudios/imagens/documentos</strong> que você fornece para a <strong>OpenAI</strong> (Estados Unidos). Esta é uma transferência internacional de dados autorizada pelo seu consentimento e necessária à execução do serviço. Adotamos as seguintes garantias:</p>
       <ul>
-        <li><strong>OpenAI:</strong> processa o texto das suas mensagens (e transcrições/imagens) para gerar respostas e executar ações. Não utilizamos seus dados para treinar modelos de terceiros.</li>
-        <li><strong>Google Calendar API:</strong> usada apenas com o seu consentimento explícito (OAuth2) para gerenciar eventos, com escopo limitado a <em>calendar.events</em>.</li>
-        <li><strong>Plataforma de mensagens (WhatsApp via Evolution API):</strong> usada apenas para troca de mensagens com você.</li>
+        <li>Configuramos a OpenAI para <strong>não utilizar seus dados para treinamento</strong> de modelos.</li>
+        <li>O conteúdo é retido pela OpenAI por no máximo 30 dias para fins de moderação/abuso, conforme política deles, e depois excluído.</li>
+        <li>Nenhum dado financeiro estruturado (saldos, valores) é enviado além do necessário para responder ao seu pedido.</li>
       </ul>
-      <p class="muted">Cada processamento ocorre com o propósito exclusivo de fornecer as funcionalidades solicitadas.</p>
+      <p>Você pode revogar o consentimento a qualquer tempo; em consequência, o assistente no WhatsApp deixará de funcionar, mas o app/PWA continuará disponível.</p>
 
-      <h2>4. Armazenamento e segurança</h2>
-      <p>Seus dados são armazenados em banco de dados sob nosso controle. Aplicamos medidas técnicas razoáveis (controle de acesso, criptografia de senhas e tokens). Nenhum sistema é totalmente seguro; não garantimos segurança absoluta.</p>
+      <h2>4. Outros processadores</h2>
+      <ul>
+        <li><strong>Google Calendar API:</strong> usado somente com seu consentimento (OAuth2) para gerenciar eventos; escopo limitado a <em>calendar.events</em> e <em>calendar.readonly</em>.</li>
+        <li><strong>Plataforma de mensagens (Evolution API / Meta WhatsApp Business):</strong> roteamento das mensagens entre você e o assistente.</li>
+        <li><strong>Infraestrutura de hospedagem:</strong> provedor de nuvem que hospeda o banco de dados e a aplicação.</li>
+      </ul>
 
-      <h2>5. Retenção e exclusão</h2>
-      <p>Mantemos seus dados enquanto sua conta estiver ativa. Você pode solicitar a exclusão da conta e de todos os dados a qualquer momento pelo e-mail de contato abaixo. Exclusões podem levar até 30 dias para serem concluídas.</p>
+      <h2>5. Retenção</h2>
+      <ul>
+        <li><strong>Dados de transação e faturas:</strong> mantidos por toda a vigência da conta e por até 5 anos após o encerramento (obrigação contábil/fiscal).</li>
+        <li><strong>Logs de auditoria:</strong> 1 ano.</li>
+        <li><strong>Conteúdo de mensagens processado pela IA:</strong> não armazenamos o texto bruto após o processamento (apenas o resultado estruturado).</li>
+        <li><strong>Tokens OAuth (Google):</strong> mantidos enquanto a integração estiver ativa; revogados imediatamente ao desconectar.</li>
+      </ul>
 
-      <h2>6. Compartilhamento</h2>
-      <p>Não vendemos nem alugamos seus dados. Compartilhamos apenas o estritamente necessário para o funcionamento (descrito na seção 3) ou quando exigido por lei.</p>
+      <h2>6. Segurança</h2>
+      <p>Aplicamos medidas técnicas e organizativas: criptografia de senhas (bcrypt), tokens JWT com expiração curta, validação por assinatura dos webhooks, rate limiting e controle de acesso. Apesar dessas medidas, nenhum sistema é totalmente seguro; não garantimos segurança absoluta.</p>
 
-      <h2>7. Seus direitos (LGPD)</h2>
-      <p>Conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018), você pode solicitar acesso, correção, portabilidade ou exclusão dos seus dados. Para isso, escreva para <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>
+      <h2>7. Compartilhamento</h2>
+      <p>Não vendemos nem alugamos seus dados. Compartilhamos apenas o estritamente necessário (descrito nas seções 3 e 4) ou quando exigido por ordem judicial ou autoridade competente.</p>
 
-      <h2>8. Alterações</h2>
-      <p>Podemos atualizar esta política a qualquer tempo. A data no topo indica a última revisão. Recomendamos revisá-la periodicamente.</p>
+      <h2>8. Seus direitos (LGPD — art. 18)</h2>
+      <p>Você pode, a qualquer momento, solicitar: confirmação de tratamento, acesso aos dados, correção, anonimização, portabilidade, eliminação, informação sobre compartilhamento e revogação de consentimento. As solicitações serão respondidas em até 15 dias úteis pelo nosso encarregado (DPO).</p>
 
-      <h2>9. Contato</h2>
-      <p>Dúvidas? Escreva para <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>`;
+      <h2>9. Encarregado pelo tratamento de dados (DPO)</h2>
+      <p>Para exercer seus direitos ou tirar dúvidas sobre privacidade, fale com nosso encarregado: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a> (assunto: "LGPD").</p>
+
+      <h2>10. Alterações</h2>
+      <p>Podemos atualizar esta política a qualquer tempo. A data no topo indica a última revisão. Mudanças materiais serão comunicadas pelo aplicativo ou e-mail.</p>`;
 
     res.type('html').send(layout('Política de Privacidade', corpo));
   }
 
   static terms(_req: Request, res: Response): void {
     const corpo = `
-      <p>Estes Termos de Serviço ("Termos") regulam o uso do ${APP_NAME} ("serviço"). Ao utilizá-lo, você concorda com o que está descrito aqui.</p>
+      <p>Estes Termos de Serviço ("Termos") regulam o uso do ${APP_NAME} ("serviço") oferecido por Matheus ("operador"). Ao utilizar o serviço, você concorda integralmente com estes Termos.</p>
 
       <h2>1. Descrição do serviço</h2>
-      <p>O ${APP_NAME} é um aplicativo de finanças pessoais que permite registrar e acompanhar receitas, despesas, faturas de cartão e recorrências, além de gerenciar compromissos na sua agenda do Google, por meio de interface web (PWA) e de assistente conversacional no WhatsApp.</p>
+      <p>O ${APP_NAME} é um aplicativo de finanças pessoais que permite registrar e acompanhar receitas, despesas, faturas de cartão e recorrências, além de gerenciar compromissos na sua agenda do Google, por meio de interface web (PWA) e de um assistente conversacional no WhatsApp baseado em inteligência artificial.</p>
 
-      <h2>2. Elegibilidade e conta</h2>
-      <p>O serviço destina-se a usuários com capacidade legal. Você é responsável pela exatidão das informações que fornece e pela manutenção da confidencialidade do seu número de telefone e de eventuais credenciais.</p>
+      <h2>2. Elegibilidade</h2>
+      <p>O serviço é destinado apenas a pessoas naturais com 18 (dezoito) anos completos ou a menores devidamente assistidos por seus responsáveis legais. Ao se cadastrar, você declara atender a esses requisitos. <strong>O serviço não é voltado a menores de idade sem assistência</strong> e seu uso por crianças e adolescentes deve ser supervisionado.</p>
 
-      <h2>3. Uso aceitável</h2>
+      <h2>3. Conta e responsabilidades do usuário</h2>
+      <ul>
+        <li>Você é responsável pela exatidão das informações fornecidas e pela manutenção da confidencialidade do seu número de telefone e de eventuais credenciais.</li>
+        <li>É responsável por todas as atividades realizadas com sua conta.</li>
+        <li>Deve nos comunicar imediatamente qualquer uso não autorizado.</li>
+      </ul>
+
+      <h2>4. Natureza do serviço e limitações da IA</h2>
+      <p>O assistente utiliza modelos de inteligência artificial para interpretar comandos em linguagem natural e executar ações (ex.: registrar gastos, agendar eventos). Você reconhece e concorda que:</p>
+      <ul>
+        <li>Respostas e ações podem conter erros, omissões ou interpretações equivocadas.</li>
+        <li>O conteúdo enviado para processamento poderá ser transmitido a provedores externos (como a OpenAI), conforme nossa Política de Privacidade.</li>
+        <li>Recomendamos revisar registros importantes antes de confiar neles.</li>
+        <li><strong>O serviço não constitui aconselhamento financeiro, jurídico, contábil ou de investimento.</strong> As informações geradas são meramente informativas e não substituem profissionais habilitados.</li>
+      </ul>
+
+      <h2>5. Uso aceitável</h2>
       <ul>
         <li>Utilizar o serviço apenas para fins pessoais e lícitos.</li>
         <li>Não tentar burlar limites, invadir, sobrecarregar ou comprometer a segurança do serviço.</li>
-        <li>Não enviar conteúdo ilegal, ofensivo ou que viole direitos de terceiros.</li>
+        <li>Não enviar conteúdo ilegal, ofensivo, discriminatório ou que viole direitos de terceiros.</li>
+        <li>Não usar o serviço para fins comerciais sem autorização expressa.</li>
+        <li>Não automatizar requisições de forma abusiva (bots, scripts de sobrecarga).</li>
       </ul>
 
-      <h2>4. Inteligência artificial</h2>
-      <p>O assistente utiliza IA para interpretar comandos e executar ações (ex.: registrar gastos). Respostas e ações podem conter erros. Recomendamos revisar registros importantes. O serviço não constitui aconselhamento financeiro, jurídico ou de investimento.</p>
+      <h2>6. Permissões de terceiros (Google)</h2>
+      <p>A integração com o Google Calendar é opcional e exige sua autorização expressa via OAuth2. O acesso limita-se a gerenciar eventos a seu pedido. Você pode revogar o acesso a qualquer momento nas configurações da sua conta Google, em <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</p>
 
-      <h2>5. Permissões do Google</h2>
-      <p>A integração com o Google Calendar é opcional e exige sua autorização explícita. O acesso limita-se a gerenciar eventos a seu pedido. Você pode revogar o acesso a qualquer momento nas configurações da sua conta Google.</p>
+      <h2>7. Planos, pagamentos e reembolsos</h2>
+      <p>O serviço pode ser oferecido em planos gratuitos e pagos. Valores, funcionalidades e disponibilidade podem mudar mediante aviso prévio. <strong>Planos pagos são cobrados antecipadamente</strong> pelo período contratado. Reembolsos serão analisados caso a caso conforme a legislação aplicável; taxas de terceiros (ex.: processadoras de pagamento) podem ser não reembolsáveis.</p>
 
-      <h2>6. Pagamentos e disponibilidade</h2>
-      <p>Podemos oferecer planos pagos no futuro. Recursos, preços e disponibilidade podem mudar. O serviço pode sofrer interrupções por manutenção ou fatores fora do nosso controle.</p>
+      <h2>8. Disponibilidade do serviço</h2>
+      <p>O serviço pode sofrer interrupções por manutenção, atualizações, falhas de provedores externos (OpenAI, Google, Meta) ou fatores fora do nosso controle. Não garantimos disponibilidade contínua. Em caso de indisponibilidade material, buscaremos restabelecer o serviço em prazo razoável.</p>
 
-      <h2>7. Limitação de responsabilidade</h2>
-      <p>O serviço é fornecido "como está", sem garantias. Na máxima extensão permitida pela lei, não nos responsabilizamos por perdas decorrentes do uso ou da impossibilidade de uso do serviço, inclusive por erros de registro feitos pelo assistente.</p>
+      <h2>9. Propriedade intelectual</h2>
+      <p>O código, marcas, layout e demais elementos do serviço são de propriedade do operador. É proibida a cópia, modificação ou redistribuição sem autorização expressa.</p>
 
-      <h2>8. Suspensão</h2>
-      <p>Podemos suspender ou encerrar contas que violem estes Termos.</p>
+      <h2>10. Suspensão e encerramento</h2>
+      <p>Podemos suspender ou encerrar contas que violem estes Termos ou que apresentem risco à segurança/estabilidade do serviço. Você pode encerrar sua conta a qualquer momento, sendo os dados tratados conforme a Política de Privacidade.</p>
 
-      <h2>9. Alterações</h2>
-      <p>Estes Termos podem ser atualizados periodicamente. A data no topo indica a última revisão.</p>
+      <h2>11. Limitação de responsabilidade</h2>
+      <p>O serviço é fornecido "como está", sem garantias expressas ou implícitas. Na máxima extensão permitida pela lei, <strong>não nos responsabilizamos por perdas decorrentes do uso ou da impossibilidade de uso do serviço</strong>, inclusive por: (i) erros do assistente de IA; (ii) decisões financeiras tomadas com base nas informações do serviço; (iii) falhas de provedores externos; (iv) perda de dados por problemas na infraestrutura.</p>
 
-      <h2>10. Contato</h2>
+      <h2>12. Indenização</h2>
+      <p>Você concorda em isentar e indenizar o operador e seus eventuais parceiros de quaisquer reclamações, danos ou prejuízos decorrentes do uso indevido do serviço ou violação destes Termos.</p>
+
+      <h2>13. Legislação aplicável e foro</h2>
+      <p>Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro da comarca do domicílio do usuário para dirimir quaisquer controvérsias.</p>
+
+      <h2>14. Alterações</h2>
+      <p>Estes Termos podem ser atualizados periodicamente. A data no topo indica a última revisão. Mudanças materiais serão comunicadas pelo aplicativo ou e-mail. O uso continuado após a atualização caracteriza concordância.</p>
+
+      <h2>15. Contato</h2>
       <p>Em caso de dúvidas, escreva para <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>`;
 
     res.type('html').send(layout('Termos de Serviço', corpo));

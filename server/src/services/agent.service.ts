@@ -6,6 +6,7 @@ import { getOrCreateCurrentBill, getBillDetails, getHistory, registerPayment, un
 import { getSummary, getForecast } from './summary.service.js';
 import { getAuthUrl, isConnected } from './google/auth.service.js';
 import * as gcal from './google/calendar.service.js';
+import { auditLog } from '../lib/audit.js';
 import type { Frequency } from '../lib/date-utils.js';
 
 /**
@@ -44,18 +45,64 @@ export interface RegisterIncomeInput {
   payment_method?: string;
 }
 
-/** Resolve o entity_id (cartão) por nome aproximado. Retorna null se não achar. */
-async function resolveCardByName(userId: number, name: string): Promise<number | null> {
+/**
+ * Resolve uma entidade (cartão/conta) por nome aproximado.
+ *
+ * Retorna:
+ *  - { status: 'ok', id, name }           → match único (exato ou parcial).
+ *  - { status: 'ambiguo', opcoes: [...] } → 2+ matches parciais (ex: "Nubank" bate com "Nubank" e "Nubank Gold").
+ *  - { status: 'nao_encontrado' }         → nenhum match.
+ *
+ * Não chuta mais o primeiro — a ambiguidade é propagada pro agente perguntar.
+ */
+async function resolveEntityByName(
+  userId: number,
+  name: string,
+  type: 'credit_card' | 'bank' = 'credit_card'
+): Promise<
+  | { status: 'ok'; id: number; name: string }
+  | { status: 'ambiguo'; opcoes: Array<{ id: number; name: string }> }
+  | { status: 'nao_encontrado' }
+> {
   const lower = name.trim().toLowerCase();
-  const cards = await prisma.financial_entities.findMany({
-    where: { user_id: userId, type: 'credit_card' },
+  const entities = await prisma.financial_entities.findMany({
+    where: { user_id: userId, type },
     select: { id: true, name: true }
   });
-  // Match exato case-insensitive primeiro, depois "contains".
-  const exact = cards.find(c => c.name.trim().toLowerCase() === lower);
-  if (exact) return exact.id;
-  const partial = cards.find(c => c.name.trim().toLowerCase().includes(lower) || lower.includes(c.name.trim().toLowerCase()));
-  return partial ? partial.id : null;
+
+  // 1) Match exato case-insensitive → resolve direto.
+  const exact = entities.find(e => e.name.trim().toLowerCase() === lower);
+  if (exact) return { status: 'ok', id: exact.id, name: exact.name };
+
+  // 2) Matches parciais bidirecionais (contains de um lado ou do outro).
+  const partials = entities.filter(
+    e => {
+      const n = e.name.trim().toLowerCase();
+      return n.includes(lower) || lower.includes(n);
+    }
+  );
+
+  if (partials.length === 0) return { status: 'nao_encontrado' };
+  if (partials.length === 1) {
+    const only = partials[0];
+    if (!only) return { status: 'nao_encontrado' };
+    return { status: 'ok', id: only.id, name: only.name };
+  }
+  // Múltiplos matches → ambíguo. O agente precisa perguntar.
+  return {
+    status: 'ambiguo',
+    opcoes: partials.map(p => ({ id: p.id, name: p.name }))
+  };
+}
+
+/**
+ * Wrapper legado: retorna number | null (sem detecção de ambiguidade).
+ * Mantido para chamadas internas que já tratam null. Preferir resolveEntityByName
+ * em novos pontos do código.
+ */
+async function resolveCardByName(userId: number, name: string): Promise<number | null> {
+  const r = await resolveEntityByName(userId, name, 'credit_card');
+  return r.status === 'ok' ? r.id : null;
 }
 
 /** Resolve ou cria categoria por nome. Retorna {id, name}. */
@@ -99,11 +146,31 @@ async function getAccountId(userId: number): Promise<number> {
 export async function registerExpense(userId: number, input: RegisterExpenseInput) {
   const date = input.date ? parseDate(input.date) : todayUTC();
 
+  // Resolve o cartão uma única vez (se informado), já detectando ambiguidade.
+  let cardResolved: { id: number; name: string } | { ambiguo: Array<{ id: number; name: string }> } | null = null;
+  if (input.card_name) {
+    const r = await resolveEntityByName(userId, input.card_name, 'credit_card');
+    if (r.status === 'ok') cardResolved = { id: r.id, name: r.name };
+    else if (r.status === 'ambiguo') cardResolved = { ambiguo: r.opcoes };
+    // nao_encontrado → cardResolved segue null (tratado abaixo).
+  }
+
+  // Cartão informado mas não encontrado.
+  if (input.card_name && cardResolved === null) {
+    return { erro: `Não encontrei nenhum cartão chamado "${input.card_name}". Use listar_cartoes pra ver as opções.` };
+  }
+  // Cartão ambíguo — não registra, pede pro usuário escolher.
+  if (cardResolved && 'ambiguo' in cardResolved) {
+    return {
+      ambiguo: true,
+      mensagem: `Encontrei mais de um cartão: ${cardResolved.ambiguo.map(c => c.name).join(', ')}. Qual deles?`
+    };
+  }
+
+  const cardId = cardResolved?.id ?? null;
+
   // 1) Recorrência — cria template (não parcela).
   if (input.recurring) {
-    const cardId = input.card_name ? await resolveCardByName(userId, input.card_name) : null;
-    if (input.card_name && !cardId) throw new Error(`Cartão não encontrado: ${input.card_name}`);
-
     const recurring = await createRecurring(userId, {
       description: input.description,
       amount: input.amount,
@@ -114,14 +181,18 @@ export async function registerExpense(userId: number, input: RegisterExpenseInpu
       entity_id: cardId ?? undefined,
       payment_method: cardId ? 'credit' : (input.payment_method ?? 'pix')
     });
+    auditLog({
+      actor: { kind: 'user', id: userId },
+      action: 'recurring.create',
+      target: { type: 'recurring_transaction', id: recurring.id },
+      meta: { description: input.description, amount: input.amount, frequency: input.recurring.frequency, entity_id: cardId }
+    });
     return { kind: 'recurring', recurring };
   }
 
   // 2) Parcelamento — exige cartão.
   if (input.installments && input.installments > 1) {
-    if (!input.card_name) throw new Error('Parcelamento exige cartão (card_name)');
-    const cardId = await resolveCardByName(userId, input.card_name);
-    if (!cardId) throw new Error(`Cartão não encontrado: ${input.card_name}`);
+    if (!cardId) throw new Error('Parcelamento exige cartão (card_name)');
 
     const cat = input.category ? await resolveCategory(userId, input.category, 'expense') : null;
     const purchase = await createInstallmentPurchase(userId, {
@@ -133,13 +204,17 @@ export async function registerExpense(userId: number, input: RegisterExpenseInpu
       category: cat?.name,
       category_id: cat?.id
     });
+    auditLog({
+      actor: { kind: 'user', id: userId },
+      action: 'installment.create',
+      target: { type: 'installment_purchase', id: purchase.purchase.id },
+      meta: { description: input.description, amount: input.amount, installments: input.installments, entity_id: cardId }
+    });
     return { kind: 'installments', purchase };
   }
 
   // 3) Despesa simples.
   const accountId = await getAccountId(userId);
-  const cardId = input.card_name ? await resolveCardByName(userId, input.card_name) : null;
-  if (input.card_name && !cardId) throw new Error(`Cartão não encontrado: ${input.card_name}`);
   const cat = input.category ? await resolveCategory(userId, input.category, 'expense') : null;
 
   const transaction = await prisma.transactions.create({
@@ -156,6 +231,12 @@ export async function registerExpense(userId: number, input: RegisterExpenseInpu
       transaction_date: date,
       payment_method: cardId ? 'credit' : (input.payment_method ?? 'pix')
     }
+  });
+  auditLog({
+    actor: { kind: 'user', id: userId },
+    action: 'transaction.create',
+    target: { type: 'transaction', id: transaction.id },
+    meta: { description: input.description, amount: input.amount, type: 'expense', entity_id: cardId, payment_method: cardId ? 'credit' : (input.payment_method ?? 'pix') }
   });
   return { kind: 'expense', transaction };
 }
@@ -252,28 +333,65 @@ export async function getUpcoming(userId: number) {
   };
 }
 
+/**
+ * Helper que resolve um cartão por nome e retorna objeto de ambiguidade
+ * padronizado, evitando throw (que o agente trata como erro genérico).
+ * Uso nas funções de fatura que recebem `cardName`.
+ */
+async function resolveCardOrAmbiguity(
+  userId: number,
+  cardName: string
+): Promise<{ ok: true; id: number } | { ambiguo: true; mensagem: string } | { erro: string }> {
+  const r = await resolveEntityByName(userId, cardName, 'credit_card');
+  if (r.status === 'ok') return { ok: true, id: r.id };
+  if (r.status === 'ambiguo') {
+    return {
+      ambiguo: true,
+      mensagem: `Encontrei mais de um cartão: ${r.opcoes.map(c => c.name).join(', ')}. Qual deles?`
+    };
+  }
+  return { erro: `Não encontrei nenhum cartão chamado "${cardName}".` };
+}
+
 /** Lista as faturas de um cartão por nome. */
 export async function getCardBill(userId: number, cardName: string) {
-  const cardId = await resolveCardByName(userId, cardName);
-  if (!cardId) throw new Error(`Cartão não encontrado: ${cardName}`);
-  const { bill } = await getOrCreateCurrentBill(cardId, userId);
+  const r = await resolveCardOrAmbiguity(userId, cardName);
+  if ('erro' in r) return r;
+  if ('ambiguo' in r) return r;
+  const { bill } = await getOrCreateCurrentBill(r.id, userId);
   return getBillDetails(bill.id, userId);
 }
 
 /** Paga a fatura atual de um cartão (por nome). */
 export async function payCardBill(userId: number, cardName: string, paymentMethod: string = 'pix') {
-  const cardId = await resolveCardByName(userId, cardName);
-  if (!cardId) throw new Error(`Cartão não encontrado: ${cardName}`);
-  const { bill } = await getOrCreateCurrentBill(cardId, userId);
-  return registerPayment(bill.id, userId, paymentMethod);
+  const r = await resolveCardOrAmbiguity(userId, cardName);
+  if ('erro' in r) return r;
+  if ('ambiguo' in r) return r;
+  const { bill } = await getOrCreateCurrentBill(r.id, userId);
+  const result = await registerPayment(bill.id, userId, paymentMethod);
+  auditLog({
+    actor: { kind: 'user', id: userId },
+    action: 'bill.pay',
+    target: { type: 'card_bill', id: bill.id },
+    meta: { card: cardName, payment_method: paymentMethod }
+  });
+  return result;
 }
 
 /** Desfaz o pagamento da fatura atual de um cartão (por nome). */
 export async function undoCardBill(userId: number, cardName: string) {
-  const cardId = await resolveCardByName(userId, cardName);
-  if (!cardId) throw new Error(`Cartão não encontrado: ${cardName}`);
-  const { bill } = await getOrCreateCurrentBill(cardId, userId);
-  return undoPayment(bill.id, userId);
+  const r = await resolveCardOrAmbiguity(userId, cardName);
+  if ('erro' in r) return r;
+  if ('ambiguo' in r) return r;
+  const { bill } = await getOrCreateCurrentBill(r.id, userId);
+  const result = await undoPayment(bill.id, userId);
+  auditLog({
+    actor: { kind: 'user', id: userId },
+    action: 'bill.undo_payment',
+    target: { type: 'card_bill', id: bill.id },
+    meta: { card: cardName }
+  });
+  return result;
 }
 
 /** Força a materialização de recorrências vencidas (dados frescos para o agente). */
@@ -284,9 +402,10 @@ export async function refreshDue(userId: number) {
 
 /** Histórico de faturas de um cartão (por nome). */
 export async function getCardHistory(userId: number, cardName: string, months: number = 6) {
-  const cardId = await resolveCardByName(userId, cardName);
-  if (!cardId) throw new Error(`Cartão não encontrado: ${cardName}`);
-  return getHistory(cardId, userId, months);
+  const r = await resolveCardOrAmbiguity(userId, cardName);
+  if ('erro' in r) return r;
+  if ('ambiguo' in r) return r;
+  return getHistory(r.id, userId, months);
 }
 
 /**
@@ -718,6 +837,24 @@ export async function deleteCalendarEvent(
 ) {
   try {
     return await gcal.deleteEvent(userId, opts);
+  } catch (err: any) {
+    if (err?.message === 'GOOGLE_NOT_CONNECTED' || err?.message === 'GOOGLE_TOKEN_REVOKED') {
+      return { nao_conectado: true, url_autorizacao: getAuthUrl(userId) };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Edita um evento da agenda Google por id ou título.
+ * Só altera os campos informados em `novos_dados`.
+ */
+export async function updateCalendarEvent(
+  userId: number,
+  opts: { id?: string; titulo?: string; novos_dados: gcal.UpdateEventInput }
+) {
+  try {
+    return await gcal.updateEvent(userId, opts);
   } catch (err: any) {
     if (err?.message === 'GOOGLE_NOT_CONNECTED' || err?.message === 'GOOGLE_TOKEN_REVOKED') {
       return { nao_conectado: true, url_autorizacao: getAuthUrl(userId) };

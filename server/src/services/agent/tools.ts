@@ -403,6 +403,41 @@ export const TOOLS: ToolDefinition[] = [
       id: args.id,
       titulo: args.titulo
     })
+  },
+
+  {
+    declaration: {
+      type: 'function',
+      function: {
+        name: 'editar_evento',
+        description: 'Edita um evento existente da agenda do Google. Use quando o usuário pedir para mudar data, horário, título, local ou descrição de um evento. Só altera os campos informados; os demais são mantidos.',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'ID do evento no Google (quando souber).' },
+            titulo: { type: 'string', description: 'Parte do título atual para encontrar o evento (ex: "banco").' },
+            novo_titulo: { type: 'string', description: 'Novo título (opcional).' },
+            nova_data: { type: 'string', description: 'Nova data YYYY-MM-DD (opcional).' },
+            novo_horario: { type: 'string', description: 'Novo horário HH:mm (opcional).' },
+            nova_duracao_minutos: { type: 'number', description: 'Nova duração em minutos (opcional).' },
+            nova_descricao: { type: 'string', description: 'Nova descrição (opcional).' },
+            novo_local: { type: 'string', description: 'Novo local (opcional).' }
+          }
+        }
+      }
+    },
+    execute: (userId, args) => agent.updateCalendarEvent(userId, {
+      id: args.id,
+      titulo: args.titulo,
+      novos_dados: {
+        titulo: args.novo_titulo,
+        data: args.nova_data,
+        horario: args.novo_horario,
+        duracao_minutos: args.nova_duracao_minutos,
+        descricao: args.nova_descricao,
+        local: args.novo_local
+      }
+    })
   }
 ];
 

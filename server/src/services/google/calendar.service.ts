@@ -161,3 +161,91 @@ export async function deleteEvent(userId: number, opts: { id?: string; titulo?: 
 
   return { ok: true, excluido: { id: googleEventId } };
 }
+
+export interface UpdateEventInput {
+  titulo?: string;        // novo título
+  data?: string;          // nova data YYYY-MM-DD
+  horario?: string;       // novo horário HH:mm
+  duracao_minutos?: number;
+  descricao?: string;
+  local?: string;
+}
+
+/**
+ * Atualiza um evento do Google. Resolve por `id` (Google) ou `titulo`.
+ * Campos não informados são preservados (o Google aceita PATCH parcial).
+ */
+export async function updateEvent(
+  userId: number,
+  opts: { id?: string; titulo?: string; novos_dados: UpdateEventInput }
+) {
+  const { calendar, calendarId } = await calendarClient(userId);
+
+  let googleEventId = opts.id;
+  let originalTitle: string | undefined;
+
+  if (!googleEventId && opts.titulo) {
+    const local = await prisma.events.findFirst({
+      where: { user_id: userId, title: { contains: opts.titulo } },
+      orderBy: { event_date: 'desc' }
+    });
+    if (!local?.google_event_id) {
+      return { ok: false, motivo: 'nenhum evento encontrado com esse título' };
+    }
+    googleEventId = local.google_event_id;
+    originalTitle = local.title;
+  }
+
+  if (!googleEventId) {
+    throw new Error('Especifique o id do evento ou o título para editar.');
+  }
+
+  // Monta o patch — só campos informados.
+  const patch: calendar_v3.Schema$Event = {};
+  if (opts.novos_dados.titulo) patch.summary = opts.novos_dados.titulo;
+  if (opts.novos_dados.descricao !== undefined) patch.description = opts.novos_dados.descricao;
+  if (opts.novos_dados.local !== undefined) patch.location = opts.novos_dados.local;
+
+  if (opts.novos_dados.data || opts.novos_dados.horario || opts.novos_dados.duracao_minutos) {
+    // Precisa do evento atual pra calcular novo início/fim quando só um deles muda.
+    const current = await calendar.events.get({ calendarId, eventId: googleEventId });
+    const currentStart = current.data.start?.dateTime
+      ? new Date(current.data.start.dateTime)
+      : new Date();
+
+    const newData = opts.novos_dados.data ?? currentStart.toISOString().slice(0, 10);
+    const newTime = opts.novos_dados.horario ?? `${pad(currentStart.getHours())}:${pad(currentStart.getMinutes())}`;
+    const newStartIso = new Date(`${newData}T${newTime}:00-03:00`).toISOString();
+
+    const duracao = opts.novos_dados.duracao_minutos ?? 60;
+    const newEndIso = new Date(new Date(newStartIso).getTime() + duracao * 60 * 1000).toISOString();
+
+    patch.start = { dateTime: newStartIso, timeZone: TZ };
+    patch.end = { dateTime: newEndIso, timeZone: TZ };
+  }
+
+  await calendar.events.patch({ calendarId, eventId: googleEventId, requestBody: patch });
+
+  // Atualiza espelho local se o título mudou.
+  if (opts.novos_dados.titulo || originalTitle) {
+    await prisma.events.updateMany({
+      where: { user_id: userId, google_event_id: googleEventId },
+      data: {
+        title: opts.novos_dados.titulo ?? originalTitle,
+        description: opts.novos_dados.descricao
+      }
+    });
+  }
+
+  return {
+    ok: true,
+    alterado: {
+      id: googleEventId,
+      titulo: opts.novos_dados.titulo ?? originalTitle ?? '(evento)'
+    }
+  };
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}

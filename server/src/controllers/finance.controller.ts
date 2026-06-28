@@ -503,8 +503,8 @@ export class FinanceController {
           name: card.name,
           color: card.color,
           limit: card.credit_limit,
-          closingDay: card.closing_day ?? 1,
-          dueDay: card.due_day ?? 10,
+          closingDay: card.closing_day,
+          dueDay: card.due_day,
           availableLimit: Number(card.credit_limit) - details.bill.total_amount
         },
         bill: {
@@ -540,8 +540,8 @@ export class FinanceController {
           name: result.card.name,
           color: result.card.color,
           limit: result.card.credit_limit,
-          closingDay: result.card.closing_day ?? 1,
-          dueDay: result.card.due_day ?? 10
+          closingDay: result.card.closing_day,
+          dueDay: result.card.due_day
         },
         bill: {
           startDate: result.period.periodStart,
@@ -572,8 +572,8 @@ export class FinanceController {
           name: result.card.name,
           color: result.card.color,
           limit: result.card.credit_limit,
-          closingDay: result.card.closing_day ?? 1,
-          dueDay: result.card.due_day ?? 10
+          closingDay: result.card.closing_day,
+          dueDay: result.card.due_day
         },
         bill: {
           startDate: result.period.periodStart,

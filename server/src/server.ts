@@ -19,7 +19,9 @@ import installmentsRoutes from './routes/installments.routes.js';
 import agentRoutes from './routes/agent.routes.js';
 import webhookRoutes from './routes/webhooks.routes.js';
 import googleRoutes from './routes/google.routes.js';
+import userDataRoutes from './routes/user_data.routes.js';
 import { LegalController } from './controllers/legal.controller.js';
+import { apiLimiter } from './middleware/rate-limiter.js';
 
 dotenv.config();
 
@@ -72,7 +74,17 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-app.use(express.json());
+app.use(express.json({
+  // Captura o body bruto em req.rawBody — necessário para validar a assinatura
+  // HMAC do webhook da Evolution (assinatura é calculada sobre os bytes crus).
+  verify: (req, _res, buf) => {
+    (req as any).rawBody = buf;
+  }
+}));
+
+// Rate limit global — protege a API inteira contra abuso/DoS.
+// Rotas sensíveis (login, reset) têm limites próprios mais apertados.
+app.use('/api', apiLimiter);
 
 
 
@@ -117,6 +129,7 @@ app.use('/api/income-sources', incomeSourcesRoutes);
 app.use('/api/installments', installmentsRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/google', googleRoutes);
+app.use('/api/user', userDataRoutes);
 app.use('/webhooks', webhookRoutes);
 
 
