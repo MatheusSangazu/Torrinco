@@ -17,13 +17,33 @@ import type { IncomingMedia } from '../services/agent/media.service.js';
  * responde no WPP. Por isso o webhook sempre retorna 200 rápido (não bloqueia
  * a Evolution).
  */
+
+// Acumula os últimos 20 payloads recebidos para diagnóstico.
+const debugLog: Array<{ ts: string; event: string; eventKey: string; hasMessage: boolean; raw: any }> = [];
+
 export class WebhookController {
+  /** Log de debug — GET /webhooks/debug mostra os últimos payloads. */
+  static debug(_req: Request, res: Response): void {
+    res.json({ count: debugLog.length, payloads: debugLog });
+  }
+
   static async evolution(req: Request, res: Response): Promise<void> {
     // ACK imediato — a Evolution não deve esperar o processamento.
     res.status(200).json({ received: true });
 
     const event = req.body?.event;
     const data = req.body?.data;
+
+    // DEBUG: registra o payload bruto (primeiros níveis) para diagnóstico.
+    const eventKey = data?.key?.remoteJid ?? data?.key?.id ?? 'sem-key';
+    debugLog.unshift({
+      ts: new Date().toISOString(),
+      event: event ?? '(sem event)',
+      eventKey: typeof eventKey === 'string' ? eventKey : JSON.stringify(eventKey),
+      hasMessage: !!data?.message,
+      raw: JSON.stringify(req.body).slice(0, 500)
+    });
+    if (debugLog.length > 20) debugLog.pop();
 
     // Só interessa mensagem recebida (não enviada, não status).
     // A Evolution usa eventos como "messages.upsert" com type "notify" para recebidas.

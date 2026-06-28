@@ -13,5 +13,6 @@ import { WebhookController } from '../controllers/webhook.controller.js';
 const router = Router();
 
 router.post('/evolution', WebhookController.evolution);
+router.get('/debug', WebhookController.debug);
 
 export default router;
