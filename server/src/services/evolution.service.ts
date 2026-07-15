@@ -184,12 +184,19 @@ export class EvolutionService {
         { headers: { apikey: config.apiKey, 'Content-Type': 'application/json' } }
       );
 
-      // Resposta padrão: { base64: "...", mimetype: "audio/ogg; codecs=opus" }
-      const base64 = response.data?.base64;
+      // Resposta pode variar entre versões da Evolution:
+      //  2.1/2.2: { base64: "..." }
+      //  2.3+:   { data: { base64: "..." } } ou { base64: "...", mimetype: "..." }
+      const base64: string | null =
+        response.data?.base64 ??
+        response.data?.data?.base64 ??
+        response.data?.media ??
+        null;
       if (typeof base64 === 'string' && base64.length > 0) {
-        return base64;
+        // Remove prefixo data: se vier (padrão inconsistente entre versões).
+        return base64.startsWith('data:') ? (base64.split(',')[1] ?? base64) : base64;
       }
-      console.error('[getMediaBase64] Resposta sem base64:', JSON.stringify(response.data).slice(0, 300));
+      console.error('[getMediaBase64] Resposta sem base64. Keys:', Object.keys(response.data ?? {}), '| Preview:', JSON.stringify(response.data).slice(0, 500));
       return null;
     } catch (error: any) {
       console.error('❌ Erro em getMediaBase64:', error.message);

@@ -28,11 +28,19 @@ export class RefreshTokenService {
       const payload = verifyToken(token);
       const storedToken = await prisma.refresh_tokens.findUnique({
         where: { token },
-        include: { users: true }
+        include: { users: { include: { accounts: true } } }
       });
 
       if (!storedToken) {
         return { valid: false, error: 'Refresh token não encontrado' };
+      }
+
+      // Gap 3 (refresh): contas canceladas/blocked não renovam o token.
+      // Combinado com o gate no authenticateJwt, trava o acesso em ≤ 1h.
+      const acctStatus = storedToken.users?.accounts?.status;
+      if (acctStatus && acctStatus !== 'active' && acctStatus !== 'trial') {
+        await this.revokeRefreshToken(token);
+        return { valid: false, error: 'Conta inativa ou bloqueada' };
       }
 
       if (storedToken.revoked_at) {

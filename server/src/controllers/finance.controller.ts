@@ -375,8 +375,8 @@ export class FinanceController {
           return res.json({ message: 'Recurring transaction cancelled successfully' });
         } else {
           
-          const recurring = await prisma.recurring_transactions.findUnique({
-            where: { id: recurringId }
+          const recurring = await prisma.recurring_transactions.findFirst({
+            where: { id: recurringId, user_id: userId }
           });
 
           if (!recurring) return res.status(404).json({ error: 'Recurring transaction not found' });

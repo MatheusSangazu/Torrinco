@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import type { Request, Response, NextFunction } from 'express';
 import pkg from 'jsonwebtoken';
 const { sign, verify } = pkg;
+import { prisma } from '../lib/prisma.js';
 
 dotenv.config();
 
@@ -63,6 +64,29 @@ export const verifyToken = (token: string): JwtPayload => {
   };
 };
 
+/**
+ * Cache de status de conta (accountId → {status, ts}).
+ * Evita 1 DB query por request: a conta é checada no máx. a cada TTL_MS.
+ * Cancelamentos/bloqueios refletem em até TTL_MS segundos.
+ */
+const ACCOUNT_STATUS_TTL_MS = 30_000;
+const accountStatusCache = new Map<number, { status: string | null; ts: number }>();
+
+async function isAccountActive(accountId: number): Promise<boolean> {
+  const now = Date.now();
+  const cached = accountStatusCache.get(accountId);
+  if (cached && now - cached.ts < ACCOUNT_STATUS_TTL_MS) {
+    return cached.status === 'active' || cached.status === 'trial';
+  }
+  const account = await prisma.accounts.findUnique({
+    where: { id: accountId },
+    select: { status: true }
+  });
+  const status = account?.status ?? null;
+  accountStatusCache.set(accountId, { status, ts: now });
+  return status === 'active' || status === 'trial';
+}
+
 export const authenticateJwt = (
   req: JwtRequest,
   res: Response,
@@ -81,10 +105,25 @@ export const authenticateJwt = (
     req.userId = payload.userId;
     req.accountId = payload.accountId;
     req.userRole = payload.userRole;
-    next();
   } catch (error) {
     return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
+
+  // Gap 3: bloqueia contas canceladas/blocked mesmo com token JWT válido.
+  // O token de acesso dura 1h, o de refresh 7d — sem isto, uma conta
+  // cancelada continuaria acessando a API até expirar.
+  isAccountActive(req.accountId!)
+    .then((active) => {
+      if (!active) {
+        return res.status(403).json({ error: 'Conta inativa ou bloqueada' });
+      }
+      next();
+    })
+    .catch((error) => {
+      console.error('[auth] Falha ao checar status da conta:', error);
+      // Em caso de erro de DB, não trava o usuário legítimo (fail-open).
+      next();
+    });
 };
 
 export const requireAdmin = (

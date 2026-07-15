@@ -81,8 +81,16 @@ export class WebhookController {
 
     // 4) Coloca no buffer. Quando o usuário ficar 5s em silêncio, processa.
     enqueueMessage(phone, userId, message, async (flushedPhone, flushedUserId, messages) => {
-      const reply = await processConversation(flushedUserId, messages, flushedPhone);
-      await EvolutionService.sendText(flushedPhone, reply);
+      try {
+        const reply = await processConversation(flushedUserId, messages, flushedPhone);
+        await EvolutionService.sendText(flushedPhone, reply);
+      } catch (err) {
+        console.error('[webhook] Erro ao processar conversa:', err);
+        await EvolutionService.sendText(
+          flushedPhone,
+          'Ops, tive um problema pra processar isso. Pode tentar de novo? Se for uma imagem ou documento, tente enviar como texto descrevendo o que precisa.'
+        );
+      }
     });
   }
 }
@@ -127,6 +135,21 @@ function classifyMessage(data: any): IncomingMedia | null {
       rawMessage: { key: data.key, message }
     };
   }
+
+  // Algumas versões da Evolution enviam documento com caption aninhada.
+  if (message.documentWithCaptionMessage?.message?.documentMessage) {
+    const doc = message.documentWithCaptionMessage.message.documentMessage;
+    return {
+      type: 'file',
+      url: extractMediaSource(doc),
+      fileName: doc.fileName,
+      rawMessage: { key: data.key, message }
+    };
+  }
+
+  // Log de tipos não reconhecidos — ajuda a diagnosticar novos formatos.
+  const msgTypes = Object.keys(message);
+  console.warn('[webhook] Tipo de mensagem não reconhecido. Keys:', msgTypes.join(', '));
 
   return null;
 }
