@@ -164,11 +164,11 @@ docker build -t torrinco-client .
 4. Domínio: `torrinco.forjacorp.com`
 5. Variáveis de Ambiente:
    ```
-   DATABASE_URL=mysql://usuario:senha@mysql.forjacorp.com:3306/finance_bot
+   DATABASE_URL=
    DATABASE_USER=usuario
    DATABASE_PASSWORD=senha
-   DATABASE_NAME=finance_bot
-   DATABASE_HOST=mysql.forjacorp.com
+   DATABASE_NAME=
+   DATABASE_HOST=
    DATABASE_PORT=3306
    JWT_SECRET=sua_chave_secreta_aqui
    JWT_EXPIRES_IN=7d
