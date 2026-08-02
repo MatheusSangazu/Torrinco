@@ -143,8 +143,15 @@ export interface ForecastResult {
  * das pendentes. Substitui o bloco inline antigo + string matching.
  */
 async function getCardBillsInPeriod(userId: number, start: Date, end: Date) {
+  // Busca o account_id do usuário pra filtrar cartões por conta.
+  const userRow = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { account_id: true }
+  });
+  if (!userRow) return { cards: [], pendingTotal: 0, paidTotal: 0, bills: [] };
+
   const cards = await prisma.financial_entities.findMany({
-    where: { user_id: userId, type: 'credit_card' },
+    where: { account_id: userRow.account_id, type: 'credit_card' },
     select: { id: true, name: true, color: true }
   });
 

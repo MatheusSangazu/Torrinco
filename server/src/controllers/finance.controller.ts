@@ -50,7 +50,7 @@ export class FinanceController {
       if (!finalCategoryId && category) {
         const existingCategory = await prisma.categories.findFirst({
           where: {
-            user_id: userId,
+            account_id: accountId,
             name: category,
             type
           }
@@ -62,7 +62,7 @@ export class FinanceController {
           // Criar nova categoria automaticamente
           const newCategory = await prisma.categories.create({
             data: {
-              user_id: userId,
+              account_id: accountId,
               name: category,
               type,
               color: type === 'income' ? '#22c55e' : '#ef4444'

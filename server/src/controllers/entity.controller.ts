@@ -7,10 +7,11 @@ export class EntityController {
    * Cria uma nova entidade financeira
    */
   static async create(req: JwtRequest, res: Response, next: NextFunction) {
-    
+
     try {
       const { name, type, balance, credit_limit, closing_day, due_day } = req.body;
       const userId = req.userId!;
+      const accountId = req.accountId!;
 
       if (!name || !type) {
         return res.status(400).json({ error: 'Name and type are required' });
@@ -32,7 +33,8 @@ export class EntityController {
 
       const entity = await prisma.financial_entities.create({
         data: {
-          user_id: userId,
+          account_id: accountId,
+          created_by_user_id: userId,
           name,
           type,
           balance: balance ? parseFloat(balance) : 0,
@@ -52,12 +54,12 @@ export class EntityController {
    * Lista todas as entidades do usuário
    */
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
-    
+
     try {
       const { type } = req.query;
-      const userId = req.userId!;
+      const accountId = req.accountId!;
 
-      const where: any = { user_id: userId };
+      const where: any = { account_id: accountId };
       if (type) where.type = type;
 
       const entities = await prisma.financial_entities.findMany({
@@ -111,15 +113,15 @@ export class EntityController {
    * Obtém uma entidade específica
    */
   static async getById(req: JwtRequest, res: Response, next: NextFunction) {
-    
+
     try {
       const { id } = req.params;
-      const userId = req.userId!;
+      const accountId = req.accountId!;
 
       const entity = await prisma.financial_entities.findFirst({
         where: {
           id: Number(id),
-          user_id: userId
+          account_id: accountId
         },
         include: {
           transactions: {
@@ -143,14 +145,14 @@ export class EntityController {
    * Atualiza uma entidade
    */
   static async update(req: JwtRequest, res: Response, next: NextFunction) {
-    
+
     try {
       const { id } = req.params;
       const { name, type, balance, credit_limit, closing_day, due_day } = req.body;
-      const userId = req.userId!;
+      const accountId = req.accountId!;
 
       const existingEntity = await prisma.financial_entities.findFirst({
-        where: { id: Number(id), user_id: userId }
+        where: { id: Number(id), account_id: accountId }
       });
 
       if (!existingEntity) {
@@ -192,13 +194,13 @@ export class EntityController {
    * Remove uma entidade
    */
   static async delete(req: JwtRequest, res: Response, next: NextFunction) {
-    
+
     try {
       const { id } = req.params;
-      const userId = req.userId!;
+      const accountId = req.accountId!;
 
       const existingEntity = await prisma.financial_entities.findFirst({
-        where: { id: Number(id), user_id: userId }
+        where: { id: Number(id), account_id: accountId }
       });
 
       if (!existingEntity) {
@@ -210,8 +212,8 @@ export class EntityController {
       });
 
       if (transactionCount > 0) {
-        return res.status(400).json({ 
-          error: 'Cannot delete entity with existing transactions. Delete transactions first.' 
+        return res.status(400).json({
+          error: 'Cannot delete entity with existing transactions. Delete transactions first.'
         });
       }
 

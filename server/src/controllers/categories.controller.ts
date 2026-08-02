@@ -8,10 +8,10 @@ export class CategoriesController {
    */
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.userId!;
+      const accountId = req.accountId!;
       const { type } = req.query;
 
-      const where: any = { user_id: userId };
+      const where: any = { account_id: accountId };
       if (type) where.type = type;
 
       const categories = await prisma.categories.findMany({
@@ -31,7 +31,7 @@ export class CategoriesController {
    */
   static async create(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.userId!;
+      const accountId = req.accountId!;
       const { name, type, color } = req.body;
 
       if (!name || !type) {
@@ -41,7 +41,7 @@ export class CategoriesController {
       // Check if already exists
       const existing = await prisma.categories.findFirst({
         where: {
-          user_id: userId,
+          account_id: accountId,
           name,
           type
         }
@@ -53,7 +53,7 @@ export class CategoriesController {
 
       const category = await prisma.categories.create({
         data: {
-          user_id: userId,
+          account_id: accountId,
           name,
           type,
           color: color || '#3b82f6' // Default blue
@@ -72,7 +72,7 @@ export class CategoriesController {
    */
   static async update(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.userId!;
+      const accountId = req.accountId!;
       const { id } = req.params;
       const { name, color } = req.body;
 
@@ -80,7 +80,7 @@ export class CategoriesController {
         where: { id: Number(id) }
       });
 
-      if (!category || category.user_id !== userId) {
+      if (!category || category.account_id !== accountId) {
         return res.status(404).json({ error: 'Category not found' });
       }
 
@@ -104,14 +104,14 @@ export class CategoriesController {
    */
   static async delete(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const userId = req.userId!;
+      const accountId = req.accountId!;
       const { id } = req.params;
 
       const category = await prisma.categories.findUnique({
         where: { id: Number(id) }
       });
 
-      if (!category || category.user_id !== userId) {
+      if (!category || category.account_id !== accountId) {
         return res.status(404).json({ error: 'Category not found' });
       }
 

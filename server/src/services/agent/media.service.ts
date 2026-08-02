@@ -59,10 +59,16 @@ export async function processMedia(
 
     case 'image': {
       try {
+        console.log('[media] Processando imagem...');
         const source = await resolveMediaSource(media);
-        if (!source) return unknownMessage(userId, receivedAt, 'imagem sem fonte');
+        if (!source) {
+          console.error('[media] Imagem sem fonte (getMediaBase64 falhou ou retornou null)');
+          return unknownMessage(userId, receivedAt, 'imagem sem fonte');
+        }
+        console.log('[media] Fonte resolvida, chamando GPT-4o vision...');
         // GPT-4o vision aceita URL http OU data URL base64.
         const description = await llm.describeImage(source);
+        console.log('[media] Descrição recebida:', description?.slice(0, 100));
         return {
           text: `[Imagem] ${description}`,
           mediaType: 'image',

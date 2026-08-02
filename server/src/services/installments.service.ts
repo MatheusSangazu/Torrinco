@@ -1,6 +1,15 @@
 import { prisma } from '../lib/prisma.js';
 import { parseDate, addMonths, todayUTC, type Frequency } from '../lib/date-utils.js';
 
+async function getAccountIdByUserId(userId: number): Promise<number> {
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { account_id: true }
+  });
+  if (!user) throw new Error('USER_NOT_FOUND');
+  return user.account_id;
+}
+
 /**
  * Fonte única da lógica de parcelamento de compras no cartão.
  *
@@ -81,8 +90,9 @@ function dueDateForInstallment(
 export async function createInstallmentPurchase(userId: number, input: CreateInstallmentInput) {
   const { entity_id, description, amount, installment_count, category, category_id, first_installment } = input;
 
+  const accountId = await getAccountIdByUserId(userId);
   const card = await prisma.financial_entities.findFirst({
-    where: { id: entity_id, user_id: userId, type: 'credit_card' }
+    where: { id: entity_id, account_id: accountId, type: 'credit_card' }
   });
   if (!card) throw new Error('CARD_NOT_FOUND');
 

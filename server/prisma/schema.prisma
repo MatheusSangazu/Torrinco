@@ -1,20 +1,39 @@
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../src/generated/prisma-client"
 }
 
 datasource db {
   provider = "mysql"
 }
 
+model plans {
+  id            Int       @id @default(autoincrement())
+  name          String    @unique @db.VarChar(50)
+  max_users     Int       @default(1)
+  max_cards     Int       @default(5)
+  price_monthly Decimal?  @db.Decimal(10, 2)
+  price_yearly  Decimal?  @db.Decimal(10, 2)
+  features      Json?
+  status        String    @default("active") @db.VarChar(20)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
+  accounts      accounts[]
+}
+
 model accounts {
-  id           Int                 @id @default(autoincrement())
-  name         String?             @default("Minha Conta") @db.VarChar(100)
-  plan_type    accounts_plan_type? @default(individual)
-  status       accounts_status?    @default(trial)
-  created_at   DateTime?           @default(now()) @db.DateTime(0)
-  transactions transactions[]
-  users        users[]
+  id            Int                 @id @default(autoincrement())
+  name          String?             @default("Minha Conta") @db.VarChar(100)
+  plan_id       Int
+  status        accounts_status?    @default(trial)
+  trial_ends_at DateTime?           @db.DateTime(0)
+  created_at    DateTime?           @default(now()) @db.DateTime(0)
+  plans         plans               @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_plan_fk")
+  transactions  transactions[]
+  users         users[]
+  financial_entities financial_entities[]
+  categories    categories[]
+
+  @@index([plan_id], map: "accounts_plan_idx")
 }
 
 model budgets {
@@ -31,17 +50,17 @@ model budgets {
 
 model categories {
   id         Int       @id @default(autoincrement())
-  user_id    Int
+  account_id Int
   name       String    @db.VarChar(50)
   type       String    @db.VarChar(20)
   color      String?   @default("#3b82f6") @db.VarChar(20)
   created_at DateTime? @default(now()) @db.Timestamp(0)
-  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "categories_user_fk")
+  accounts   accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "categories_account_fk")
   transactions transactions[]
   recurring_transactions recurring_transactions[]
 
-  @@unique([user_id, name, type], map: "unique_user_category_type")
-  @@index([user_id], map: "categories_user_idx")
+  @@unique([account_id, name, type], map: "unique_account_category_type")
+  @@index([account_id], map: "categories_account_idx")
 }
 
 model events {
@@ -60,7 +79,8 @@ model events {
 
 model financial_entities {
   id                    Int                     @id @default(autoincrement())
-  user_id               Int
+  account_id            Int
+  created_by_user_id    Int?
   name                  String                  @db.VarChar(100)
   type                  financial_entities_type
   balance               Decimal?                @default(0.00) @db.Decimal(10, 2)
@@ -69,13 +89,13 @@ model financial_entities {
   due_day               Int?
   color                 String?                 @default("from-purple-600 to-indigo-700") @db.VarChar(50)
   created_at            DateTime?               @default(now()) @db.Timestamp(0)
-  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "financial_entities_ibfk_1")
+  accounts              accounts                @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "financial_entities_account_fk")
   transactions          transactions[]
   purchase_installments purchase_installments[]
   recurring_transactions recurring_transactions[]
   card_bills            card_bills[]
 
-  @@index([user_id], map: "user_id")
+  @@index([account_id], map: "financial_entities_account_idx")
 }
 
 model income_sources {
@@ -272,9 +292,7 @@ model users {
   google_calendar_id     String?                  @default("primary") @db.VarChar(255)
   refresh_tokens         refresh_tokens[]
   budgets                budgets[]
-  categories             categories[]
   events                 events[]
-  financial_entities     financial_entities[]
   income_sources         income_sources[]
   recurring_events       recurring_events[]
   recurring_transactions recurring_transactions[]
@@ -286,11 +304,6 @@ model users {
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
 
   @@index([account_id], map: "account_id")
-}
-
-enum accounts_plan_type {
-  individual
-  family
 }
 
 enum reminder_logs_source_type {

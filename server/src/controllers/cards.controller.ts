@@ -23,9 +23,10 @@ export class CardsController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.userId!;
+      const accountId = req.accountId!;
 
       const cards = await prisma.financial_entities.findMany({
-        where: { user_id: userId, type: 'credit_card' },
+        where: { account_id: accountId, type: 'credit_card' },
         orderBy: { name: 'asc' }
       });
 
@@ -73,6 +74,7 @@ export class CardsController {
     try {
       const { name, limit, closing_day, due_day, color } = req.body;
       const userId = req.userId!;
+      const accountId = req.accountId!;
 
       if (!name) {
         return res.status(400).json({ error: 'Name is required' });
@@ -91,7 +93,8 @@ export class CardsController {
 
       const card = await prisma.financial_entities.create({
         data: {
-          user_id: userId,
+          account_id: accountId,
+          created_by_user_id: userId,
           name,
           type: 'credit_card',
           credit_limit: limit ? parseFloat(limit) : 0,
@@ -116,7 +119,7 @@ export class CardsController {
     try {
       const { id } = req.params;
       const { name, limit, closing_day, due_day, color } = req.body;
-      const userId = req.userId!;
+      const accountId = req.accountId!;
 
       // Validar se vieram no update — não pode limpar pra null nem inventar.
       if (closing_day !== undefined) {
@@ -133,7 +136,7 @@ export class CardsController {
       }
 
       const card = await prisma.financial_entities.update({
-        where: { id: Number(id), user_id: userId },
+        where: { id: Number(id), account_id: accountId },
         data: {
           name,
           credit_limit: limit !== undefined ? (limit ? parseFloat(limit) : 0) : undefined,
@@ -167,8 +170,8 @@ export class CardsController {
   static async delete(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const userId = req.userId!;
-      
+      const accountId = req.accountId!;
+
       // Verificar se tem transações antes de deletar (opcional, mas seguro)
       const transactions = await prisma.transactions.count({
         where: { entity_id: Number(id) }
@@ -179,7 +182,7 @@ export class CardsController {
       }
 
       await prisma.financial_entities.delete({
-        where: { id: Number(id), user_id: userId }
+        where: { id: Number(id), account_id: accountId }
       });
 
       res.json({ success: true });

@@ -88,8 +88,17 @@ export async function checkEligibility(
  */
 async function autoOnboard(phone: string): Promise<{ userId: number; accountId: number }> {
   return prisma.$transaction(async (tx) => {
+    // Busca o plano padrão "individual" (id=1 após seed).
+    const individualPlan = await tx.plans.findUnique({ where: { name: 'individual' } });
+    if (!individualPlan) throw new Error('PLAN_INDIVIDUAL_NOT_FOUND');
+
     const account = await tx.accounts.create({
-      data: { name: 'Minha Conta', plan_type: 'individual', status: 'trial' }
+      data: {
+        name: 'Minha Conta',
+        plan_id: individualPlan.id,
+        status: 'trial',
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 dias
+      }
     });
     const newUser = await tx.users.create({
       data: {

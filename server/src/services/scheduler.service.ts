@@ -42,13 +42,15 @@ export async function runRecurringJob() {
 export async function runBillCycleJob() {
   const cards = await prisma.financial_entities.findMany({
     where: { type: 'credit_card' },
-    select: { id: true, user_id: true }
+    select: { id: true, created_by_user_id: true }
   });
 
   const summary: { cardId: number; synced: boolean }[] = [];
   for (const c of cards) {
     try {
-      await syncBillCycle(c.id, c.user_id);
+      // syncBillCycle precisa de um userId; usa created_by_user_id (fallback pra primeiro user da conta).
+      const userId = c.created_by_user_id ?? 1;
+      await syncBillCycle(c.id, userId);
       summary.push({ cardId: c.id, synced: true });
     } catch (err) {
       console.error(`[scheduler] Falha ao sincronizar faturas do cartão ${c.id}:`, err);

@@ -267,7 +267,7 @@ export class AuthController {
 
       await prisma.categories.createMany({
         data: defaultCategories.map(cat => ({
-          user_id: user.id,
+          account_id: accountId,
           name: cat.name,
           type: cat.type,
           color: cat.color

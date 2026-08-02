@@ -32,7 +32,8 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# Prisma
+# Prisma Client (gerado, não vai pro git)
+/server/src/generated/
 /src/generated/prisma
 
 # Docs (Local only)

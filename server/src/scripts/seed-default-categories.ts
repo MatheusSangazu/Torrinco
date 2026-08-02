@@ -4,7 +4,7 @@ async function main() {
   console.log('🔄 Iniciando criação de categorias padrão para usuários existentes...');
 
   const users = await prisma.users.findMany({
-    select: { id: true, name: true }
+    select: { id: true, name: true, account_id: true }
   });
 
   const defaultCategories = [
@@ -35,7 +35,7 @@ async function main() {
       // Verificar se essa categoria específica já existe para o usuário
       const exists = await prisma.categories.findFirst({
         where: {
-          user_id: user.id,
+          account_id: user.account_id,
           name: defaultCat.name,
           type: defaultCat.type
         }
@@ -44,7 +44,7 @@ async function main() {
       if (!exists) {
         await prisma.categories.create({
           data: {
-            user_id: user.id,
+            account_id: user.account_id,
             name: defaultCat.name,
             type: defaultCat.type,
             color: defaultCat.color

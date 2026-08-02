@@ -17,6 +17,7 @@ export class UserDataController {
   static async export(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.userId!;
+      const accountId = req.accountId!;
 
       const [
         user,
@@ -38,7 +39,7 @@ export class UserDataController {
             // Não exportamos: password_hash, refresh_tokens, google_refresh_token.
           }
         }),
-        prisma.financial_entities.findMany({ where: { user_id: userId } }),
+        prisma.financial_entities.findMany({ where: { account_id: accountId } }),
         prisma.transactions.findMany({
           where: { user_id: userId, deleted_at: null },
           orderBy: { transaction_date: 'desc' }
@@ -46,7 +47,7 @@ export class UserDataController {
         prisma.card_bills.findMany({ where: { user_id: userId }, orderBy: { created_at: 'desc' } }),
         prisma.recurring_transactions.findMany({ where: { user_id: userId } }),
         prisma.purchase_installments.findMany({ where: { user_id: userId } }),
-        prisma.categories.findMany({ where: { user_id: userId } }),
+        prisma.categories.findMany({ where: { account_id: accountId } }),
         prisma.reminders.findMany({ where: { user_id: userId } }),
         prisma.events.findMany({ where: { user_id: userId } })
       ]);

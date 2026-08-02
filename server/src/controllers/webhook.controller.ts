@@ -5,6 +5,7 @@ import { enqueueMessage } from '../services/agent/conversationBuffer.service.js'
 import { processConversation } from '../services/agent/conversation.service.js';
 import { EvolutionService } from '../services/evolution.service.js';
 import type { IncomingMedia } from '../services/agent/media.service.js';
+import type { WebhookMessage } from '../services/agent/types.js';
 
 /**
  * Webhook da Evolution API.
@@ -74,10 +75,32 @@ export class WebhookController {
 
     // 2) Classifica a mídia a partir da mensagem.
     const media = classifyMessage(data);
-    if (!media) return; // tipo de evento/mídia não suportado
+    if (!media) {
+      // Tipo não reconhecido — avisa o usuário em vez de silenciar.
+      console.warn('[webhook] Tipo de mensagem não reconhecido de', phone);
+      await EvolutionService.sendText(phone, 'Recebi sua mensagem mas não consegui processar esse tipo de arquivo. Tente enviar como texto, imagem, PDF ou planilha. 😊');
+      return;
+    }
 
     // 3) Processa a mídia (transcreve áudio, descreve foto...) → texto.
-    const message = await processMedia(userId, media, new Date());
+    let message: WebhookMessage;
+    try {
+      message = await processMedia(userId, media, new Date());
+    } catch (err) {
+      console.error('[webhook] Erro ao processar mídia:', err);
+      await EvolutionService.sendText(phone, 'Ops, tive um problema pra processar este arquivo. Pode tentar de novo? 😊');
+      return;
+    }
+
+    // Se a mídia não foi processada com sucesso, avisa explicitamente.
+    if (message.mediaType === 'unknown') {
+      console.warn('[webhook] Mídia não processada:', message.text);
+      await EvolutionService.sendText(
+        phone,
+        'Não consegui ler este arquivo. Se for uma foto de comprovante ou nota, tente enviar mais nítida. Se for um PDF ou planilha, posso tentar de novo. 😊'
+      );
+      return;
+    }
 
     // 4) Coloca no buffer. Quando o usuário ficar 5s em silêncio, processa.
     enqueueMessage(phone, userId, message, async (flushedPhone, flushedUserId, messages) => {

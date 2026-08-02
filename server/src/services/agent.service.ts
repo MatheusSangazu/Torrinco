@@ -64,9 +64,10 @@ async function resolveEntityByName(
   | { status: 'ambiguo'; opcoes: Array<{ id: number; name: string }> }
   | { status: 'nao_encontrado' }
 > {
+  const accountId = await getAccountId(userId);
   const lower = name.trim().toLowerCase();
   const entities = await prisma.financial_entities.findMany({
-    where: { user_id: userId, type },
+    where: { account_id: accountId, type },
     select: { id: true, name: true }
   });
 
@@ -107,14 +108,15 @@ async function resolveCardByName(userId: number, name: string): Promise<number |
 
 /** Resolve ou cria categoria por nome. Retorna {id, name}. */
 async function resolveCategory(userId: number, name: string, type: 'income' | 'expense') {
+  const accountId = await getAccountId(userId);
   const lower = name.trim().toLowerCase();
   const existing = await prisma.categories.findFirst({
-    where: { user_id: userId, type }
+    where: { account_id: accountId, type }
   });
   // Busca por nome (case-insensitive) dentro do tipo.
   const match = await prisma.categories.findFirst({
     where: {
-      user_id: userId,
+      account_id: accountId,
       type,
       name: { equals: name.trim() }
     }
@@ -123,7 +125,7 @@ async function resolveCategory(userId: number, name: string, type: 'income' | 'e
   void existing; void lower;
   // Cria se não existir.
   const created = await prisma.categories.create({
-    data: { user_id: userId, name: name.trim(), type }
+    data: { account_id: accountId, name: name.trim(), type }
   });
   return { id: created.id, name: created.name };
 }
@@ -299,10 +301,11 @@ export async function getForecastForAgent(userId: number) {
 
 /** Próximos vencimentos: recorrências + faturas a vencer. */
 export async function getUpcoming(userId: number) {
+  const accountId = await getAccountId(userId);
   const [recurring, cards] = await Promise.all([
     listDueSoon(userId, 10),
     prisma.financial_entities.findMany({
-      where: { user_id: userId, type: 'credit_card' },
+      where: { account_id: accountId, type: 'credit_card' },
       select: { id: true, name: true }
     })
   ]);
@@ -413,8 +416,9 @@ export async function getCardHistory(userId: number, cardName: string, months: n
  * Útil quando o usuário pergunta "quais são meus cartões?" ou precisa escolher.
  */
 export async function listCards(userId: number) {
+  const accountId = await getAccountId(userId);
   const entities = await prisma.financial_entities.findMany({
-    where: { user_id: userId },
+    where: { account_id: accountId },
     select: {
       id: true,
       name: true,

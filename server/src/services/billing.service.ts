@@ -1,6 +1,15 @@
 import { prisma } from '../lib/prisma.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 
+async function getAccountIdByUserId(userId: number): Promise<number> {
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { account_id: true }
+  });
+  if (!user) throw new Error('USER_NOT_FOUND');
+  return user.account_id;
+}
+
 /**
  * Fonte única da lógica de faturas de cartão de crédito.
  *
@@ -110,8 +119,9 @@ export function computeBillPeriodByOffset(
  * Sincroniza o status (abre/fecha) conforme a data atual.
  */
 export async function getOrCreateCurrentBill(cardId: number, userId: number) {
+  const accountId = await getAccountIdByUserId(userId);
   const card = await prisma.financial_entities.findFirst({
-    where: { id: cardId, user_id: userId, type: 'credit_card' }
+    where: { id: cardId, account_id: accountId, type: 'credit_card' }
   });
   if (!card) throw new Error('CARD_NOT_FOUND');
 
@@ -145,8 +155,9 @@ export async function getOrCreateCurrentBill(cardId: number, userId: number) {
  * Busca uma fatura por offset de ciclo, criando se for a atual e não existir.
  */
 export async function getBillByOffset(cardId: number, userId: number, offset: number) {
+  const accountId = await getAccountIdByUserId(userId);
   const card = await prisma.financial_entities.findFirst({
-    where: { id: cardId, user_id: userId, type: 'credit_card' }
+    where: { id: cardId, account_id: accountId, type: 'credit_card' }
   });
   if (!card) throw new Error('CARD_NOT_FOUND');
 
@@ -368,8 +379,9 @@ export async function undoPayment(billId: number, userId: number) {
  * Histórico de faturas de um cartão (das mais recentes para as mais antigas).
  */
 export async function getHistory(cardId: number, userId: number, months: number = 6) {
+  const accountId = await getAccountIdByUserId(userId);
   const card = await prisma.financial_entities.findFirst({
-    where: { id: cardId, user_id: userId, type: 'credit_card' }
+    where: { id: cardId, account_id: accountId, type: 'credit_card' }
   });
   if (!card) throw new Error('CARD_NOT_FOUND');
 
