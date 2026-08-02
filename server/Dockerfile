@@ -2,12 +2,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY server/package*.json ./
+COPY package*.json ./
 RUN npm ci
 
-COPY server/prisma ./prisma/
-COPY server/tsconfig.json ./
-COPY server/src ./src
+COPY prisma ./prisma/
+COPY tsconfig.json ./
+COPY src ./src
 
 RUN npx prisma generate
 RUN npm run build
@@ -26,4 +26,5 @@ EXPOSE 3001
 
 ENV NODE_ENV=production
 
-CMD ["node", "dist/server.js"]
+# Roda migrations e inicia o server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
