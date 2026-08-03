@@ -9,10 +9,9 @@ COPY prisma ./prisma/
 COPY tsconfig.json ./
 COPY src ./src
 
-# DATABASE_URL é necessário pra prisma generate validar o schema.
-# Coolify passa como build-arg; declaramos ARG + ENV pra disponibilizar.
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
+# prisma generate não conecta no banco — só valida o schema.
+# Placeholder é sobrescrito em runtime pelo ENVIRONMENT do Coolify.
+ENV DATABASE_URL="mysql://placeholder:placeholder@localhost:3306/placeholder"
 
 RUN npx prisma generate
 RUN npm run build
@@ -31,5 +30,5 @@ EXPOSE 3001
 
 ENV NODE_ENV=production
 
-# Roda migrations e inicia o server
+# Roda migrations (usa DATABASE_URL do environment do Coolify) e inicia o server
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
