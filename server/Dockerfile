@@ -1,5 +1,8 @@
 FROM node:20-alpine AS builder
 
+# Prisma precisa de openssl no Alpine
+RUN apk add --no-cache openssl libc6-compat
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -10,13 +13,14 @@ COPY tsconfig.json ./
 COPY src ./src
 
 # prisma generate não conecta no banco — só valida o schema.
-# Placeholder é sobrescrito em runtime pelo ENVIRONMENT do Coolify.
 ENV DATABASE_URL="mysql://placeholder:placeholder@localhost:3306/placeholder"
 
-RUN npx prisma generate
+RUN npx prisma generate || (echo "=== PRISMA GENERATE FAILED ===" && npx prisma generate --debug && exit 1)
 RUN npm run build
 
 FROM node:20-alpine
+
+RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /app
 
@@ -30,5 +34,4 @@ EXPOSE 3001
 
 ENV NODE_ENV=production
 
-# Roda migrations (usa DATABASE_URL do environment do Coolify) e inicia o server
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
