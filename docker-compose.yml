@@ -37,12 +37,6 @@ services:
       # App
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - PORT=${PORT:-3001}
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
     restart: unless-stopped
 
   client:
@@ -60,6 +54,5 @@ services:
       timeout: 5s
       retries: 3
     depends_on:
-      server:
-        condition: service_healthy
+      - server
     restart: unless-stopped
