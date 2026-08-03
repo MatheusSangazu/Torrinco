@@ -9,6 +9,11 @@ COPY prisma ./prisma/
 COPY tsconfig.json ./
 COPY src ./src
 
+# DATABASE_URL é necessário pra prisma generate validar o schema.
+# Coolify passa como build-arg; declaramos ARG + ENV pra disponibilizar.
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 RUN npx prisma generate
 RUN npm run build
 
