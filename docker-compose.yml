@@ -6,8 +6,8 @@ services:
       context: ./server
       dockerfile: Dockerfile
     container_name: torrinco-server
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"
     environment:
       # Banco
       - DATABASE_URL=${DATABASE_URL}
@@ -46,8 +46,8 @@ services:
       args:
         - VITE_API_URL=${VITE_API_URL}
     container_name: torrinco-client
-    ports:
-      - "8080:80"
+    expose:
+      - "80"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
