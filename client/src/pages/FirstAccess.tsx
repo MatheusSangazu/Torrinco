@@ -45,7 +45,7 @@ export function FirstAccess() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/validate-first-access-code', {
+      await api.post('/auth/validate-first-access-code', {
         phone_number: phoneNumber,
         code,
       });
@@ -82,8 +82,8 @@ export function FirstAccess() {
         password,
       });
 
-      const { accessToken, user, refreshToken } = response.data;
-      login(accessToken, refreshToken, user);
+      const { accessToken, user } = response.data;
+      login(accessToken, user);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Falha ao definir senha. Tente novamente.');

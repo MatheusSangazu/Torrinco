@@ -1,80 +1,77 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api } from '../services/api';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { api, setAccessToken } from '../services/api';
 
 interface User {
   id: number;
+  name: string;
   phone_number: string;
-  name?: string;
+  role: string;
+  account_id: number;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
-  login: (token: string, refreshToken: string, user: User) => void;
-  logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  login: (accessToken: string, user: User) => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    
-    if (storedToken) {
-      setToken(storedToken);
-      
-      // Buscar dados do usuário
-      api.get('/auth/me')
-        .then(response => {
-          setUser(response.data.user);
-        })
-        .catch(error => {
-          console.error('Failed to fetch user:', error);
-          // Se o token for inválido, o axios interceptor tentará o refresh. 
-          // Só fazemos logout aqui se realmente não houver como recuperar.
-          if (error.response?.status === 401 && !localStorage.getItem('refreshToken')) {
-            logout();
+    // Em mount, tenta restaurar sessão via cookie HttpOnly (refresh automático).
+    // Access token NÃO é persistido em localStorage.
+    const restoreSession = async () => {
+      try {
+        // Tenta refresh via cookie — se funcionar, acessa /me com o novo token.
+        const refreshRes = await api.post('/auth/refresh-token', {});
+        if (refreshRes.data?.accessToken) {
+          setAccessToken(refreshRes.data.accessToken);
+          try {
+            const meRes = await api.get('/auth/me');
+            setUser(meRes.data);
+          } catch {
+            setAccessToken(null);
           }
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-    }
+        }
+      } catch {
+        // Sem cookie válido = não autenticado (silencioso).
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    restoreSession();
   }, []);
 
-  const login = (newToken: string, newRefreshToken: string, newUser: User) => {
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('refreshToken', newRefreshToken);
-    setToken(newToken);
-    setUser(newUser);
+  const login = (accessToken: string, userData: User) => {
+    setAccessToken(accessToken);
+    setUser(userData);
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    setToken(null);
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout', {});
+    } catch {
+      // Mesmo se falhar, limpa localmente.
+    }
+    setAccessToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, isLoading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth deve ser usado dentro de AuthProvider');
+  return ctx;
 }

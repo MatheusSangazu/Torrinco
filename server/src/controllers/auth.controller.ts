@@ -4,54 +4,40 @@ import { prisma } from '../lib/prisma.js';
 import { generateAccessToken, type JwtRequest } from '../middleware/jwt.js';
 import { EvolutionService } from '../services/evolution.service.js';
 import { RefreshTokenService } from '../services/refresh-token.service.js';
+import { VerificationService } from '../services/verification.service.js';
+import { setRefreshTokenCookie, clearRefreshTokenCookie, getRefreshTokenFromCookies } from '../lib/cookie.js';
+import { maskPhone } from '../lib/mask.js';
 
-// Rever caso escale para múltiplos servidores
-const resetCodes = new Map<string, { code: string, expires: number }>();
-const firstAccessCodes = new Map<string, { code: string, expires: number }>();
+// Senhas comuns e óbvias que devem ser bloqueadas.
+const COMMON_PASSWORDS = new Set([
+  '123456', '123456789', '12345678', 'password', 'senha', '111111',
+  '000000', '123123', '654321', 'abc123', 'qwerty', 'senha123',
+]);
 
 export class AuthController {
   
    //Solicita redefinição de senha 
    
   static async requestPasswordReset(req: Request, res: Response, next: NextFunction) {
-    
     try {
       const { phone_number } = req.body;
-
-      if (!phone_number) {
-        return res.status(400).json({ error: 'Número de telefone é obrigatório' });
-      }
-
       const user = await AuthController.findUserByPhone(phone_number);
 
-      if (!user) {
-        
-        return res.status(404).json({ error: 'Usuário não encontrado' });
+      // Resposta neutra para evitar enumeração de usuário.
+      if (user) {
+        const code = await VerificationService.createChallenge(
+          user.id, user.phone_number, 'password_reset',
+        );
+        const message = `*Recuperação de Senha - Torrinco*\n\nSeu código de verificação é: *${code}*\n\nSe você não solicitou, ignore esta mensagem.`;
+        EvolutionService.sendText(user.phone_number, message)
+          .then(() => console.log(`📨 Código de recuperação enviado para ${maskPhone(user.phone_number)}`))
+          .catch(err => console.error('❌ Falha no envio do WhatsApp:', err));
+      } else {
+        console.log(`🚫 Solicitação de reset para telefone inexistente: ${maskPhone(phone_number)}`);
       }
 
-      // Gerar código de 6 dígitos
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // Salvar código com validade de 15 minutos
-      // Usar o telefone normalizado do usuário encontrado para garantir consistência
-      const targetPhone = user.phone_number;
-      
-      resetCodes.set(targetPhone, {
-        code,
-        expires: Date.now() + 15 * 60 * 1000
-      });
-
-      
-      const message = `*Recuperação de Senha - Torrinco*\n\nSeu código de verificação é: *${code}*\n\nSe você não solicitou, ignore esta mensagem.`;
-      
-      
-      EvolutionService.sendText(targetPhone, message)
-        .then(() => console.log('📨 Código enviado via WhatsApp para', targetPhone))
-        .catch(err => console.error('❌ Falha no envio do WhatsApp:', err));
-
-      console.log('🔑 CÓDIGO DE RECUPERAÇÃO GERADO (Backup):', code, 'para', targetPhone);
-
-      res.json({ message: 'Código enviado com sucesso' });
+      // Sempre retorna sucesso (impede enumeração).
+      res.json({ message: 'Se o telefone estiver cadastrado, um código foi enviado.' });
     } catch (error) {
       console.error('❌ Erro no AuthController.requestPasswordReset:', error);
       next(error);
@@ -62,51 +48,33 @@ export class AuthController {
    //Redefine a senha usando o código
    
   static async resetPassword(req: Request, res: Response, next: NextFunction) {
-    
     try {
       const { phone_number, code, new_password } = req.body;
-
-      if (!phone_number || !code || !new_password) {
-        return res.status(400).json({ error: 'Número de telefone, código e nova senha são obrigatórios' });
-      }
-
-      // Buscar o usuário para garantir que estamos usando o telefone correto
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
-        return res.status(400).json({ error: 'Usuário não encontrado' });
+        return res.status(400).json({ error: 'Código inválido ou expirado' });
       }
 
-      const stored = resetCodes.get(user.phone_number);
-
-      if (!stored) {
-        return res.status(400).json({ error: 'Solicitação de redefinição não encontrada ou expirada' });
+      const result = await VerificationService.verifyAndConsume(
+        user.phone_number, code, 'password_reset',
+      );
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
 
-      if (Date.now() > stored.expires) {
-        resetCodes.delete(user.phone_number);
-        return res.status(400).json({ error: 'Código expirado' });
-      }
-
-      if (stored.code !== code) {
-        return res.status(400).json({ error: 'Código inválido' });
-      }
-
-      if (new_password.length < 6) {
-        return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
+      const pwError = AuthController.validatePassword(new_password);
+      if (pwError) {
+        return res.status(400).json({ error: pwError });
       }
 
       const new_password_hash = await bcrypt.hash(new_password, 10);
-
       await prisma.users.update({
-        where: { id: user.id }, 
-        data: { password_hash: new_password_hash }
+        where: { id: user.id },
+        data: { password_hash: new_password_hash },
       });
 
-      // Limpar código usado
-      resetCodes.delete(user.phone_number);
-
-      console.log('✅ Senha redefinida com sucesso para:', user.phone_number);
+      console.log(`✅ Senha redefinida para o usuário ${user.id}`);
       res.json({ message: 'Senha redefinida com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.resetPassword:', error);
@@ -118,46 +86,25 @@ export class AuthController {
    // Solicita código de verificação para primeiro acesso
    
   static async requestFirstAccessCode(req: Request, res: Response, next: NextFunction) {
-    
     try {
       const { phone_number } = req.body;
-
-      if (!phone_number) {
-        return res.status(400).json({ error: 'Número de telefone é obrigatório' });
-      }
-
       const user = await AuthController.findUserByPhone(phone_number);
 
-      if (!user) {
-        return res.status(404).json({ error: 'Usuário não encontrado' });
+      // Resposta neutra para evitar enumeração de usuário.
+      if (user && !user.password_hash) {
+        const code = await VerificationService.createChallenge(
+          user.id, user.phone_number, 'first_access',
+        );
+        const message = `*Primeiro Acesso - Torrinco*\n\nSeu código de verificação é: *${code}*\n\nUse este código para criar sua senha e ativar sua conta.`;
+        EvolutionService.sendText(user.phone_number, message)
+          .then(() => console.log(`📨 Código de primeiro acesso enviado para ${maskPhone(user.phone_number)}`))
+          .catch(err => console.error('❌ Falha no envio do WhatsApp:', err));
+      } else {
+        console.log(`🚫 Solicitação de primeiro acesso sem usuário elegível: ${maskPhone(phone_number)}`);
       }
 
-      if (user.password_hash) {
-        return res.status(400).json({ error: 'Senha já definida. Por favor, faça login.' });
-      }
-
-      // Gerar código de 6 dígitos
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // código com validade de 15 minutos
-      const targetPhone = user.phone_number;
-      
-      firstAccessCodes.set(targetPhone, {
-        code,
-        expires: Date.now() + 15 * 60 * 1000
-      });
-
-      
-      const message = `*Primeiro Acesso - Torrinco*\n\nSeu código de verificação é: *${code}*\n\nUse este código para criar sua senha e ativar sua conta.`;
-      
-      
-      EvolutionService.sendText(targetPhone, message)
-        .then(() => console.log('📨 Código de primeiro acesso enviado via WhatsApp para', targetPhone))
-        .catch(err => console.error('❌ Falha no envio do WhatsApp:', err));
-
-      console.log('🔑 CÓDIGO DE PRIMEIRO ACESSO GERADO (Backup):', code, 'para', targetPhone);
-
-      res.json({ message: 'Código enviado com sucesso' });
+      // Sempre retorna sucesso (impede enumeração).
+      res.json({ message: 'Se o telefone estiver cadastrado e elegível, um código foi enviado.' });
     } catch (error) {
       console.error('❌ Erro no AuthController.requestFirstAccessCode:', error);
       next(error);
@@ -166,36 +113,22 @@ export class AuthController {
 
   
   static async validateFirstAccessCode(req: Request, res: Response, next: NextFunction) {
-    
     try {
       const { phone_number, code } = req.body;
-
-      if (!phone_number || !code) {
-        return res.status(400).json({ error: 'Número de telefone e código são obrigatórios' });
-      }
-
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
-        return res.status(404).json({ error: 'Usuário não encontrado' });
+        return res.status(400).json({ error: 'Código inválido ou expirado' });
       }
 
-      const stored = firstAccessCodes.get(user.phone_number);
-
-      if (!stored) {
-        return res.status(400).json({ error: 'Código de verificação não encontrado ou expirado' });
+      // Não consome o código — apenas verifica.
+      const result = await VerificationService.verifyCode(
+        user.phone_number, code, 'first_access', false,
+      );
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
 
-      if (Date.now() > stored.expires) {
-        firstAccessCodes.delete(user.phone_number);
-        return res.status(400).json({ error: 'Código expirado' });
-      }
-
-      if (stored.code !== code) {
-        return res.status(400).json({ error: 'Código inválido' });
-      }
-
-      console.log('✅ Código de primeiro acesso validado para:', phone_number);
       res.json({ message: 'Código validado com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.validateFirstAccessCode:', error);
@@ -287,41 +220,28 @@ export class AuthController {
    // Define a senha no primeiro acesso (com validação de código)
    
   static async createPassword(req: Request, res: Response, next: NextFunction) {
-   
     try {
       const { phone_number, code, password } = req.body;
-
-      if (!phone_number || !code || !password) {
-        return res.status(400).json({ error: 'Número de telefone, código e senha são obrigatórios' });
-      }
-
-      if (password.length < 6) {
-        return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
-      }
-
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
-        return res.status(404).json({ error: 'Usuário não encontrado' });
+        return res.status(400).json({ error: 'Código inválido ou expirado' });
       }
 
       if (user.password_hash) {
         return res.status(400).json({ error: 'Senha já definida' });
       }
 
-      const stored = firstAccessCodes.get(user.phone_number);
-
-      if (!stored) {
-        return res.status(400).json({ error: 'Código de verificação não encontrado ou expirado' });
+      const result = await VerificationService.verifyAndConsume(
+        user.phone_number, code, 'first_access',
+      );
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
 
-      if (Date.now() > stored.expires) {
-        firstAccessCodes.delete(user.phone_number);
-        return res.status(400).json({ error: 'Código expirado' });
-      }
-
-      if (stored.code !== code) {
-        return res.status(400).json({ error: 'Código inválido' });
+      const pwError = AuthController.validatePassword(password);
+      if (pwError) {
+        return res.status(400).json({ error: pwError });
       }
 
       const password_hash = await bcrypt.hash(password, 10);
@@ -336,33 +256,48 @@ export class AuthController {
           email: true,
           role: true,
           status: true,
-          account_id: true
-        }
+          account_id: true,
+        },
       });
 
       const createPasswordPayload = {
         userId: updatedUser.id,
         accountId: updatedUser.account_id,
-        userRole: updatedUser.role ?? 'user'
+        userRole: updatedUser.role ?? 'user',
       };
 
       const accessToken = generateAccessToken(createPasswordPayload);
-
       const refreshToken = await RefreshTokenService.createRefreshToken(
-        updatedUser.id,
-        updatedUser.account_id,
-        updatedUser.role ?? 'user'
+        updatedUser.id, updatedUser.account_id, updatedUser.role ?? 'user',
       );
 
-      // Limpar código 
-      firstAccessCodes.delete(user.phone_number);
-
-      console.log('✅ Senha criada e token gerado para:', phone_number);
-      res.json({ user: updatedUser, accessToken, refreshToken });
+      console.log(`✅ Senha criada para o usuário ${updatedUser.id}`);
+      setRefreshTokenCookie(res, refreshToken);
+      res.json({ user: updatedUser, accessToken });
     } catch (error) {
       console.error('❌ Erro no AuthController.createPassword:', error);
       next(error);
     }
+  }
+
+  /**
+   * Valida a política de senha.
+   * - Mínimo 8 caracteres.
+   * - Pelo menos 1 letra e 1 número.
+   * - Não pode ser senha óbvia/comum.
+   * Retorna mensagem de erro ou null se válida.
+   */
+  private static validatePassword(password: string): string | null {
+    if (password.length < 8) {
+      return 'A senha deve ter no mínimo 8 caracteres';
+    }
+    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      return 'A senha deve conter letras e números';
+    }
+    if (COMMON_PASSWORDS.has(password.toLowerCase())) {
+      return 'Esta senha é muito comum. Escolha uma senha mais segura.';
+    }
+    return null;
   }
 
   
@@ -394,7 +329,7 @@ export class AuthController {
       phoneVariations.push(withNine);
     }
 
-    console.log('🔍 Buscando usuário com variações de telefone:', phoneVariations);
+    console.log('🔍 Buscando usuário com variações de telefone:', phoneVariations.map(maskPhone));
 
     
     return prisma.users.findFirst({
@@ -491,8 +426,10 @@ export class AuthController {
 
       const { password_hash, ...userWithoutPassword } = user;
 
+      // Refresh token em cookie HttpOnly; access token apenas no body.
+      setRefreshTokenCookie(res, refreshToken);
       console.log('✅ Login realizado com sucesso:', phone_number);
-      res.json({ user: userWithoutPassword, accessToken, refreshToken });
+      res.json({ user: userWithoutPassword, accessToken });
     } catch (error) {
       console.error('❌ Erro no AuthController.login:', error);
       next(error);
@@ -510,8 +447,9 @@ export class AuthController {
         return res.status(400).json({ error: 'Senha antiga e nova são obrigatórias' });
       }
 
-      if (new_password.length < 6) {
-        return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres' });
+      const pwError = AuthController.validatePassword(new_password);
+      if (pwError) {
+        return res.status(400).json({ error: pwError });
       }
 
       const user = await prisma.users.findUnique({
@@ -651,10 +589,13 @@ export class AuthController {
 
       await prisma.users.update({
         where: { id: Number(id) },
-        data: { status: 'inactive' }
+        data: { status: 'inactive', google_refresh_token: null }
       });
 
-      console.log('✅ Usuário desativado com sucesso:', id);
+      // Revoga TODAS as sessões ativas do usuário.
+      await RefreshTokenService.revokeAllUserTokens(Number(id));
+
+      console.log('✅ Usuário desativado e sessões revogadas:', id);
       res.json({ message: 'Usuário excluído (desativado) com sucesso' });
     } catch (error) {
       console.error('❌ Erro no AuthController.deleteUser:', error);
@@ -664,16 +605,19 @@ export class AuthController {
 
   static async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
-      const { refreshToken } = req.body;
+      // Refresh token vem do cookie HttpOnly (fallback para body durante transição).
+      const refreshToken = getRefreshTokenFromCookies(req as any) ?? req.body?.refreshToken;
 
       if (!refreshToken) {
         return res.status(400).json({ error: 'Refresh token é obrigatório' });
       }
 
       const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.rotateRefreshToken(refreshToken);
-      res.json({ accessToken, refreshToken: newRefreshToken });
+      setRefreshTokenCookie(res, newRefreshToken);
+      res.json({ accessToken });
     } catch (error) {
       console.error('❌ Erro no AuthController.refreshToken:', error);
+      clearRefreshTokenCookie(res);
       if (error instanceof Error) {
         return res.status(401).json({ error: error.message });
       }
@@ -683,16 +627,14 @@ export class AuthController {
 
   static async logout(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { refreshToken } = req.body;
+      // Refresh token vem do cookie HttpOnly (fallback para body durante transição).
+      const refreshToken = getRefreshTokenFromCookies(req as any) ?? req.body?.refreshToken;
 
-      if (!refreshToken) {
-        return res.status(400).json({ error: 'Refresh token é obrigatório' });
+      if (refreshToken) {
+        await RefreshTokenService.revokeRefreshToken(refreshToken);
       }
-
-      await RefreshTokenService.revokeRefreshToken(refreshToken);
-
-      console.log('✅ Logout realizado com sucesso');
-      res.json({ message: 'Logout realizado com sucesso' });
+      clearRefreshTokenCookie(res);
+      res.json({ ok: true });
     } catch (error) {
       console.error('❌ Erro no AuthController.logout:', error);
       next(error);
