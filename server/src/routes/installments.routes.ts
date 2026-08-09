@@ -1,15 +1,17 @@
 import { Router } from 'express';
 import { InstallmentsController } from '../controllers/installments.controller.js';
 import { authenticateJwt } from '../middleware/jwt.js';
+import { validate } from '../middleware/validate.js';
+import { installmentSchemas, commonSchemas } from '../schemas/index.js';
 
 const router = Router();
 
 router.use(authenticateJwt);
 
-router.get('/', InstallmentsController.list);
-router.get('/:id', InstallmentsController.getById);
-router.post('/', InstallmentsController.create);
-router.put('/:id/status', InstallmentsController.updateStatus);
-router.delete('/:id', InstallmentsController.cancel);
+router.get('/', validate({ query: installmentSchemas.listQuery }), InstallmentsController.list);
+router.get('/:id', validate({ params: commonSchemas.idParams }), InstallmentsController.getById);
+router.post('/', validate({ body: installmentSchemas.create }), InstallmentsController.create);
+router.put('/:id/status', validate({ params: commonSchemas.idParams, body: installmentSchemas.updateStatus }), InstallmentsController.updateStatus);
+router.delete('/:id', validate({ params: commonSchemas.idParams }), InstallmentsController.cancel);
 
 export default router;

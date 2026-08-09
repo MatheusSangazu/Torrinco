@@ -1,17 +1,17 @@
 import { Router } from 'express';
 import { CalendarController } from '../controllers/calendar.controller.js';
 import { authenticateJwt } from '../middleware/jwt.js';
+import { validate } from '../middleware/validate.js';
+import { calendarSchemas, commonSchemas } from '../schemas/index.js';
 
 const router = Router();
 
-// Todas as rotas de calendário requerem autenticação
 router.use(authenticateJwt);
 
-// Rotas RESTful para eventos do calendário
-router.post('/', CalendarController.create);
-router.get('/', CalendarController.list);
-router.get('/:id', CalendarController.getById);
-router.put('/:id', CalendarController.update);
-router.delete('/:id', CalendarController.delete);
+router.post('/', validate({ body: calendarSchemas.create }), CalendarController.create);
+router.get('/', validate({ query: calendarSchemas.listQuery }), CalendarController.list);
+router.get('/:id', validate({ params: commonSchemas.idParams }), CalendarController.getById);
+router.put('/:id', validate({ params: commonSchemas.idParams, body: calendarSchemas.update }), CalendarController.update);
+router.delete('/:id', validate({ params: commonSchemas.idParams }), CalendarController.delete);
 
 export default router;

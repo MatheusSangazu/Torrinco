@@ -1,22 +1,21 @@
 import { Router } from 'express';
 import { ReminderController } from '../controllers/reminder.controller.js';
 import { authenticateJwt } from '../middleware/jwt.js';
+import { validate } from '../middleware/validate.js';
+import { reminderSchemas, commonSchemas } from '../schemas/index.js';
 
 const router = Router();
 
-// Todas as rotas de lembretes requerem autenticação JWT
 router.use(authenticateJwt);
 
-// Rotas RESTful para lembretes
-router.post('/', ReminderController.create);
-router.get('/', ReminderController.list);
+router.post('/', validate({ body: reminderSchemas.create }), ReminderController.create);
+router.get('/', validate({ query: reminderSchemas.listQuery }), ReminderController.list);
 router.get('/due', ReminderController.listDue);
-router.get('/:id', ReminderController.getById);
-router.put('/:id', ReminderController.update);
-router.delete('/:id', ReminderController.delete);
+router.get('/:id', validate({ params: commonSchemas.idParams }), ReminderController.getById);
+router.put('/:id', validate({ params: commonSchemas.idParams, body: reminderSchemas.update }), ReminderController.update);
+router.delete('/:id', validate({ params: commonSchemas.idParams }), ReminderController.delete);
 
-// Rotas para logs de lembretes
-router.post('/logs', ReminderController.createLog);
-router.get('/logs', ReminderController.listLogs);
+router.post('/logs', validate({ body: reminderSchemas.createLog }), ReminderController.createLog);
+router.get('/logs', validate({ query: reminderSchemas.listQuery }), ReminderController.listLogs);
 
 export default router;
