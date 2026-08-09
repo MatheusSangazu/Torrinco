@@ -1,6 +1,33 @@
 import { prisma } from '../lib/prisma.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 
+function lastDayOfMonthUTC(year: number, monthIndex: number): number {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
+function clampDayOfMonthUTC(year: number, monthIndex: number, day: number): number {
+  return Math.min(day, lastDayOfMonthUTC(year, monthIndex));
+}
+
+function dateOnlyUTC(year: number, monthIndex: number, day: number): Date {
+  return new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
+}
+
+function asDateOnlyUTC(d: Date): Date {
+  return dateOnlyUTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function endOfDayUTC(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+}
+
+function shiftMonth(year: number, monthIndex: number, offset: number): { year: number; monthIndex: number } {
+  const m = monthIndex + offset;
+  const y = year + Math.floor(m / 12);
+  const mm = ((m % 12) + 12) % 12;
+  return { year: y, monthIndex: mm };
+}
+
 async function getAccountIdByUserId(userId: number): Promise<number> {
   const user = await prisma.users.findUnique({
     where: { id: userId },
@@ -51,33 +78,30 @@ export function computeBillPeriod(
     throw new Error(`due_day inválido: ${dueDay}. Configure o cartão com dia de vencimento (1-31).`);
   }
 
-  const year = refDate.getUTCFullYear();
-  const month = refDate.getUTCMonth();
+  const ref = asDateOnlyUTC(refDate);
+  const year = ref.getUTCFullYear();
+  const month = ref.getUTCMonth();
 
-  // Fechamento do mês corrente (fim do dia, UTC).
-  const closingThisMonth = new Date(Date.UTC(year, month, closingDay, 23, 59, 59, 999));
+  const closingThisMonth = dateOnlyUTC(year, month, clampDayOfMonthUTC(year, month, closingDay));
 
   let periodEnd: Date;
-  if (refDate.getTime() > closingThisMonth.getTime()) {
-    // Já passou do fechamento → a fatura aberta fecha no próximo mês.
-    periodEnd = new Date(Date.UTC(year, month + 1, closingDay, 23, 59, 59, 999));
+  if (ref.getTime() > closingThisMonth.getTime()) {
+    const next = shiftMonth(year, month, 1);
+    periodEnd = dateOnlyUTC(next.year, next.monthIndex, clampDayOfMonthUTC(next.year, next.monthIndex, closingDay));
   } else {
     periodEnd = closingThisMonth;
   }
 
-  // Início do período: dia seguinte ao fechamento do mês anterior ao periodEnd.
-  const prevClosing = new Date(Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth() - 1, closingDay));
+  const prev = shiftMonth(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), -1);
+  const prevClosing = dateOnlyUTC(prev.year, prev.monthIndex, clampDayOfMonthUTC(prev.year, prev.monthIndex, closingDay));
   const periodStart = new Date(prevClosing);
   periodStart.setUTCDate(periodStart.getUTCDate() + 1);
   periodStart.setUTCHours(0, 0, 0, 0);
 
-  // Vencimento: se dueDay < closingDay, vence no mês seguinte ao fechamento.
-  let dueDate: Date;
-  if (dueDay < closingDay) {
-    dueDate = new Date(Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth() + 1, dueDay));
-  } else {
-    dueDate = new Date(Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), dueDay));
-  }
+  const dueBase = dueDay < closingDay
+    ? shiftMonth(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), 1)
+    : { year: periodEnd.getUTCFullYear(), monthIndex: periodEnd.getUTCMonth() };
+  const dueDate = dateOnlyUTC(dueBase.year, dueBase.monthIndex, clampDayOfMonthUTC(dueBase.year, dueBase.monthIndex, dueDay));
 
   return { periodStart, periodEnd, closingDate: periodEnd, dueDate };
 }
@@ -95,21 +119,20 @@ export function computeBillPeriodByOffset(
   const current = computeBillPeriod(closingDay, dueDay, refDate);
   if (offset === 0) return current;
 
-  // Desloca o periodEnd por `offset` meses mantendo o dia de fechamento.
-  const baseEnd = new Date(current.periodEnd);
-  const targetEnd = new Date(Date.UTC(baseEnd.getUTCFullYear(), baseEnd.getUTCMonth() + offset, closingDay, 23, 59, 59, 999));
+  const baseEnd = asDateOnlyUTC(current.periodEnd);
+  const target = shiftMonth(baseEnd.getUTCFullYear(), baseEnd.getUTCMonth(), offset);
+  const targetEnd = dateOnlyUTC(target.year, target.monthIndex, clampDayOfMonthUTC(target.year, target.monthIndex, closingDay));
 
-  const prevClosing = new Date(Date.UTC(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth() - 1, closingDay));
+  const prev = shiftMonth(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth(), -1);
+  const prevClosing = dateOnlyUTC(prev.year, prev.monthIndex, clampDayOfMonthUTC(prev.year, prev.monthIndex, closingDay));
   const periodStart = new Date(prevClosing);
   periodStart.setUTCDate(periodStart.getUTCDate() + 1);
   periodStart.setUTCHours(0, 0, 0, 0);
 
-  let dueDate: Date;
-  if (dueDay < closingDay) {
-    dueDate = new Date(Date.UTC(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth() + 1, dueDay));
-  } else {
-    dueDate = new Date(Date.UTC(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth(), dueDay));
-  }
+  const dueBase = dueDay < closingDay
+    ? shiftMonth(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth(), 1)
+    : { year: targetEnd.getUTCFullYear(), monthIndex: targetEnd.getUTCMonth() };
+  const dueDate = dateOnlyUTC(dueBase.year, dueBase.monthIndex, clampDayOfMonthUTC(dueBase.year, dueBase.monthIndex, dueDay));
 
   return { periodStart, periodEnd: targetEnd, closingDate: targetEnd, dueDate };
 }
@@ -131,7 +154,8 @@ export async function getOrCreateCurrentBill(cardId: number, userId: number) {
 
   // status automático: se passou do fechamento e não foi paga → closed
   const now = new Date();
-  const autoStatus = now.getTime() > period.periodEnd.getTime() ? 'closed' : 'open';
+  const today = asDateOnlyUTC(now);
+  const autoStatus = today.getTime() > period.periodEnd.getTime() ? 'closed' : 'open';
 
   const bill = await prisma.card_bills.upsert({
     where: { card_id_period_start: { card_id: cardId, period_start: period.periodStart } },
@@ -182,12 +206,13 @@ export async function getBillByOffset(cardId: number, userId: number, offset: nu
  * projetadas (ainda não materializadas). Centraliza a composição da fatura.
  */
 async function getBillItems(cardId: number, userId: number, period: BillPeriod) {
+  const periodEndForQuery = endOfDayUTC(period.periodEnd);
   const transactions = await prisma.transactions.findMany({
     where: {
       user_id: userId,
       entity_id: cardId,
       type: 'expense',
-      transaction_date: { gte: period.periodStart, lte: period.periodEnd },
+      transaction_date: { gte: period.periodStart, lte: periodEndForQuery },
       deleted_at: null
     },
     include: { categories: true, purchase_installments: true },
@@ -356,7 +381,7 @@ export async function undoPayment(billId: number, userId: number) {
 
   const now = new Date();
   // status restaurado: se a fatura já fechou → closed, senão → open
-  const restoredStatus = now.getTime() > bill.period_end.getTime() ? 'closed' : 'open';
+  const restoredStatus = asDateOnlyUTC(now).getTime() > bill.period_end.getTime() ? 'closed' : 'open';
 
   return prisma.$transaction(async (tx) => {
     await tx.transactions.update({
@@ -390,6 +415,7 @@ export async function getHistory(cardId: number, userId: number, months: number 
   const historyLength = Math.min(months, 24);
 
   const result = [];
+  const today = asDateOnlyUTC(new Date());
   for (let i = 0; i < historyLength; i++) {
     const period = computeBillPeriodByOffset(closingDay, dueDay, -i);
 
@@ -411,7 +437,7 @@ export async function getHistory(cardId: number, userId: number, months: number 
       closing_date: period.closingDate,
       due_date: period.dueDate,
       bill_id: bill?.id ?? null,
-      status: bill?.status ?? (new Date().getTime() > period.dueDate.getTime() ? 'closed' : 'open'),
+      status: bill?.status ?? (today.getTime() > period.dueDate.getTime() ? 'closed' : 'open'),
       total_amount: total,
       item_count: items.length,
       items
@@ -430,12 +456,13 @@ export async function syncBillCycle(cardId: number, userId: number) {
   const { bill } = await getOrCreateCurrentBill(cardId, userId);
 
   // Fecha faturas abertas cujo período já encerrou.
+  const today = asDateOnlyUTC(new Date());
   await prisma.card_bills.updateMany({
     where: {
       card_id: cardId,
       user_id: userId,
       status: 'open',
-      period_end: { lt: new Date() }
+      period_end: { lt: today }
     },
     data: { status: 'closed', closed_at: new Date() }
   });
