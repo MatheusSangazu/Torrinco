@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { maskPhone } from '../lib/mask.js';
 
 interface EvolutionConfig {
   baseUrl: string;
@@ -46,7 +47,7 @@ export class EvolutionService {
         }
       );
 
-      console.log(`✅ Mensagem enviada para ${cleanPhone} via Evolution API`);
+      console.log(`✅ Mensagem enviada para ${maskPhone(cleanPhone)} via Evolution API`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Erro ao enviar mensagem via Evolution API:', error.message);
@@ -93,7 +94,7 @@ export class EvolutionService {
         caption: caption || ''
       };
 
-      console.log(`📤 Enviando documento para ${cleanPhone}. Tamanho base64: ${base64File.length}`);
+      console.log(`📤 Enviando documento para ${maskPhone(cleanPhone)}. Tamanho base64: ${base64File.length}`);
 
       const response = await axios.post(
         url,
@@ -106,7 +107,7 @@ export class EvolutionService {
         }
       );
 
-      console.log(`✅ Documento enviado para ${cleanPhone} via Evolution API`);
+      console.log(`✅ Documento enviado para ${maskPhone(cleanPhone)} via Evolution API`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Erro ao enviar documento via Evolution API:', error.message);
@@ -150,7 +151,7 @@ export class EvolutionService {
         }
       });
 
-      console.log(`✅ Mensagem com botões enviada para ${cleanPhone}`);
+      console.log(`✅ Mensagem com botões enviada para ${maskPhone(cleanPhone)}`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Erro ao enviar botões via Evolution API:', error.message);

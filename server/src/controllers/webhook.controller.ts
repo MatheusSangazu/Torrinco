@@ -6,6 +6,7 @@ import { processConversation } from '../services/agent/conversation.service.js';
 import { EvolutionService } from '../services/evolution.service.js';
 import type { IncomingMedia } from '../services/agent/media.service.js';
 import type { WebhookMessage } from '../services/agent/types.js';
+import { maskPhone } from '../lib/mask.js';
 
 /**
  * Webhook da Evolution API.
@@ -17,17 +18,13 @@ import type { WebhookMessage } from '../services/agent/types.js';
  * O buffer agrega mensagens (debounce 5s) e, ao estourar, processa via LLM e
  * responde no WPP. Por isso o webhook sempre retorna 200 rápido (não bloqueia
  * a Evolution).
+ *
+ * Segurança: payloads brutos NUNCA são mantidos em memória, retornados por
+ * endpoints ou registrados integralmente. Logs contêm apenas metadados
+ * mascarados (telefone mascarado, tipo de evento).
  */
 
-// Acumula os últimos 20 payloads recebidos para diagnóstico.
-const debugLog: Array<{ ts: string; event: string; eventKey: string; hasMessage: boolean; raw: any }> = [];
-
 export class WebhookController {
-  /** Log de debug — GET /webhooks/debug mostra os últimos payloads. */
-  static debug(_req: Request, res: Response): void {
-    res.json({ count: debugLog.length, payloads: debugLog });
-  }
-
   static async evolution(req: Request, res: Response): Promise<void> {
     // ACK imediato — a Evolution não deve esperar o processamento.
     res.status(200).json({ received: true });
@@ -35,16 +32,8 @@ export class WebhookController {
     const event = req.body?.event;
     const data = req.body?.data;
 
-    // DEBUG: registra o payload bruto (primeiros níveis) para diagnóstico.
-    const eventKey = data?.key?.remoteJid ?? data?.key?.id ?? 'sem-key';
-    debugLog.unshift({
-      ts: new Date().toISOString(),
-      event: event ?? '(sem event)',
-      eventKey: typeof eventKey === 'string' ? eventKey : JSON.stringify(eventKey),
-      hasMessage: !!data?.message,
-      raw: JSON.stringify(req.body)
-    });
-    if (debugLog.length > 5) debugLog.pop();
+    // Log seguro: apenas metadados do evento (nunca o payload bruto).
+    console.log(`[webhook] evento recebido: ${event ?? '(sem event)'}`);
 
     // Só interessa mensagem recebida (não enviada, não status).
     // A Evolution usa eventos como "messages.upsert" com type "notify" para recebidas.
@@ -67,7 +56,7 @@ export class WebhookController {
     if (!eligibility.ok) {
       // Loga motivos esperados em debug, sem poluir.
       if (eligibility.reason && !['self_message', 'group_message'].includes(eligibility.reason)) {
-        console.log(`[webhook] Mensagem de ${phone} ignorada: ${eligibility.reason}`);
+        console.log(`[webhook] Mensagem de ${maskPhone(phone)} ignorada: ${eligibility.reason}`);
       }
       return;
     }
@@ -77,7 +66,7 @@ export class WebhookController {
     const media = classifyMessage(data);
     if (!media) {
       // Tipo não reconhecido — avisa o usuário em vez de silenciar.
-      console.warn('[webhook] Tipo de mensagem não reconhecido de', phone);
+      console.warn('[webhook] Tipo de mensagem não reconhecido de', maskPhone(phone));
       await EvolutionService.sendText(phone, 'Recebi sua mensagem mas não consegui processar esse tipo de arquivo. Tente enviar como texto, imagem, PDF ou planilha. 😊');
       return;
     }
@@ -94,7 +83,7 @@ export class WebhookController {
 
     // Se a mídia não foi processada com sucesso, avisa explicitamente.
     if (message.mediaType === 'unknown') {
-      console.warn('[webhook] Mídia não processada:', message.text);
+      console.warn('[webhook] Mídia não processada (tipo unknown)');
       await EvolutionService.sendText(
         phone,
         'Não consegui ler este arquivo. Se for uma foto de comprovante ou nota, tente enviar mais nítida. Se for um PDF ou planilha, posso tentar de novo. 😊'

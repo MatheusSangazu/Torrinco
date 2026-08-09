@@ -15,6 +15,5 @@ import { verifyEvolutionApiKey } from '../middleware/verifyWebhook.js';
 const router = Router();
 
 router.post('/evolution', verifyEvolutionApiKey, WebhookController.evolution);
-router.get('/debug', WebhookController.debug);
 
 export default router;

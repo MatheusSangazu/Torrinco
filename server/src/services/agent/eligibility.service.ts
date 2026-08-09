@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { maskPhone } from '../../lib/mask.js';
 import type { EligibilityResult } from './types.js';
 
 /**
@@ -29,9 +30,9 @@ export async function checkEligibility(
   const cleanPhone = phone.replace(/\D/g, '');
 
   // Normalização de nono dígito brasileiro: o WhatsApp pode enviar o número
-  // com ou sem o "9" do celular. Tentamos as 3 variações.
-  //   5579981003085 (com 9, 13 dígitos)
-  //   557981003085  (sem 9, 12 dígitos)
+  // com ou sem o "9" do celular. Tentamos as variações.
+  //   55XXXXXXXXXXX (com 9, 13 dígitos)
+  //   55XXXXXXXXXX  (sem 9, 12 dígitos)
   const variants = new Set<string>([cleanPhone]);
   if (cleanPhone.length === 12 && cleanPhone.startsWith('55')) {
     // Sem o 9 → adiciona (após DDI+DDD = 4 dígitos).
@@ -53,7 +54,7 @@ export async function checkEligibility(
     if (process.env.ALLOW_AUTO_ONBOARDING === 'true') {
       try {
         const created = await autoOnboard(cleanPhone);
-        console.log(`[onboarding] Nova conta trial criada: phone=${cleanPhone} user=${created.userId}`);
+        console.log(`[onboarding] Nova conta trial criada: phone=${maskPhone(cleanPhone)} user=${created.userId}`);
         return { ok: true, userId: created.userId };
       } catch (err) {
         // Concorrência: outra request criou o usuário entre o find e o create.

@@ -38,3 +38,12 @@ pnpm-debug.log*
 
 # Docs (Local only)
 docs/
+
+# Ferramentas / binários de terceiros (não devem ser versionados)
+ngrok.exe
+ngrok
+/ngrok*
+
+# Artefatos de build do cliente (PWA service worker gerado)
+/client/dev-dist/
+/client/dist/

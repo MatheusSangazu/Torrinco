@@ -1,18 +1,23 @@
 import { prisma } from '../lib/prisma.js';
 
 /**
- * Cria contas beta (plano individual, 1 ano grátis) para a lista de amigos.
+ * Cria contas beta (plano individual, 1 ano grátis) para uma lista de usuários.
  * Idempotente: se o telefone já existe, pula.
  *
  * Rodar: npx tsx scripts/seed-beta-users.ts
+ *
+ * NOTA: os dados abaixo são FIXTURES fictícias — não correspondem a pessoas reais.
+ * Para criar contas reais, ajuste esta lista (ou use env vars) apenas em ambiente
+ * local e nunca versione dados pessoais reais.
  */
 async function main() {
+  // Fixtures fictícias (números de teste não atribuídos a pessoas reais).
   const betaUsers = [
-    { name: 'Matheus Henrique', phone: '557981003085' },
-    { name: 'Kaua Costa',       phone: '557991392249' },
-    { name: 'Vinicius',         phone: '557998737373' },
-    { name: 'Ronie',            phone: '557999954473' },
-    { name: 'Pedro',            phone: '553599167985' },
+    { name: 'Usuário Teste Alpha', phone: '5511999990001' },
+    { name: 'Usuário Teste Beta',  phone: '5511999990002' },
+    { name: 'Usuário Teste Gamma', phone: '5511999990003' },
+    { name: 'Usuário Teste Delta', phone: '5511999990004' },
+    { name: 'Usuário Teste Epsilon', phone: '5511999990005' },
   ];
 
   const plan = await prisma.plans.findUnique({ where: { name: 'individual' } });

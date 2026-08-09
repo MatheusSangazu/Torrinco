@@ -203,7 +203,7 @@ export async function processConversation(
       }
       try {
         const result = await executor(userId, call.arguments);
-        console.log(`[tool] ${call.name} OK:`, JSON.stringify(result).slice(0, 200));
+        console.log(`[tool] ${call.name} OK`);
         toolResults.push({ id: call.id, name: call.name, result });
       } catch (err: any) {
         console.error(`[tool] ${call.name} ERRO:`, err?.message);

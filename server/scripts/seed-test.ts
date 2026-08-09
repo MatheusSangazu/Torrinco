@@ -6,7 +6,8 @@
 import 'dotenv/config';
 import { prisma } from '../src/lib/prisma.js';
 
-const PHONE = '5579981003085';
+// Fixture fictícia para testes (não corresponde a pessoa real).
+const PHONE = '5511999990001';
 
 async function main() {
   // Conta
@@ -19,7 +20,7 @@ async function main() {
     data: {
       account_id: account.id,
       phone_number: PHONE,
-      name: 'Matheus',
+      name: 'Usuário Teste',
       role: 'admin',
       status: 'active'
     }
