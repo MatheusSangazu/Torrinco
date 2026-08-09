@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class CategoriesController {
   /**
@@ -9,7 +10,7 @@ export class CategoriesController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const accountId = req.accountId!;
-      const { type } = req.query;
+      const { type } = getValidatedQuery(req);
 
       const where: any = { account_id: accountId };
       if (type) where.type = type;

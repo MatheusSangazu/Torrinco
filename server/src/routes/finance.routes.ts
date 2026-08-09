@@ -14,7 +14,7 @@ router.use(auditFinancialMutation);
 router.get('/summary', validate({ query: financeSchemas.summaryQuery }), FinanceController.getSummary);
 router.get('/forecast', validate({ query: financeSchemas.forecastQuery }), FinanceController.getForecast);
 router.post('/transactions', validate({ body: financeSchemas.create }), FinanceController.create);
-router.get('/transactions', validate({ query: financeSchemas.summaryQuery }), FinanceController.list);
+router.get('/transactions', validate({ query: commonSchemas.transactionListQuery }), FinanceController.list);
 router.get('/transactions/:id', validate({ params: commonSchemas.idParams }), FinanceController.getById);
 router.put('/transactions/:id', validate({ params: commonSchemas.idParams, body: financeSchemas.update }), FinanceController.update);
 router.delete('/transactions/:id', validate({ params: commonSchemas.idParams, query: financeSchemas.deleteQuery }), FinanceController.delete);

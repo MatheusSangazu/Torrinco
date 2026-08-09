@@ -6,6 +6,7 @@ import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 import * as billing from '../services/billing.service.js';
 import * as summary from '../services/summary.service.js';
 import { requireUserInAccount, getCategoryForAccount, getEntityForAccount, OwnershipError } from '../services/ownership.service.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class FinanceController {
   /**
@@ -31,7 +32,7 @@ export class FinanceController {
       const accountId = req.accountId!;
 
       // Se for admin e enviar target_user_id, valida que o alvo pertence à mesma conta.
-      if (req.userRole === 'admin' && target_user_id) {
+      if ((req.userRole === 'owner' || req.userRole === 'admin') && target_user_id) {
         await requireUserInAccount(Number(target_user_id), accountId);
         userId = Number(target_user_id);
       }
@@ -147,7 +148,7 @@ export class FinanceController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {
-      const { start_date, end_date, type, category, status } = req.query;
+      const { start_date, end_date, type, category, status } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const where: any = {
@@ -366,7 +367,7 @@ export class FinanceController {
     
     try {
       const { id } = req.params;
-      const { delete_type, is_projected, date } = req.query;
+      const { delete_type, is_projected, date } = getValidatedQuery(req);
       const userId = req.userId!;
 
       if (!id) {
@@ -483,8 +484,8 @@ export class FinanceController {
     try {
       let userId = req.userId!;
       const accountId = req.accountId!;
-      const { period, target_user_id } = req.query;
-      if (req.userRole === 'admin' && target_user_id) {
+      const { period, target_user_id } = getValidatedQuery(req);
+      if ((req.userRole === 'owner' || req.userRole === 'admin') && target_user_id) {
         await requireUserInAccount(Number(target_user_id), accountId);
         userId = Number(target_user_id);
       }
@@ -503,11 +504,11 @@ export class FinanceController {
     try {
       let userId = req.userId!;
       const accountId = req.accountId!;
-      const { target_user_id } = req.query;
-      const period = (req.query.period as string) || 'next_month';
+      const { target_user_id, period: requestedPeriod } = getValidatedQuery(req);
+      const period = (requestedPeriod as string) || 'next_month';
 
       // Se for admin e enviar target_user_id, valida que o alvo pertence à mesma conta.
-      if (req.userRole === 'admin' && target_user_id) {
+      if ((req.userRole === 'owner' || req.userRole === 'admin') && target_user_id) {
         await requireUserInAccount(Number(target_user_id), accountId);
         userId = Number(target_user_id);
       }

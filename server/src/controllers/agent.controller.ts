@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import type { JwtRequest } from '../middleware/jwt.js';
 import * as agent from '../services/agent.service.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 /**
  * Controller casca fina: mapeia intents HTTP → agent.service.
@@ -55,7 +56,7 @@ export class AgentController {
 
   static async cardBill(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { card_name } = req.query;
+      const { card_name } = getValidatedQuery(req);
       if (!card_name) return res.status(400).json({ error: 'card_name é obrigatório' });
       const result = await agent.getCardBill(req.userId!, String(card_name));
       res.json(result);
@@ -97,8 +98,7 @@ export class AgentController {
 
   static async cardHistory(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { card_name } = req.query;
-      const { months } = req.query;
+      const { card_name, months } = getValidatedQuery(req);
       if (!card_name) return res.status(400).json({ error: 'card_name é obrigatório' });
       const result = await agent.getCardHistory(req.userId!, String(card_name), Number(months ?? 6));
       res.json(result);

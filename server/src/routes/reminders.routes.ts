@@ -10,7 +10,7 @@ router.use(authenticateJwt);
 
 router.post('/', validate({ body: reminderSchemas.create }), ReminderController.create);
 router.get('/', validate({ query: reminderSchemas.listQuery }), ReminderController.list);
-router.get('/due', ReminderController.listDue);
+router.get('/due', validate({ query: reminderSchemas.dueQuery }), ReminderController.listDue);
 router.get('/:id', validate({ params: commonSchemas.idParams }), ReminderController.getById);
 router.put('/:id', validate({ params: commonSchemas.idParams, body: reminderSchemas.update }), ReminderController.update);
 router.delete('/:id', validate({ params: commonSchemas.idParams }), ReminderController.delete);

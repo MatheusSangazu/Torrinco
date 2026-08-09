@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class ReminderController {
   /**
@@ -38,7 +39,7 @@ export class ReminderController {
    */
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { status, frequency } = req.query;
+      const { status, frequency } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const where: any = { user_id: userId };
@@ -184,7 +185,7 @@ export class ReminderController {
    */
   static async listLogs(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { source_type, limit = 50 } = req.query;
+      const { source_type, limit = 50 } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const where: any = { user_id: userId };
@@ -210,6 +211,9 @@ export class ReminderController {
   static async listDue(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.userId!;
+      // Mantém o parâmetro normalizado disponível para evolução do horizonte
+      // sem ler novamente o getter req.query do Express 5.
+      getValidatedQuery<{ days?: number }>(req);
 
       const now = new Date();
       const currentHour = now.getHours();

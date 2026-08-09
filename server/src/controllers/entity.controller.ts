@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class EntityController {
   /**
@@ -56,7 +57,7 @@ export class EntityController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
 
     try {
-      const { type } = req.query;
+      const { type } = getValidatedQuery(req);
       const accountId = req.accountId!;
 
       const where: any = { account_id: accountId };

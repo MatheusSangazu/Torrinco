@@ -4,6 +4,7 @@ import type { JwtRequest } from '../middleware/jwt.js';
 import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
 import * as recurringService from '../services/recurring.service.js';
 import { getCategoryForAccount, getEntityForAccount } from '../services/ownership.service.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class RecurringController {
   /**
@@ -58,7 +59,7 @@ export class RecurringController {
    */
   static async listTransactions(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { status, type } = req.query;
+      const { status, type } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const where: any = { user_id: userId };
@@ -187,7 +188,7 @@ export class RecurringController {
    */
   static async listDue(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { days = 7 } = req.query;
+      const { days = 7 } = getValidatedQuery(req);
       const userId = req.userId!;
       const dueTransactions = await recurringService.listDueSoon(userId, Number(days));
       res.json({ dueTransactions });

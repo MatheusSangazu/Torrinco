@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "platform-owner": "tsx scripts/platform-owner.ts"
   },
   "keywords": [],
   "author": "Matheus",

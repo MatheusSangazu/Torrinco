@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class CalendarController {
   /**
@@ -38,7 +39,7 @@ export class CalendarController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     
     try {
-      const { start_date, end_date } = req.query;
+      const { start_date, end_date } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const where: any = { user_id: userId };

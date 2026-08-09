@@ -22,6 +22,8 @@ import webhookRoutes from './routes/webhooks.routes.js';
 import googleRoutes from './routes/google.routes.js';
 import userDataRoutes from './routes/user_data.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
+import platformAdminRoutes from './routes/platform-admin.routes.js';
+import invitationRoutes from './routes/invitation.routes.js';
 import { LegalController } from './controllers/legal.controller.js';
 import { apiLimiter } from './middleware/rate-limiter.js';
 import { schedulerHealthSnapshot } from './services/job-runtime.service.js';
@@ -136,6 +138,8 @@ app.use('/api/agent', agentRoutes);
 app.use('/api/google', googleRoutes);
 app.use('/api/user', userDataRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/platform-admin', platformAdminRoutes);
+app.use('/api/invitations', invitationRoutes);
 app.use('/webhooks', webhookRoutes);
 
 

@@ -615,7 +615,8 @@ export class AuthController {
       const refreshToken = getRefreshTokenFromCookies(req as any) ?? req.body?.refreshToken;
 
       if (!refreshToken) {
-        return res.status(400).json({ error: 'Refresh token é obrigatório' });
+        // Ausência de cookie significa apenas que não há sessão restaurável.
+        return res.status(204).end();
       }
 
       const { accessToken, refreshToken: newRefreshToken } = await RefreshTokenService.rotateRefreshToken(refreshToken);

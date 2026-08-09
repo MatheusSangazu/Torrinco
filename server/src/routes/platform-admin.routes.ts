@@ -1,0 +1,27 @@
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
+import { PlatformAdminController } from '../controllers/platform-admin.controller.js';
+import { authenticatePlatformIdentity,requirePlatformOwner,requireRecentAuthentication } from '../middleware/platform-admin.js';
+import { validate } from '../middleware/validate.js';
+import { commonSchemas } from '../schemas/index.js';
+
+const router=Router();
+router.use(rateLimit({windowMs:15*60_000,max:100,standardHeaders:true,legacyHeaders:false}));
+router.use(authenticatePlatformIdentity,requirePlatformOwner);
+const reason=z.string().trim().min(5).max(500);
+const accountQuery=z.object({search:z.string().max(100).optional(),plan:z.string().max(50).optional(),status:z.enum(['trial','active','expired','past_due','cancelled','suspended']).optional(),origin:z.string().max(30).optional(),from:z.string().max(50).optional(),to:z.string().max(50).optional()});
+const tester=z.object({name:z.string().trim().min(2).max(100),phone_number:z.string().regex(/^\+?\d[\d\s()-]{7,29}$/),email:z.string().email().max(150).optional(),trial_days:z.coerce.number().int().min(1).max(365),plan:z.string().max(50),note:z.string().max(500).optional()}).strict();
+const change=z.object({status:z.enum(['trial','active','expired','past_due','cancelled','suspended']).optional(),planName:z.string().max(50).optional(),trialDays:z.coerce.number().int().min(1).max(365).optional(),temporaryDays:z.coerce.number().int().min(1).max(90).optional(),reason}).strict();
+router.get('/me',(_req,res)=>res.json({role:'platform_owner'}));
+router.get('/dashboard',PlatformAdminController.dashboard);
+router.get('/accounts',validate({query:accountQuery}),PlatformAdminController.accounts);
+router.get('/accounts/:id',validate({params:commonSchemas.idParams}),PlatformAdminController.account);
+router.get('/audit',PlatformAdminController.history);
+router.use(requireRecentAuthentication);
+router.post('/testers',validate({body:tester}),PlatformAdminController.tester);
+router.post('/invitations/:id/resend',validate({params:commonSchemas.idParams}),PlatformAdminController.resend);
+router.post('/invitations/:id/revoke',validate({params:commonSchemas.idParams}),PlatformAdminController.revoke);
+router.patch('/accounts/:id',validate({params:commonSchemas.idParams,body:change}),PlatformAdminController.change);
+router.post('/users/:id/revoke-sessions',validate({params:commonSchemas.idParams,body:z.object({reason}).strict()}),PlatformAdminController.revokeSessions);
+export default router;

@@ -1,6 +1,20 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z, type ZodSchema } from 'zod';
 
+export interface ValidatedRequestData {
+  body?: unknown;
+  query?: unknown;
+  params?: unknown;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      validated?: ValidatedRequestData;
+    }
+  }
+}
+
 /**
  * Middleware factory de validação com Zod.
  *
@@ -42,8 +56,16 @@ export function validate(schemas: ValidationSchemas) {
       if (!result.success) {
         allDetails.push(...formatZodError(result.error));
       } else {
-        // Substitui pelo dado validado/normalizado (strip de campos extras).
-        (req as any)[source] = result.data;
+        // Express 5 expõe req.query por um getter sem setter. O resultado
+        // normalizado do Zod fica em um local estável para todos os alvos.
+        req.validated ??= {};
+        req.validated[source] = result.data;
+
+        // body e params são propriedades graváveis no Express 5 e continuam
+        // substituídos para preservar a compatibilidade dos handlers existentes.
+        // query deve ser lida exclusivamente pelos helpers abaixo.
+        if (source === 'body') req.body = result.data;
+        if (source === 'params') req.params = result.data as Request['params'];
       }
     }
 
@@ -57,6 +79,18 @@ export function validate(schemas: ValidationSchemas) {
 
     next();
   };
+}
+
+export function getValidatedBody<T = Record<string, unknown>>(req: Request): T {
+  return (req.validated?.body ?? req.body) as T;
+}
+
+export function getValidatedQuery<T = Record<string, any>>(req: Request): T {
+  return (req.validated?.query ?? req.query) as T;
+}
+
+export function getValidatedParams<T = Record<string, unknown>>(req: Request): T {
+  return (req.validated?.params ?? req.params) as T;
 }
 
 // ── Helpers reutilizáveis ────────────────────────────────────────

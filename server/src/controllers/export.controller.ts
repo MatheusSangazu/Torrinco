@@ -3,11 +3,12 @@ import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import * as XLSX from 'xlsx';
 import { EvolutionService } from '../services/evolution.service.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 export class ExportController {
   static async exportToExcel(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { start_date, end_date, type, category, status } = req.query;
+      const { start_date, end_date, type, category, status } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const where: any = {
@@ -94,7 +95,7 @@ export class ExportController {
 
   static async sendReportToWhatsApp(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { start_date, end_date, type, category, status } = req.query;
+      const { start_date, end_date, type, category, status } = getValidatedQuery(req);
       const userId = req.userId!;
 
       const user = await prisma.users.findUnique({

@@ -405,6 +405,10 @@ export const reminderSchemas = {
     source_type: z.string().max(100).optional(),
     limit: positiveInt.max(500).optional(),
   }),
+
+  dueQuery: z.object({
+    days: positiveInt.max(365).optional(),
+  }),
 };
 
 // ── Calendar ─────────────────────────────────────────────────────

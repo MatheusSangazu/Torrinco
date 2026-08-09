@@ -76,7 +76,7 @@ async function main() {
           account_id: account.id,
           name: u.name,
           phone_number: phone,
-          role: 'admin',
+          role: 'owner',
           status: 'active'
         }
       });

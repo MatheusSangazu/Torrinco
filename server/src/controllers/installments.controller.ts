@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import * as installmentsService from '../services/installments.service.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 interface CreateInstallmentDTO {
   entity_id: number;
@@ -43,7 +44,7 @@ export class InstallmentsController {
   static async list(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.userId!;
-      const { entity_id, status } = req.query;
+      const { entity_id, status } = getValidatedQuery(req);
 
       const where: any = {
         user_id: userId

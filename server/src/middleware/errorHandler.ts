@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'node:crypto';
 
 export const errorHandler = (
   error: any,
@@ -6,7 +7,12 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  console.error('Error:', error);
+  const occurrenceId = randomUUID();
+  console.error(`[${occurrenceId}] Unhandled request error`, {
+    method: req.method,
+    path: req.originalUrl,
+    error,
+  });
 
   if (error.code === 'P2002') {
     return res.status(409).json({ error: 'Record already exists' });
@@ -16,8 +22,16 @@ export const errorHandler = (
     return res.status(404).json({ error: 'Record not found' });
   }
 
-  const statusCode = error.statusCode || 500;
-  const message = error.message || 'Internal server error';
+  const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+
+  if (statusCode >= 500 && process.env.NODE_ENV === 'production') {
+    return res.status(statusCode).json({
+      error: 'Erro interno do servidor',
+      occurrenceId,
+    });
+  }
+
+  const message = error?.message || 'Internal server error';
 
   res.status(statusCode).json({
     error: message,

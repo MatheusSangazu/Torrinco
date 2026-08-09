@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import * as billing from '../services/billing.service.js';
 import { assertWithinLimit } from '../services/subscription.service.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 /** Mapeia códigos de erro do service de billing para status HTTP. */
 function billingErrorStatus(code: string): number {
@@ -158,7 +159,7 @@ export class CardsController {
   static async getBillHistory(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { months = 6 } = req.query;
+      const { months = 6 } = getValidatedQuery(req);
       const userId = req.userId!;
       const bills = await billing.getHistory(Number(id), userId, Number(months));
       res.json({ bills });
@@ -216,7 +217,7 @@ export class CardsController {
   static async getBillByOffset(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const offset = Number(req.query.offset ?? 0);
+      const offset = Number(getValidatedQuery(req).offset ?? 0);
       const userId = req.userId!;
       const result = await billing.getBillByOffset(Number(id), userId, offset);
       if (!result.bill) {

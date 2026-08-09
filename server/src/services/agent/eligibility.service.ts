@@ -3,6 +3,7 @@ import { maskPhone } from '../../lib/mask.js';
 import type { EligibilityResult } from './types.js';
 import { assertFeature } from '../subscription.service.js';
 import { recordCurrentConsents } from '../privacy.service.js';
+import { AccountProvisioningService } from '../account-provisioning.service.js';
 
 /**
  * Checagens de elegibilidade que rodam ANTES de qualquer processamento.
@@ -91,6 +92,12 @@ export async function checkEligibility(
  * (race condition), rejeita e o caller trata como user_not_found.
  */
 async function autoOnboard(phone: string): Promise<{ userId: number; accountId: number }> {
+  const provisioned = await AccountProvisioningService.provision({
+    name: 'Minha Conta', phone, planName: 'individual', trialDays: 14,
+    origin: 'whatsapp_onboarding',
+  });
+  return { userId: provisioned.user.id, accountId: provisioned.account.id };
+  /* Legacy implementation retained temporarily for migration traceability.
   return prisma.$transaction(async (tx) => {
     // Busca o plano padrão "individual" (id=1 após seed).
     const individualPlan = await tx.plans.findUnique({ where: { name: 'individual' } });
@@ -114,4 +121,5 @@ async function autoOnboard(phone: string): Promise<{ userId: number; accountId: 
     });
     return { userId: newUser.id, accountId: account.id };
   });
+  */
 }

@@ -19,6 +19,7 @@ model plans {
   created_at    DateTime  @default(now()) @db.DateTime(0)
   accounts      accounts[]
   subscription_history subscription_history[]
+  commerce_orders commerce_orders[]
 }
 
 model accounts {
@@ -31,12 +32,18 @@ model accounts {
   grace_period_ends_at DateTime?    @db.DateTime(0)
   cancelled_at DateTime?            @db.DateTime(0)
   created_at    DateTime?           @default(now()) @db.DateTime(0)
+  origin        String              @default("legacy") @db.VarChar(30)
   plans         plans               @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_plan_fk")
   transactions  transactions[]
   users         users[]
   financial_entities financial_entities[]
   categories    categories[]
   subscription_history subscription_history[]
+  account_invitations account_invitations[]
+  platform_admin_audit platform_admin_audit[]
+  account_members account_members[]
+  commerce_orders commerce_orders[]
+  billing_subscriptions billing_subscriptions[]
 
   @@index([plan_id], map: "accounts_plan_idx")
 }
@@ -71,6 +78,103 @@ model billing_webhook_events {
   processed_at      DateTime? @db.DateTime(0)
 
   @@unique([provider, provider_event_id])
+}
+
+model account_members {
+  id          Int          @id @default(autoincrement())
+  account_id  Int
+  user_id     Int
+  role        users_role   @default(member)
+  status      users_status @default(active)
+  created_at  DateTime     @default(now()) @db.DateTime(3)
+  accounts    accounts     @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([account_id, user_id])
+  @@index([user_id, status])
+}
+
+model commerce_orders {
+  id                 Int                   @id @default(autoincrement())
+  public_id          String                @unique @db.VarChar(36)
+  idempotency_key    String                @unique @db.VarChar(100)
+  user_id            Int?
+  account_id         Int?
+  plan_id            Int
+  customer_name      String                @db.VarChar(100)
+  customer_phone     String                @db.VarChar(30)
+  customer_email     String?               @db.VarChar(150)
+  expected_amount    Decimal               @db.Decimal(10, 2)
+  currency           String                @default("BRL") @db.VarChar(3)
+  billing_period_days Int                  @default(30)
+  status             commerce_order_status @default(pending)
+  review_reason      String?               @db.VarChar(255)
+  created_at         DateTime              @default(now()) @db.DateTime(3)
+  updated_at         DateTime              @updatedAt @db.DateTime(3)
+  users              users?                @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  accounts           accounts?             @relation(fields: [account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  plans              plans                 @relation(fields: [plan_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  billing_checkouts  billing_checkouts[]
+  billing_payments   billing_payments[]
+  billing_subscriptions billing_subscriptions[]
+
+  @@index([status, created_at])
+  @@index([customer_phone])
+}
+
+model billing_checkouts {
+  id                   Int             @id @default(autoincrement())
+  order_id             Int
+  provider             String          @db.VarChar(50)
+  external_checkout_id String          @db.VarChar(191)
+  status               checkout_status @default(created)
+  checkout_url         String?         @db.VarChar(1000)
+  expires_at           DateTime?       @db.DateTime(3)
+  created_at           DateTime        @default(now()) @db.DateTime(3)
+  updated_at           DateTime        @updatedAt @db.DateTime(3)
+  orders               commerce_orders @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, external_checkout_id])
+  @@index([order_id, status])
+}
+
+model billing_payments {
+  id                  Int            @id @default(autoincrement())
+  order_id            Int
+  provider            String         @db.VarChar(50)
+  external_payment_id String         @db.VarChar(191)
+  amount              Decimal        @db.Decimal(10, 2)
+  currency            String         @db.VarChar(3)
+  status              payment_status @default(pending)
+  paid_at             DateTime?      @db.DateTime(3)
+  refunded_at         DateTime?      @db.DateTime(3)
+  created_at          DateTime       @default(now()) @db.DateTime(3)
+  updated_at          DateTime       @updatedAt @db.DateTime(3)
+  orders              commerce_orders @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, external_payment_id])
+  @@index([order_id, status])
+}
+
+model billing_subscriptions {
+  id                       Int                 @id @default(autoincrement())
+  order_id                 Int
+  account_id               Int
+  provider                 String              @db.VarChar(50)
+  external_customer_id     String?             @db.VarChar(191)
+  external_subscription_id String?             @db.VarChar(191)
+  status                   billing_subscription_status @default(pending)
+  current_period_starts_at DateTime?           @db.DateTime(3)
+  current_period_ends_at   DateTime?           @db.DateTime(3)
+  last_event_at            DateTime?           @db.DateTime(3)
+  created_at               DateTime            @default(now()) @db.DateTime(3)
+  updated_at               DateTime            @updatedAt @db.DateTime(3)
+  orders                   commerce_orders     @relation(fields: [order_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  accounts                 accounts            @relation(fields: [account_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([provider, external_subscription_id])
+  @@index([account_id, status])
+  @@index([order_id])
 }
 
 model budgets {
@@ -481,6 +585,13 @@ model users {
   legal_consents         legal_consents[]
   data_subject_requests  data_subject_requests[]
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
+  platform_roles         platform_user_roles[]
+  created_invitations    account_invitations[]     @relation("invitation_creator")
+  invitation_user        account_invitations[]     @relation("invitation_user")
+  platform_audit_actor   platform_admin_audit[]    @relation("platform_audit_actor")
+  platform_audit_target  platform_admin_audit[]    @relation("platform_audit_target")
+  account_members        account_members[]
+  commerce_orders        commerce_orders[]
 
   @@index([account_id], map: "account_id")
 }
@@ -576,8 +687,78 @@ enum reminders_frequency {
 }
 
 enum users_role {
+  owner
   admin
   member
+}
+
+enum platform_role {
+  platform_owner
+  platform_support
+}
+
+enum invitation_status {
+  pending
+  sent
+  accepted
+  expired
+  revoked
+}
+
+model platform_user_roles {
+  id          Int           @id @default(autoincrement())
+  user_id     Int
+  role        platform_role
+  created_at  DateTime      @default(now()) @db.DateTime(3)
+  revoked_at  DateTime?     @db.DateTime(3)
+  users       users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, role])
+  @@index([role, revoked_at])
+}
+
+model account_invitations {
+  id              Int               @id @default(autoincrement())
+  user_id         Int
+  account_id      Int
+  purpose         String            @db.VarChar(40)
+  token_hash      String            @unique @db.VarChar(64)
+  status          invitation_status @default(pending)
+  expires_at      DateTime          @db.DateTime(3)
+  send_count      Int               @default(0)
+  created_by      Int?
+  accepted_at     DateTime?         @db.DateTime(3)
+  revoked_at      DateTime?         @db.DateTime(3)
+  metadata        Json?
+  created_at      DateTime          @default(now()) @db.DateTime(3)
+  updated_at      DateTime          @updatedAt @db.DateTime(3)
+  users           users             @relation("invitation_user", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounts        accounts          @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator         users?            @relation("invitation_creator", fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([account_id, status])
+  @@index([user_id, purpose, status])
+}
+
+model platform_admin_audit {
+  id              BigInt    @id @default(autoincrement())
+  actor_user_id   Int
+  target_user_id  Int?
+  target_account_id Int?
+  action          String    @db.VarChar(80)
+  reason          String?   @db.VarChar(500)
+  outcome         String    @db.VarChar(20)
+  ip_hash         String?   @db.VarChar(64)
+  user_agent      String?   @db.VarChar(255)
+  metadata        Json?
+  created_at      DateTime  @default(now()) @db.DateTime(3)
+  actor           users     @relation("platform_audit_actor", fields: [actor_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  target_user     users?    @relation("platform_audit_target", fields: [target_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  target_account  accounts? @relation(fields: [target_account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([actor_user_id, created_at])
+  @@index([target_account_id, created_at])
+  @@index([action, created_at])
 }
 
 enum reminder_logs_reminder_type {
@@ -588,6 +769,38 @@ enum reminder_logs_reminder_type {
 enum users_status {
   active
   inactive
+}
+
+enum commerce_order_status {
+  pending
+  checkout_created
+  paid
+  failed
+  cancelled
+  refunded
+  review
+}
+
+enum checkout_status {
+  created
+  pending
+  completed
+  expired
+  cancelled
+}
+
+enum payment_status {
+  pending
+  approved
+  failed
+  refunded
+}
+
+enum billing_subscription_status {
+  pending
+  active
+  past_due
+  cancelled
 }
 
 enum transactions_type {

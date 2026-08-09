@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { getAuthUrl, exchangeCode, verifyState, isConnected, invalidateClient, disconnectGoogle } from '../services/google/auth.service.js';
 import { privacyAudit } from '../services/privacy.service.js';
 import type { JwtRequest } from '../middleware/jwt.js';
+import { getValidatedQuery } from '../middleware/validate.js';
 
 /**
  * Controller do fluxo OAuth2 do Google.
@@ -31,9 +32,10 @@ export class GoogleController {
    */
   static async callback(req: Request, res: Response, next: NextFunction) {
     try {
-      const code = req.query.code as string | undefined;
-      const state = req.query.state as string | undefined;
-      const errorParam = req.query.error as string | undefined;
+      const query = getValidatedQuery(req);
+      const code = query.code as string | undefined;
+      const state = query.state as string | undefined;
+      const errorParam = query.error as string | undefined;
 
       if (errorParam === 'access_denied') {
         return res.send(renderPage('Autorização cancelada', 'Você não autorizou o acesso à agenda. Nenhum dado foi alterado.'));
