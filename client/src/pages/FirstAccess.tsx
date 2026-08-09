@@ -7,8 +7,9 @@ import { Phone, Lock, ArrowRight, Loader2, Eye, EyeOff, Key, ShieldCheck, Refres
 type Step = 'phone' | 'code' | 'password';
 
 export function FirstAccess() {
+  const inviteToken = new URLSearchParams(window.location.search).get('invite');
   const legalBaseUrl = import.meta.env.VITE_API_URL || '/api';
-  const [step, setStep] = useState<Step>('phone');
+  const [step, setStep] = useState<Step>(inviteToken ? 'password' : 'phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -71,14 +72,20 @@ export function FirstAccess() {
     }
     if (!acceptedLegal) { setError('Você precisa aceitar os Termos e a Política de Privacidade.'); return; }
 
-    if (password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres.');
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setError('A senha deve ter ao menos 8 caracteres, com letras e números.');
       return;
     }
 
     setLoading(true);
 
     try {
+      if (inviteToken) {
+        await api.post('/invitations/accept', { token: inviteToken, password, accept_terms: true, accept_privacy: true });
+        setSuccessMessage('Convite aceito. Entre com seu telefone e a nova senha.');
+        setTimeout(() => navigate('/login'), 800);
+        return;
+      }
       const response = await api.post('/auth/create-password', {
         phone_number: phoneNumber,
         code,

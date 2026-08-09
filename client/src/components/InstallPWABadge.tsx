@@ -42,6 +42,9 @@ export function InstallPWABadge() {
     
     if (outcome === 'accepted') {
       setIsVisible(false);
+    } else {
+      localStorage.setItem('torrinco:pwa-install-dismissed', 'true');
+      setIsVisible(false);
     }
     
     setDeferredPrompt(null);

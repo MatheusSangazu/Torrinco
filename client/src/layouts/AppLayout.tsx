@@ -1,12 +1,12 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft, Bell, BadgeDollarSign } from 'lucide-react';
+import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft, Bell, BadgeDollarSign, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 
 export function AppLayout() {
-  const { isAuthenticated, isLoading, logout, user } = useAuth();
+  const { isAuthenticated, isLoading, logout, user, platformRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -31,6 +31,7 @@ export function AppLayout() {
     { path: '/reminders', label: 'LEMBRETES', icon: Bell },
     { path: '/calendar', label: 'AGENDA', icon: Calendar },
     { path: '/subscription', label: 'PLANO', icon: BadgeDollarSign },
+    ...(platformRole === 'platform_owner' ? [{ path: '/admin', label: 'BACKOFFICE', icon: Shield }] : []),
   ];
 
   return (

@@ -15,6 +15,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (accessToken: string, user: User) => void;
   logout: () => Promise<void>;
+  platformRole: 'platform_owner' | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [platformRole, setPlatformRole] = useState<'platform_owner' | null>(null);
 
   useEffect(() => {
     // Em mount, tenta restaurar sessão via cookie HttpOnly (refresh automático).
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             const meRes = await api.get('/auth/me');
             setUser(meRes.data.user);
+            try { await api.get('/platform-admin/me'); setPlatformRole('platform_owner'); } catch { setPlatformRole(null); }
           } catch {
             setAccessToken(null);
           }
@@ -51,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (accessToken: string, userData: User) => {
     setAccessToken(accessToken);
     setUser(userData);
+    api.get('/platform-admin/me').then(()=>setPlatformRole('platform_owner')).catch(()=>setPlatformRole(null));
   };
 
   const logout = async () => {
@@ -61,10 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAccessToken(null);
     setUser(null);
+    setPlatformRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, isLoading, login, logout, platformRole }}>
       {children}
     </AuthContext.Provider>
   );
