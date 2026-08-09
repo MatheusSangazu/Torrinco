@@ -5,6 +5,7 @@ import { parseDate } from '../lib/date-utils.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 import * as billing from '../services/billing.service.js';
 import * as summary from '../services/summary.service.js';
+import { requireUserInAccount, getCategoryForAccount, getEntityForAccount, OwnershipError } from '../services/ownership.service.js';
 
 export class FinanceController {
   /**
@@ -29,8 +30,9 @@ export class FinanceController {
       let userId = req.userId!;
       const accountId = req.accountId!;
 
-      // Se for admin e enviar target_user_id, usa o ID do alvo
+      // Se for admin e enviar target_user_id, valida que o alvo pertence à mesma conta.
       if (req.userRole === 'admin' && target_user_id) {
+        await requireUserInAccount(Number(target_user_id), accountId);
         userId = Number(target_user_id);
       }
 
@@ -71,10 +73,8 @@ export class FinanceController {
           finalCategoryId = newCategory.id;
         }
       } else if (finalCategoryId) {
-        // Se veio ID, buscar o nome para preencher o campo legado
-        const cat = await prisma.categories.findUnique({
-          where: { id: finalCategoryId }
-        });
+        // Se veio ID, buscar o nome validando pertencimento à conta.
+        const cat = await getCategoryForAccount(finalCategoryId, accountId);
         if (cat) {
           finalCategoryName = cat.name;
         }
@@ -103,6 +103,14 @@ export class FinanceController {
       }
 
       const parsedDate = parseDate(transaction_date);
+
+      // Validar entity_id pertence à conta antes de criar a transação.
+      if (entity_id) {
+        const entity = await getEntityForAccount(Number(entity_id), accountId);
+        if (!entity) {
+          return res.status(403).json({ error: 'Entidade não pertence a esta conta' });
+        }
+      }
 
       const transaction = await prisma.transactions.create({
         data: {
@@ -284,6 +292,24 @@ export class FinanceController {
       // Validar income_source_id se fornecido
       let finalIncomeSourceId = income_source_id !== undefined ? (income_source_id ? Number(income_source_id) : null) : undefined;
 
+      // Validar category_id se fornecido (deve pertencer à conta).
+      if (category_id) {
+        const accountId = req.accountId!;
+        const cat = await getCategoryForAccount(Number(category_id), accountId);
+        if (!cat) {
+          return res.status(403).json({ error: 'Categoria não pertence a esta conta' });
+        }
+      }
+
+      // Validar entity_id se fornecido (deve pertencer à conta).
+      if (entity_id) {
+        const accountId = req.accountId!;
+        const entity = await getEntityForAccount(Number(entity_id), accountId);
+        if (!entity) {
+          return res.status(403).json({ error: 'Entidade não pertence a esta conta' });
+        }
+      }
+
       if (finalIncomeSourceId !== undefined) {
         // Validar que income_source_id só pode ser usado com tipo 'income'
         if (finalIncomeSourceId && (type && type !== 'income')) {
@@ -456,8 +482,12 @@ export class FinanceController {
   static async getSummary(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       let userId = req.userId!;
+      const accountId = req.accountId!;
       const { period, target_user_id } = req.query;
-      if (req.userRole === 'admin' && target_user_id) userId = Number(target_user_id);
+      if (req.userRole === 'admin' && target_user_id) {
+        await requireUserInAccount(Number(target_user_id), accountId);
+        userId = Number(target_user_id);
+      }
 
       const result = await summary.getSummary(
         userId,
@@ -472,11 +502,13 @@ export class FinanceController {
   static async getForecast(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       let userId = req.userId!;
+      const accountId = req.accountId!;
       const { target_user_id } = req.query;
       const period = (req.query.period as string) || 'next_month';
 
-      // Se for admin e enviar target_user_id, usa o ID do alvo
+      // Se for admin e enviar target_user_id, valida que o alvo pertence à mesma conta.
       if (req.userRole === 'admin' && target_user_id) {
+        await requireUserInAccount(Number(target_user_id), accountId);
         userId = Number(target_user_id);
       }
 

@@ -7,7 +7,8 @@
     "dev": "nodemon --watch 'src/**/*.ts' --exec npx tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "Matheus",
@@ -42,6 +43,7 @@
     "nodemon": "^3.1.11",
     "prisma": "^7.4.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

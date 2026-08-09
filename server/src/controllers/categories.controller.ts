@@ -76,16 +76,16 @@ export class CategoriesController {
       const { id } = req.params;
       const { name, color } = req.body;
 
-      const category = await prisma.categories.findUnique({
-        where: { id: Number(id) }
+      const category = await prisma.categories.findFirst({
+        where: { id: Number(id), account_id: accountId }
       });
 
-      if (!category || category.account_id !== accountId) {
+      if (!category) {
         return res.status(404).json({ error: 'Category not found' });
       }
 
       const updated = await prisma.categories.update({
-        where: { id: Number(id) },
+        where: { id: Number(id), account_id: accountId },
         data: {
           name: name || undefined,
           color: color || undefined
@@ -107,16 +107,16 @@ export class CategoriesController {
       const accountId = req.accountId!;
       const { id } = req.params;
 
-      const category = await prisma.categories.findUnique({
-        where: { id: Number(id) }
+      const category = await prisma.categories.findFirst({
+        where: { id: Number(id), account_id: accountId }
       });
 
-      if (!category || category.account_id !== accountId) {
+      if (!category) {
         return res.status(404).json({ error: 'Category not found' });
       }
 
       await prisma.categories.delete({
-        where: { id: Number(id) }
+        where: { id: Number(id), account_id: accountId }
       });
 
       res.status(204).send();

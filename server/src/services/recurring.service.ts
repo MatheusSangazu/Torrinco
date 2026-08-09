@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
+import { getCategoryForAccount } from './ownership.service.js';
 
 /**
  * Fonte única da lógica de transações recorrentes.
@@ -37,11 +38,18 @@ export async function createRecurring(userId: number, input: CreateRecurringInpu
   const startDate = typeof input.start_date === 'string' ? parseDate(input.start_date) : input.start_date;
   const today = todayUTC();
 
-  // Resolve category_id/category name quando necessário.
+  // Resolve o account_id do usuário para validar pertencimento de categoria.
+  const userRow = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { account_id: true }
+  });
+  if (!userRow) throw new Error('USER_NOT_FOUND');
+
+  // Resolve category_id/category name quando necessário (validando pertencimento).
   let finalCategoryId = category_id ?? null;
   let finalCategoryName = category ?? undefined;
   if (finalCategoryId && !finalCategoryName) {
-    const cat = await prisma.categories.findUnique({ where: { id: finalCategoryId } });
+    const cat = await getCategoryForAccount(finalCategoryId, userRow.account_id);
     if (cat) finalCategoryName = cat.name;
   }
 

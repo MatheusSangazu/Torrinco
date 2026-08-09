@@ -174,7 +174,7 @@ export class CardsController {
 
       // Verificar se tem transações antes de deletar (opcional, mas seguro)
       const transactions = await prisma.transactions.count({
-        where: { entity_id: Number(id) }
+        where: { entity_id: Number(id), account_id: accountId }
       });
 
       if (transactions > 0) {

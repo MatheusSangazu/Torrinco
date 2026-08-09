@@ -79,6 +79,7 @@ export class EntityController {
           const balance = await prisma.transactions.aggregate({
             where: {
               entity_id: entity.id,
+              account_id: accountId,
               deleted_at: null
             },
             _sum: {
@@ -89,6 +90,7 @@ export class EntityController {
           const pending_count = await prisma.transactions.count({
             where: {
               entity_id: entity.id,
+              account_id: accountId,
               type: 'expense',
               status: 'pending',
               deleted_at: null
@@ -173,7 +175,7 @@ export class EntityController {
       }
 
       const entity = await prisma.financial_entities.update({
-        where: { id: Number(id) },
+        where: { id: Number(id), account_id: accountId },
         data: {
           name: name ?? undefined,
           type: type ?? undefined,
@@ -208,7 +210,7 @@ export class EntityController {
       }
 
       const transactionCount = await prisma.transactions.count({
-        where: { entity_id: Number(id) }
+        where: { entity_id: Number(id), account_id: accountId }
       });
 
       if (transactionCount > 0) {
@@ -218,7 +220,7 @@ export class EntityController {
       }
 
       await prisma.financial_entities.delete({
-        where: { id: Number(id) }
+        where: { id: Number(id), account_id: accountId }
       });
 
       res.json({ message: 'Entity deleted successfully' });

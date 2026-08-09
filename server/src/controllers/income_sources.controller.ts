@@ -70,16 +70,16 @@ export class IncomeSourcesController {
       const { id } = req.params;
       const { name, color } = req.body;
 
-      const incomeSource = await prisma.income_sources.findUnique({
-        where: { id: Number(id) }
+      const incomeSource = await prisma.income_sources.findFirst({
+        where: { id: Number(id), user_id: userId }
       });
 
-      if (!incomeSource || incomeSource.user_id !== userId) {
+      if (!incomeSource) {
         return res.status(404).json({ error: 'Income source not found' });
       }
 
       const updated = await prisma.income_sources.update({
-        where: { id: Number(id) },
+        where: { id: Number(id), user_id: userId },
         data: {
           name: name || undefined,
           color: color || undefined
@@ -101,16 +101,16 @@ export class IncomeSourcesController {
       const userId = req.userId!;
       const { id } = req.params;
 
-      const incomeSource = await prisma.income_sources.findUnique({
-        where: { id: Number(id) }
+      const incomeSource = await prisma.income_sources.findFirst({
+        where: { id: Number(id), user_id: userId }
       });
 
-      if (!incomeSource || incomeSource.user_id !== userId) {
+      if (!incomeSource) {
         return res.status(404).json({ error: 'Income source not found' });
       }
 
       await prisma.income_sources.delete({
-        where: { id: Number(id) }
+        where: { id: Number(id), user_id: userId }
       });
 
       res.status(204).send();

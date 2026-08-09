@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
 import * as recurringService from '../services/recurring.service.js';
+import { getCategoryForAccount, getEntityForAccount } from '../services/ownership.service.js';
 
 export class RecurringController {
   /**
@@ -21,6 +22,17 @@ export class RecurringController {
 
       if (!['income', 'expense'].includes(type)) {
         return res.status(400).json({ error: 'Type must be income or expense' });
+      }
+
+      // Validar pertencimento de category_id e entity_id à conta.
+      const accountId = req.accountId!;
+      if (category_id) {
+        const cat = await getCategoryForAccount(Number(category_id), accountId);
+        if (!cat) return res.status(403).json({ error: 'Categoria não pertence a esta conta' });
+      }
+      if (entity_id) {
+        const entity = await getEntityForAccount(Number(entity_id), accountId);
+        if (!entity) return res.status(403).json({ error: 'Entidade não pertence a esta conta' });
       }
 
       const recurringTransaction = await recurringService.createRecurring(userId, {
@@ -87,9 +99,19 @@ export class RecurringController {
       let finalCategoryId = category_id !== undefined ? (category_id ? parseInt(category_id) : null) : undefined;
       let finalCategoryName = category;
 
-      if (finalCategoryId && !finalCategoryName) {
-        const cat = await prisma.categories.findUnique({ where: { id: finalCategoryId } });
-        if (cat) finalCategoryName = cat.name;
+      const accountId = req.accountId!;
+
+      // Validar category_id pertence à conta antes de resolver o nome.
+      if (finalCategoryId) {
+        const cat = await getCategoryForAccount(finalCategoryId, accountId);
+        if (!cat) return res.status(403).json({ error: 'Categoria não pertence a esta conta' });
+        if (!finalCategoryName) finalCategoryName = cat.name;
+      }
+
+      // Validar entity_id se fornecido.
+      if (entity_id) {
+        const entity = await getEntityForAccount(Number(entity_id), accountId);
+        if (!entity) return res.status(403).json({ error: 'Entidade não pertence a esta conta' });
       }
 
       // Mapear status 'pending' para 'active' se vier do frontend (visto que recorrência é sempre active/inactive)
