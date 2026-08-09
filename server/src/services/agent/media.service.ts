@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as llm from '../llm.service.js';
 import { EvolutionService } from '../evolution.service.js';
 import { classifyDoc, extractDocument } from './document.service.js';
+import { sanitizeDocumentText } from '../action-safety.service.js';
 import type { WebhookMessage } from './types.js';
 
 /**
@@ -104,9 +105,10 @@ export async function processMedia(
             `${fileName} sem texto extraível (provavelmente é imagem/scanner)`
           );
         }
-        // Marcador genérico — o LLM decide o que é (fatura, boleto, extrato...).
+        // Sanitiza o texto do documento (proteção contra prompt injection)
+        // e envolve em delimitadores para o LLM tratar como dados, não instruções.
         return {
-          text: `[Documento: ${fileName}]\n${doc.text}`,
+          text: sanitizeDocumentText(fileName, doc.text),
           mediaType: kind === 'pdf' ? 'pdf' : 'file',
           userId,
           receivedAt

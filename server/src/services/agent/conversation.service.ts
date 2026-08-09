@@ -1,8 +1,15 @@
 import * as llm from '../llm.service.js';
+import { prisma } from '../../lib/prisma.js';
+import { parseDate, todayUTC } from '../../lib/date-utils.js';
 import { checkUserRateLimit } from '../../middleware/user-rate-limit.js';
 import { TOOL_EXECUTORS, TOOL_DECLARATIONS } from './tools.js';
 import { getHistory, appendToHistory } from './conversationHistory.service.js';
 import type { WebhookMessage } from './types.js';
+import {
+  classifyRisk, createPendingAction, confirmPendingAction, cancelPendingAction,
+  getLatestPending, markExecuted, recordDirectAction,
+  getLatestActionForUndo, markUndone, buildImportPreview, computeIdempotencyKey,
+} from '../action-safety.service.js';
 
 /**
  * Orquestra uma rodada de conversação (após o buffer estourar).
@@ -52,8 +59,7 @@ O QUE VOCÊ PODE FAZER (use as ferramentas):
 - Gerenciar a agenda do Google: conectar, criar, listar e cancelar eventos.
 
 REGRAS PARA EXCLUIR/EDITAR:
-- SEMPRE confirme com o usuário ANTES de excluir ("Quer que eu apague 'Mercado *R$ 50,00* de hoje?").
-- Só execute a exclusão depois que o usuário confirmar ("sim", "pode apagar", "isso").
+- A EXCLUSÃO é gerenciada pelo backend: ao chamar excluir_transacao, o sistema cria uma ação pendente e retorna {pendente_confirmacao: true}. Você deve repassar o resumo e aguardar o usuário confirmar ("sim") ou cancelar ("não"). NÃO chame a ferramenta novamente ao confirmar.
 - Para editar, confirme o que será alterado antes de executar.
 - Se o usuário disser "apaga a última", use ultima=true.
 - Se disser "apaga a do mercado", use descricao="mercado".
@@ -162,19 +168,101 @@ export async function processConversation(
   messages: WebhookMessage[],
   phone?: string
 ): Promise<string> {
-  // Rate limit por usuário — protege contra abuso (1 usuário não pode
-  // derrabar o agente pra todos). Default: 30 conversas/hora.
+  // Rate limit por usuário — protege contra abuso.
   const limit = checkUserRateLimit(userId);
   if (!limit.allowed) {
     const minutos = Math.ceil(limit.retryInMs / 60000);
     return `Você enviou muitas mensagens em pouco tempo 😅 Aguarde ${minutos} min e tente de novo.`;
   }
 
-  // Junta o texto de todas as mensagens do buffer.
   const userText = messages.map(m => m.text).join('\n');
-
-  // Recupera o histórico (se houver telefone).
   const history = phone ? getHistory(phone) : [];
+
+  // Busca account_id do usuário para validação de tenant.
+  const userRec = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { account_id: true },
+  });
+  const accountId = userRec?.account_id ?? 0;
+
+  // ── Verifica se o usuário está confirmando/cancelando uma ação pendente ──
+  const textLower = userText.toLowerCase().trim();
+  const isUndo = /^(desfazer|undo|voltar|reverter|cancelar ultima|cancelar última)/.test(textLower);
+  const isConfirm = /^(sim|pode|confirmo|isso|exato|correto|ok|claro|com certeza|pode apagar|pode excluir|pode fazer|confirmar)/.test(textLower);
+  const isCancel = /^(não|nao|cancelar|cancela|deixa|esquece|não pode|nao pode)/.test(textLower);
+
+  if (isUndo) {
+    const undoableTypes = ['registrar_despesa', 'registrar_receita', 'editar_transacao'] as const;
+    for (const t of undoableTypes) {
+      const record = await getLatestActionForUndo(userId, accountId, t);
+      if (record) {
+        const ok = await undoFromAudit(userId, record.beforeState, record.afterState, t);
+        if (ok) {
+          await markUndone(record.id);
+          const reply = '✅ Desfeito.';
+          if (phone) appendToHistory(phone, userText, reply);
+          return reply;
+        }
+      }
+    }
+
+    const reply = 'Não encontrei nenhuma ação recente para desfazer.';
+    if (phone) appendToHistory(phone, userText, reply);
+    return reply;
+  }
+
+  if (isConfirm || isCancel) {
+    const pending = await getLatestPending(userId, accountId);
+    if (pending) {
+      if (isCancel) {
+        await cancelPendingAction(pending.id, userId, accountId);
+        const reply = '✅ Ação cancelada.';
+        if (phone) appendToHistory(phone, userText, reply);
+        return reply;
+      }
+      // Confirmar: busca o executor e executa a ação.
+      const confirmResult = await confirmPendingAction(pending.id, userId, accountId);
+      if (!confirmResult.ok) {
+        const reply = confirmResult.error ?? 'Não consegui confirmar esta ação.';
+        if (phone) appendToHistory(phone, userText, reply);
+        return reply;
+      }
+      if (confirmResult.error === 'já executada') {
+        const reply = 'Esta ação já foi executada anteriormente.';
+        if (phone) appendToHistory(phone, userText, reply);
+        return reply;
+      }
+      if (confirmResult.payload) {
+        try {
+          if (pending.actionType === 'bulk_import') {
+            const result = await executeBulkImport(userId, accountId, confirmResult.payload);
+            await markExecuted(pending.id, userId, accountId, result);
+            const reply = `✅ Importação concluída. ${result.ok ? `Registros importados: ${result.imported}` : ''}`;
+            if (phone) appendToHistory(phone, userText, reply);
+            return reply;
+          }
+
+          const executor = TOOL_EXECUTORS.get(pending.actionType);
+          if (!executor) {
+            const reply = 'Não encontrei a ferramenta para executar esta ação confirmada.';
+            if (phone) appendToHistory(phone, userText, reply);
+            return reply;
+          }
+
+          const result = await executor(userId, confirmResult.payload);
+          await markExecuted(pending.id, userId, accountId, result);
+          const reply = `✅ Confirmado e executado: ${pending.summary}`;
+          if (phone) appendToHistory(phone, userText, reply);
+          return reply;
+        } catch (err: any) {
+          console.error('[safety] Erro ao executar ação confirmada:', err?.message);
+          const reply = 'Ops, ocorreu um erro ao executar. Tente novamente.';
+          if (phone) appendToHistory(phone, userText, reply);
+          return reply;
+        }
+      }
+    }
+  }
 
   // Injeta a data atual no prompt (timezone São Paulo).
   const now = new Date();
@@ -186,14 +274,48 @@ export async function processConversation(
     // 1ª rodada: o modelo decide se precisa de tools.
     const first = await llm.chatWithTools(systemPrompt, userText, TOOL_DECLARATIONS, history);
 
-    // Sem tools → responde direto (pergunta, saudação, confirmação, etc.).
+    // Sem tools → responde direto.
     if (first.toolCalls.length === 0) {
       const reply = first.content ?? 'Não entendi. Pode reformular? 😊';
       if (phone) appendToHistory(phone, userText, reply);
       return reply;
     }
 
-    // Executa cada tool pedida.
+    const hasDocument = messages.some(m => m.mediaType === 'pdf' || m.mediaType === 'file');
+    if (hasDocument) {
+      const mutatingCalls = first.toolCalls.filter(c =>
+        c.name === 'registrar_despesa' || c.name === 'registrar_receita'
+      ).map(c => ({ name: c.name, arguments: c.arguments }));
+
+      if (mutatingCalls.length > 0) {
+        const preview = buildImportPreview(mutatingCalls);
+        const idempotencyKey = computeIdempotencyKey(userText);
+
+        let pendingId: number | null = null;
+        try {
+          const pending = await createPendingAction({
+            userId,
+            accountId,
+            actionType: 'bulk_import',
+            payload: { toolCalls: mutatingCalls, idempotencyKey },
+            idempotencyKey,
+            summary: `Importar ${preview.count} lançamentos do documento (total ${formatBRL(preview.total)}, duplicidades ${preview.duplicates})`,
+          });
+          pendingId = pending.id;
+        } catch (err: any) {
+          console.error('[import] erro ao criar pendência:', err?.message);
+        }
+
+        const reply = pendingId
+          ? `Encontrei ${preview.count} lançamentos no documento (total ${formatBRL(preview.total)}). Possíveis duplicidades: ${preview.duplicates}. Quer importar? Responda *sim* para gravar ou *não* para cancelar.`
+          : `Encontrei ${preview.count} lançamentos no documento (total ${formatBRL(preview.total)}). Não consegui criar a pendência de importação. Tente novamente.`;
+
+        if (phone) appendToHistory(phone, userText, reply);
+        return reply;
+      }
+    }
+
+    // ── Executa cada tool com camada de segurança ──
     const toolResults: Array<{ id: string; name: string; result: any }> = [];
     for (const call of first.toolCalls) {
       const executor = TOOL_EXECUTORS.get(call.name);
@@ -201,9 +323,48 @@ export async function processConversation(
         toolResults.push({ id: call.id, name: call.name, result: { erro: `Ferramenta desconhecida: ${call.name}` } });
         continue;
       }
+
+      // Classifica o risco da ação.
+      const risk = classifyRisk(call.name, call.arguments);
+
+      if (risk.level === 'needs_confirmation') {
+        // Cria ação pendente em vez de executar.
+        const pending = await createPendingAction({
+          userId,
+          accountId,
+          actionType: call.name,
+          payload: call.arguments,
+          summary: risk.summary,
+        });
+        toolResults.push({
+          id: call.id,
+          name: call.name,
+          result: {
+            pendente_confirmacao: true,
+            id_acao: pending.id,
+            resumo: risk.summary,
+            mensagem: `${risk.summary}. Confirmar? Responda *sim* para executar ou *não* para cancelar.`,
+          },
+        });
+        continue;
+      }
+
+      // Ação safe: executa diretamente.
       try {
+        // Captura estado anterior para auditoria (para operações mutáveis).
+        let beforeState: Record<string, any> | undefined;
+        if (call.name === 'editar_transacao') {
+          beforeState = await captureTransactionBeforeState(userId, call.arguments);
+        }
+
         const result = await executor(userId, call.arguments);
         console.log(`[tool] ${call.name} OK`);
+
+        // Registra auditoria para ações que modificam dados.
+        if (isMutating(call.name)) {
+          await recordDirectAction(userId, accountId, call.name, beforeState ?? {}, result ?? {});
+        }
+
         toolResults.push({ id: call.id, name: call.name, result });
       } catch (err: any) {
         console.error(`[tool] ${call.name} ERRO:`, err?.message);
@@ -229,4 +390,172 @@ export async function processConversation(
     console.error('[conversation] Erro no LLM:', err);
     return 'Ops, tive um problema para processar agora. Tente novamente em instantes. 🙏';
   }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+
+/** Ferramentas que modificam dados (para auditoria). */
+const MUTATING_TOOLS = new Set([
+  'registrar_despesa', 'registrar_receita', 'editar_transacao',
+  'pagar_fatura', 'adicionar_lembrete',
+]);
+
+function isMutating(toolName: string): boolean {
+  return MUTATING_TOOLS.has(toolName);
+}
+
+/**
+ * Captura o estado anterior de uma transação antes da edição (para auditoria/desfazer).
+ */
+async function captureTransactionBeforeState(
+  userId: number,
+  args: Record<string, any>,
+): Promise<Record<string, any>> {
+  let where: any = { user_id: userId, deleted_at: null };
+  if (args.id) where.id = Number(args.id);
+  else if (args.descricao) where.description = { contains: args.descricao };
+  const tx = await prisma.transactions.findFirst({
+    where,
+    orderBy: { id: 'desc' },
+    select: {
+      id: true, description: true, amount: true, type: true,
+      transaction_date: true, payment_method: true, category: true, category_id: true, entity_id: true,
+    },
+  });
+  return tx ?? {};
+}
+
+function formatBRL(valor: number): string {
+  return `R$ ${valor.toFixed(2).replace('.', ',')}`;
+}
+
+async function undoFromAudit(
+  userId: number,
+  beforeState: Record<string, any>,
+  afterState: Record<string, any>,
+  actionType: string,
+): Promise<boolean> {
+  if (actionType === 'registrar_despesa' || actionType === 'registrar_receita') {
+    const kind = afterState.kind;
+    const txId = afterState?.transaction?.id ?? afterState?.transaction?.id;
+    if (!txId || (kind !== 'expense' && kind !== 'income')) return false;
+
+    await prisma.transactions.update({
+      where: { id: Number(txId) },
+      data: { deleted_at: new Date() },
+    });
+    return true;
+  }
+
+  if (actionType === 'editar_transacao') {
+    const id = beforeState.id;
+    if (!id) return false;
+
+    await prisma.transactions.update({
+      where: { id: Number(id) },
+      data: {
+        description: beforeState.description ?? null,
+        amount: beforeState.amount ?? null,
+        transaction_date: beforeState.transaction_date ?? null,
+        payment_method: beforeState.payment_method ?? null,
+        category: beforeState.category ?? null,
+        category_id: beforeState.category_id ?? null,
+        entity_id: beforeState.entity_id ?? null,
+      },
+    });
+    return true;
+  }
+
+  return false;
+}
+
+async function executeBulkImport(
+  userId: number,
+  accountId: number,
+  payload: Record<string, any>,
+): Promise<{ ok: boolean; imported: number; errors: number }> {
+  const toolCalls: Array<{ name: string; arguments: Record<string, any> }> = payload.toolCalls ?? [];
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+    return { ok: false, imported: 0, errors: 1 };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    let imported = 0;
+    let errors = 0;
+
+    for (const call of toolCalls) {
+      if (call.name !== 'registrar_despesa' && call.name !== 'registrar_receita') {
+        errors++;
+        throw new Error('IMPORT_INVALID_TOOL');
+      }
+
+      const args = call.arguments ?? {};
+      if (args.recorrente || (args.parcelas && Number(args.parcelas) > 1)) {
+        errors++;
+        throw new Error('IMPORT_REQUIRES_CONFIRMATION');
+      }
+
+      const description = String(args.descricao ?? '').trim();
+      const amount = Number(args.valor);
+      const date = args.data ? parseDate(String(args.data)) : todayUTC();
+      if (!description || !Number.isFinite(amount)) {
+        errors++;
+        throw new Error('IMPORT_INVALID_ROW');
+      }
+
+      const type = call.name === 'registrar_despesa' ? 'expense' : 'income';
+      const categoryName = args.categoria ? String(args.categoria).trim() : null;
+
+      let categoryId: number | null = null;
+      let categoryFinal: string | null = null;
+      if (categoryName) {
+        const existing = await tx.categories.findFirst({
+          where: { account_id: accountId, type, name: { equals: categoryName } },
+        });
+        if (existing) {
+          categoryId = existing.id;
+          categoryFinal = existing.name;
+        } else {
+          const created = await tx.categories.create({
+            data: { account_id: accountId, type, name: categoryName },
+          });
+          categoryId = created.id;
+          categoryFinal = created.name;
+        }
+      }
+
+      let entityId: number | null = null;
+      let paymentMethod = args.forma_pagamento ? String(args.forma_pagamento) : 'pix';
+      if (type === 'expense' && args.cartao) {
+        const cardName = String(args.cartao).trim();
+        const card = await tx.financial_entities.findFirst({
+          where: { account_id: accountId, type: 'credit_card', name: { equals: cardName } },
+        });
+        if (!card) throw new Error('IMPORT_CARD_NOT_FOUND');
+        entityId = card.id;
+        paymentMethod = 'credit';
+      }
+
+      await tx.transactions.create({
+        data: {
+          account_id: accountId,
+          user_id: userId,
+          entity_id: entityId,
+          amount,
+          type,
+          status: 'paid',
+          category: categoryFinal,
+          category_id: categoryId,
+          description,
+          transaction_date: date,
+          payment_method: paymentMethod,
+        },
+      });
+      imported++;
+    }
+
+    return { ok: true, imported, errors };
+  });
+
+  return result;
 }
