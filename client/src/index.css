@@ -31,6 +31,11 @@
   body {
     @apply bg-gray-50 text-gray-900 font-sans antialiased transition-colors duration-200;
   }
+
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-beak-400);
+    outline-offset: 2px;
+  }
   
   /* Dark Mode Styles - Fallback manual se a variante falhar em alguns lugares */
   :root.dark body {

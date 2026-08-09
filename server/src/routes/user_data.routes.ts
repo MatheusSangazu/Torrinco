@@ -12,6 +12,7 @@ const router = Router();
 router.use(authenticateJwt);
 
 router.get('/export-data', UserDataController.export);
-router.delete('/account', UserDataController.deleteAccount);
+router.delete('/account', UserDataController.requestDeletion);
+router.get('/requests', UserDataController.listRequests);
 
 export default router;

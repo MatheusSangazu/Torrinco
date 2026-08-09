@@ -121,6 +121,8 @@ export const authSchemas = {
     phone_number: boundedString(30),
     code: otpCode,
     password,
+    accept_terms: z.literal(true),
+    accept_privacy: z.literal(true),
   }).strict(),
 
   login: z.object({

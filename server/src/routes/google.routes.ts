@@ -16,5 +16,6 @@ router.get('/callback', GoogleController.callback);
 // Autenticados — usados pelo app/PWA.
 router.get('/connect', authenticateJwt, GoogleController.connect);
 router.get('/status', authenticateJwt, GoogleController.status);
+router.delete('/disconnect', authenticateJwt, GoogleController.disconnect);
 
 export default router;

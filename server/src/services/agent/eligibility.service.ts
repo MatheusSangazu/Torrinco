@@ -1,6 +1,8 @@
 import { prisma } from '../../lib/prisma.js';
 import { maskPhone } from '../../lib/mask.js';
 import type { EligibilityResult } from './types.js';
+import { assertFeature } from '../subscription.service.js';
+import { recordCurrentConsents } from '../privacy.service.js';
 
 /**
  * Checagens de elegibilidade que rodam ANTES de qualquer processamento.
@@ -14,7 +16,8 @@ import type { EligibilityResult } from './types.js';
 export async function checkEligibility(
   phone: string,
   isFromMe: boolean,
-  isGroup: boolean
+  isGroup: boolean,
+  consentAccepted: boolean = false
 ): Promise<EligibilityResult> {
   // 1) Ignora mensagens enviadas pelo próprio bot.
   if (isFromMe) {
@@ -52,8 +55,10 @@ export async function checkEligibility(
     // Permite que novos clientes comecem a usar só mandando mensagem no WhatsApp.
     // Gate por env: o dono liga quando quer abrir pra público.
     if (process.env.ALLOW_AUTO_ONBOARDING === 'true') {
+      if (!consentAccepted) return { ok: false, reason: 'consent_required' };
       try {
         const created = await autoOnboard(cleanPhone);
+        await recordCurrentConsents({ userId:created.userId, accountId:created.accountId, origin:'whatsapp_onboarding', evidence:{phrase:'ACEITO TERMOS E PRIVACIDADE'} });
         console.log(`[onboarding] Nova conta trial criada: phone=${maskPhone(cleanPhone)} user=${created.userId}`);
         return { ok: true, userId: created.userId };
       } catch (err) {
@@ -73,11 +78,9 @@ export async function checkEligibility(
     return { ok: false, reason: 'user_not_found' };
   }
 
-  // 4) Plano ativo.
-  const status = user.accounts?.status;
-  if (status !== 'active' && status !== 'trial') {
-    return { ok: false, userId: user.id, reason: `plan_${status ?? 'unknown'}` };
-  }
+  // 4) Acesso e feature avaliados pela mesma politica usada pela API/PWA.
+  try { await assertFeature(user.account_id, 'ai'); }
+  catch (error: any) { return { ok: false, userId: user.id, reason: `plan_${error.code ?? error.message}` }; }
 
   return { ok: true, userId: user.id };
 }

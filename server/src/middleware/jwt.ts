@@ -4,6 +4,7 @@ import type { Request, Response, NextFunction } from 'express';
 import pkg from 'jsonwebtoken';
 const { sign, verify } = pkg;
 import { prisma } from '../lib/prisma.js';
+import { assertAccountAccess } from '../services/subscription.service.js';
 
 dotenv.config();
 
@@ -97,18 +98,13 @@ const ACCOUNT_STATUS_TTL_MS = 30_000;
 const accountStatusCache = new Map<number, { status: string | null; ts: number }>();
 
 async function isAccountActive(accountId: number): Promise<boolean> {
-  const now = Date.now();
-  const cached = accountStatusCache.get(accountId);
-  if (cached && now - cached.ts < ACCOUNT_STATUS_TTL_MS) {
-    return cached.status === 'active' || cached.status === 'trial';
+  try {
+    await assertAccountAccess(accountId);
+    return true;
+  } catch (error: any) {
+    if (error?.statusCode === 403) return false;
+    throw error;
   }
-  const account = await prisma.accounts.findUnique({
-    where: { id: accountId },
-    select: { status: true }
-  });
-  const status = account?.status ?? null;
-  accountStatusCache.set(accountId, { status, ts: now });
-  return status === 'active' || status === 'trial';
 }
 
 /** Invalida o cache de status de conta para uma conta específica. */

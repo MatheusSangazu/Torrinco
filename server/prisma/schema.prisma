@@ -18,6 +18,7 @@ model plans {
   status        String    @default("active") @db.VarChar(20)
   created_at    DateTime  @default(now()) @db.DateTime(0)
   accounts      accounts[]
+  subscription_history subscription_history[]
 }
 
 model accounts {
@@ -26,14 +27,50 @@ model accounts {
   plan_id       Int
   status        accounts_status?    @default(trial)
   trial_ends_at DateTime?           @db.DateTime(0)
+  current_period_ends_at DateTime?  @db.DateTime(0)
+  grace_period_ends_at DateTime?    @db.DateTime(0)
+  cancelled_at DateTime?            @db.DateTime(0)
   created_at    DateTime?           @default(now()) @db.DateTime(0)
   plans         plans               @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_plan_fk")
   transactions  transactions[]
   users         users[]
   financial_entities financial_entities[]
   categories    categories[]
+  subscription_history subscription_history[]
 
   @@index([plan_id], map: "accounts_plan_idx")
+}
+
+/// Auditoria imutavel de toda transicao comercial da assinatura.
+model subscription_history {
+  id              Int       @id @default(autoincrement())
+  account_id      Int
+  plan_id         Int
+  previous_status accounts_status?
+  new_status      accounts_status
+  reason          String    @db.VarChar(100)
+  metadata        Json?
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  accounts        accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plans           plans     @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([account_id, created_at])
+}
+
+/// Caixa de entrada idempotente para eventos de qualquer futuro provedor.
+model billing_webhook_events {
+  id                Int       @id @default(autoincrement())
+  provider          String    @db.VarChar(50)
+  provider_event_id String    @db.VarChar(191)
+  event_type        String    @db.VarChar(100)
+  payload           Json
+  status            String    @default("received") @db.VarChar(20)
+  attempts          Int       @default(0)
+  error_message     String?   @db.Text
+  received_at       DateTime  @default(now()) @db.DateTime(0)
+  processed_at      DateTime? @db.DateTime(0)
+
+  @@unique([provider, provider_event_id])
 }
 
 model budgets {
@@ -247,6 +284,7 @@ model transactions {
   installment_id      Int?
   installment_number  Int?
   recurring_transaction_id Int?
+  recurring_occurrence_at DateTime? @db.DateTime(0)
   financial_entities  financial_entities?  @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "fk_transaction_entity")
   accounts            accounts             @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_1")
   users               users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_2")
@@ -263,6 +301,58 @@ model transactions {
   @@index([income_source_id], map: "income_source_id")
   @@index([installment_id], map: "installment_id")
   @@index([recurring_transaction_id], map: "recurring_transaction_id")
+  @@unique([recurring_transaction_id, recurring_occurrence_at], map: "transactions_recurring_occurrence_uq")
+}
+
+model scheduler_locks {
+  job_name     String   @id @db.VarChar(100)
+  owner_id     String   @db.VarChar(100)
+  locked_until DateTime @db.DateTime(3)
+  updated_at   DateTime @updatedAt @db.DateTime(3)
+}
+
+model scheduler_runs {
+  id            BigInt    @id @default(autoincrement())
+  job_name      String    @db.VarChar(100)
+  execution_key String    @db.VarChar(191)
+  owner_id      String    @db.VarChar(100)
+  status        String    @default("running") @db.VarChar(20)
+  attempts      Int       @default(1)
+  started_at    DateTime  @default(now()) @db.DateTime(3)
+  finished_at   DateTime? @db.DateTime(3)
+  duration_ms   Int?
+  result        Json?
+  error_message String?   @db.Text
+
+  @@unique([job_name, execution_key])
+  @@index([status, started_at])
+}
+
+model reminder_deliveries {
+  id              BigInt    @id @default(autoincrement())
+  source_type     String    @db.VarChar(30)
+  source_id       String    @db.VarChar(191)
+  occurrence_key  String    @db.VarChar(191)
+  account_id      Int
+  user_id         Int
+  destination     String    @db.VarChar(50)
+  message         String    @db.Text
+  status          String    @default("pending") @db.VarChar(20)
+  attempts        Int       @default(0)
+  max_attempts    Int       @default(5)
+  next_attempt_at DateTime  @default(now()) @db.DateTime(3)
+  locked_by       String?   @db.VarChar(100)
+  locked_until    DateTime? @db.DateTime(3)
+  last_error      String?   @db.Text
+  provider_result Json?
+  created_at      DateTime  @default(now()) @db.DateTime(3)
+  sent_at         DateTime? @db.DateTime(3)
+  failed_at       DateTime? @db.DateTime(3)
+
+  @@unique([source_type, source_id, occurrence_key])
+  @@index([status, next_attempt_at, locked_until])
+  @@index([account_id])
+  @@index([user_id])
 }
 
 /// Desafios OTP (códigos de verificação) para primeiro acesso e recuperação de senha.
@@ -388,6 +478,8 @@ model users {
   purchase_installments   purchase_installments[]
   transactions           transactions[]
   card_bills             card_bills[]
+  legal_consents         legal_consents[]
+  data_subject_requests  data_subject_requests[]
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
 
   @@index([account_id], map: "account_id")
@@ -407,8 +499,61 @@ enum financial_entities_type {
 enum accounts_status {
   trial
   active
-  blocked
+  expired
+  past_due
   cancelled
+  suspended
+}
+
+model legal_consents {
+  id                BigInt   @id @default(autoincrement())
+  user_id           Int
+  account_id        Int
+  document_type     String   @db.VarChar(30)
+  document_version  String   @db.VarChar(30)
+  accepted_at       DateTime @default(now()) @db.DateTime(3)
+  origin            String   @db.VarChar(30)
+  ip_hash           String?  @db.VarChar(64)
+  user_agent         String?  @db.VarChar(255)
+  evidence           Json?
+  users              users   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, document_type, document_version])
+  @@index([account_id, accepted_at])
+}
+
+model data_subject_requests {
+  id                BigInt    @id @default(autoincrement())
+  user_id           Int
+  account_id        Int
+  request_type      String    @db.VarChar(30)
+  status            String    @default("requested") @db.VarChar(30)
+  requested_at      DateTime  @default(now()) @db.DateTime(3)
+  due_at             DateTime? @db.DateTime(3)
+  completed_at       DateTime? @db.DateTime(3)
+  cancellation_at    DateTime? @db.DateTime(3)
+  result             Json?
+  last_error         String?   @db.Text
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([status, due_at])
+  @@index([account_id, requested_at])
+}
+
+model privacy_audit_events {
+  id            BigInt   @id @default(autoincrement())
+  user_id       Int?
+  account_id    Int?
+  event_type    String   @db.VarChar(60)
+  target_type   String?  @db.VarChar(60)
+  target_id     String?  @db.VarChar(100)
+  outcome       String   @db.VarChar(20)
+  metadata      Json?
+  created_at    DateTime @default(now()) @db.DateTime(3)
+
+  @@index([account_id, created_at])
+  @@index([user_id, created_at])
+  @@index([event_type, created_at])
 }
 
 enum card_bills_status {

@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
 import { getCategoryForAccount } from './ownership.service.js';
+import { assertAccountAccess } from './subscription.service.js';
 
 /**
  * Fonte única da lógica de transações recorrentes.
@@ -101,6 +102,7 @@ export async function materializeOne(userId: number, recurringId: number, date?:
     where: { users: { some: { id: userId } } }
   });
   if (!account) throw new Error('ACCOUNT_NOT_FOUND');
+  await assertAccountAccess(account.id);
 
   const txDate = date ?? recurring.next_due_date;
 
@@ -114,8 +116,9 @@ export async function materializeOne(userId: number, recurringId: number, date?:
   });
   if (existing) return existing;
 
-  const created = await prisma.transactions.create({
-    data: {
+  let created;
+  try {
+    created = await prisma.transactions.create({ data: {
       account_id: account.id,
       user_id: userId,
       amount: recurring.amount,
@@ -127,10 +130,15 @@ export async function materializeOne(userId: number, recurringId: number, date?:
       status: 'paid',
       is_recurring: true,
       recurring_transaction_id: recurring.id,
+      recurring_occurrence_at: txDate,
       entity_id: recurring.entity_id,
       payment_method: recurring.payment_method
-    }
-  });
+    } });
+  } catch (error: any) {
+    if (error?.code !== 'P2002') throw error;
+    created = await prisma.transactions.findFirst({ where: { recurring_transaction_id: recurring.id, recurring_occurrence_at: txDate } });
+    if (!created) throw error;
+  }
 
   // Avança a próxima data de vencimento.
   const nextDueDate = advanceDate(recurring.frequency as Frequency, recurring.next_due_date);

@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { CustomSelect } from '../components/CustomSelect';
+import { EmptyState, PageError, PageLoading } from '../components/PageState';
 
 interface Transaction {
   id: number;
@@ -48,6 +49,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 export function Reports() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [expenseChartType, setExpenseChartType] = useState<'list' | 'pie' | 'bar'>('list');
@@ -66,6 +68,7 @@ export function Reports() {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const startDate = new Date(selectedYear, selectedMonth, 1);
       const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
       
@@ -86,6 +89,7 @@ export function Reports() {
       console.log('Transações definidas no estado:', transactionsData.length);
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
+      setLoadError('Não foi possível carregar os relatórios. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -346,7 +350,7 @@ export function Reports() {
               <CustomSelect
                 value={selectedYear}
                 onChange={(value) => setSelectedYear(Number(value))}
-                options={[2024, 2025, 2026].map(y => ({ value: y, label: String(y) }))}
+                options={Array.from({ length: 7 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => ({ value: y, label: String(y) }))}
                 className="w-32"
                 placeholder="Ano"
               />
@@ -392,7 +396,11 @@ export function Reports() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Carregando dados...</div>
+        <PageLoading label="Carregando relatórios…" />
+      ) : loadError ? (
+        <PageError message={loadError} onRetry={fetchTransactions} />
+      ) : transactions.length === 0 ? (
+        <EmptyState title="Nenhuma movimentação neste período" description="Escolha outro mês ou registre uma transação para gerar os relatórios." />
       ) : (
         <>
           {/* Additional Filters */}

@@ -3,11 +3,13 @@ import { FinanceController } from '../controllers/finance.controller.js';
 import { authenticateJwt } from '../middleware/jwt.js';
 import { validate } from '../middleware/validate.js';
 import { financeSchemas, commonSchemas } from '../schemas/index.js';
+import { auditFinancialMutation } from '../middleware/financial-audit.js';
 
 const router = Router();
 
 // Todas as rotas de finance requerem autenticação
 router.use(authenticateJwt);
+router.use(auditFinancialMutation);
 
 router.get('/summary', validate({ query: financeSchemas.summaryQuery }), FinanceController.getSummary);
 router.get('/forecast', validate({ query: financeSchemas.forecastQuery }), FinanceController.getForecast);

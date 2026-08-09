@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(refreshRes.data.accessToken);
           try {
             const meRes = await api.get('/auth/me');
-            setUser(meRes.data);
+            setUser(meRes.data.user);
           } catch {
             setAccessToken(null);
           }

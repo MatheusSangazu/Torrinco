@@ -1,179 +1,53 @@
-import type { Response, NextFunction } from 'express';
+import type { Response,NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
-import { invalidateAccountStatusCache } from '../middleware/jwt.js';
-import { auditLog } from '../lib/audit.js';
 import { RefreshTokenService } from '../services/refresh-token.service.js';
 import { clearRefreshTokenCookie } from '../lib/cookie.js';
+import { disconnectGoogle } from '../services/google/auth.service.js';
+import { deletionGraceDays, privacyAudit, retentionPolicy } from '../services/privacy.service.js';
 
-/**
- * Exportação completa de dados do usuário (LGPD — art. 18, V: portabilidade).
- *
- * Diferente do export.controller (que exporta só transações para Excel),
- * este endpoint retorna TODOS os dados vinculados ao usuário em JSON:
- * perfil, contas, cartões, transações, faturas, recorrências, parcelamentos,
- * lembretes, eventos e categorias.
- *
- * Objeto único pronto para re-import em outro serviço.
- */
+function jsonSafe<T>(value:T):T {
+  return JSON.parse(JSON.stringify(value,(_key,item)=>typeof item==='bigint'?item.toString():item));
+}
+
+export async function completeDeletion(requestId:bigint,userId:number,accountId:number){
+  const google=await disconnectGoogle(userId);
+  await RefreshTokenService.revokeAllUserTokens(userId);
+  await prisma.$transaction([
+    prisma.users.update({where:{id:userId},data:{name:'conta_anonimizada',phone_number:`deleted-${userId}-${Date.now()}`,email:null,password_hash:null,status:'inactive'}}),
+    prisma.accounts.update({where:{id:accountId},data:{status:'cancelled',cancelled_at:new Date()}}),
+    prisma.data_subject_requests.update({where:{id:requestId},data:{status:'completed',completed_at:new Date(),result:{identityAnonymized:true,sessionsRevoked:true,googleLocalCredentialsRemoved:true,googleRemoteRevocationConfirmed:google.revoked,retention:retentionPolicy()} as any}})
+  ]);
+  await privacyAudit({userId,accountId,eventType:'privacy.deletion.complete',targetType:'data_subject_request',targetId:String(requestId),outcome:'succeeded'});
+}
+
 export class UserDataController {
-  static async export(req: JwtRequest, res: Response, next: NextFunction) {
-    try {
-      const userId = req.userId!;
-      const accountId = req.accountId!;
+  static async export(req:JwtRequest,res:Response,next:NextFunction){try{
+    const userId=req.userId!,accountId=req.accountId!;
+    const [user,account,entities,transactions,cardBills,recurring,purchases,categories,reminders,reminderLogs,events,recurringEvents,budgets,incomeSources,consents,requests,subscriptionHistory,auditEvents]=await Promise.all([
+      prisma.users.findUnique({where:{id:userId},select:{id:true,name:true,email:true,phone_number:true,role:true,status:true,google_email:true,google_calendar_id:true,created_at:true,account_id:true}}),
+      prisma.accounts.findUnique({where:{id:accountId}}),prisma.financial_entities.findMany({where:{account_id:accountId}}),
+      prisma.transactions.findMany({where:{user_id:userId},orderBy:{transaction_date:'desc'}}),prisma.card_bills.findMany({where:{user_id:userId}}),
+      prisma.recurring_transactions.findMany({where:{user_id:userId}}),prisma.purchase_installments.findMany({where:{user_id:userId}}),
+      prisma.categories.findMany({where:{account_id:accountId}}),prisma.reminders.findMany({where:{user_id:userId}}),prisma.reminder_logs.findMany({where:{user_id:userId}}),
+      prisma.events.findMany({where:{user_id:userId}}),prisma.recurring_events.findMany({where:{user_id:userId}}),prisma.budgets.findMany({where:{user_id:userId}}),
+      prisma.income_sources.findMany({where:{user_id:userId}}),prisma.legal_consents.findMany({where:{user_id:userId}}),prisma.data_subject_requests.findMany({where:{user_id:userId}}),
+      prisma.subscription_history.findMany({where:{account_id:accountId}}),prisma.privacy_audit_events.findMany({where:{user_id:userId}})
+    ]);
+    await privacyAudit({userId,accountId,eventType:'privacy.export',targetType:'user',targetId:userId,outcome:'succeeded'});
+    res.setHeader('Content-Disposition',`attachment; filename="torrinco-dados-${userId}-${Date.now()}.json"`);
+    res.json(jsonSafe({exported_at:new Date().toISOString(),format:'torrinco_personal_data_v2',scope_note:'Inclui dados pessoais e registros vinculados ao usuário; segredos de autenticação e tokens não são exportados.',user,account,entities,transactions,card_bills:cardBills,recurring_transactions:recurring,purchase_installments:purchases,categories,reminders,reminder_logs:reminderLogs,events,recurring_events:recurringEvents,budgets,income_sources:incomeSources,legal_consents:consents,data_subject_requests:requests,subscription_history:subscriptionHistory,privacy_audit_events:auditEvents}));
+  }catch(error){next(error)}}
 
-      const [
-        user,
-        entities,
-        transactions,
-        cardBills,
-        recurring,
-        purchases,
-        categories,
-        reminders,
-        events
-      ] = await Promise.all([
-        prisma.users.findUnique({
-          where: { id: userId },
-          select: {
-            id: true, name: true, phone_number: true,
-            google_email: true, google_calendar_id: true,
-            created_at: true, account_id: true
-            // Não exportamos: password_hash, refresh_tokens, google_refresh_token.
-          }
-        }),
-        prisma.financial_entities.findMany({ where: { account_id: accountId } }),
-        prisma.transactions.findMany({
-          where: { user_id: userId, deleted_at: null },
-          orderBy: { transaction_date: 'desc' }
-        }),
-        prisma.card_bills.findMany({ where: { user_id: userId }, orderBy: { created_at: 'desc' } }),
-        prisma.recurring_transactions.findMany({ where: { user_id: userId } }),
-        prisma.purchase_installments.findMany({ where: { user_id: userId } }),
-        prisma.categories.findMany({ where: { account_id: accountId } }),
-        prisma.reminders.findMany({ where: { user_id: userId } }),
-        prisma.events.findMany({ where: { user_id: userId } })
-      ]);
+  static async requestDeletion(req:JwtRequest,res:Response,next:NextFunction){try{
+    const userId=req.userId!,accountId=req.accountId!;const existing=await prisma.data_subject_requests.findFirst({where:{user_id:userId,request_type:'deletion',status:{in:['requested','processing']}}});
+    if(existing)return res.status(409).json({error:'Já existe uma solicitação de exclusão em andamento',request:existing});
+    const days=deletionGraceDays();const due=new Date(Date.now()+days*86_400_000);
+    const request=await prisma.data_subject_requests.create({data:{user_id:userId,account_id:accountId,request_type:'deletion',status:days===0?'processing':'requested',due_at:due}});
+    await privacyAudit({userId,accountId,eventType:'privacy.deletion.request',targetType:'data_subject_request',targetId:String(request.id),outcome:'requested',metadata:{configuredGraceDays:days}});
+    if(days===0){await completeDeletion(request.id,userId,accountId);clearRefreshTokenCookie(res);return res.status(202).json({requestId:String(request.id),status:'completed',dueAt:due,retention:retentionPolicy()})}
+    res.status(202).json({requestId:String(request.id),status:request.status,dueAt:request.due_at});
+  }catch(error){next(error)}}
 
-      // Conta vinculada ao usuário (single-account model).
-      const account = user?.account_id
-        ? await prisma.accounts.findUnique({ where: { id: user.account_id } })
-        : null;
-
-      auditLog({
-        actor: { kind: 'user', id: userId },
-        action: 'user.export_data',
-        target: { type: 'user', id: userId }
-      });
-
-      const payload = {
-        exported_at: new Date().toISOString(),
-        formato: 'LGPD_portabilidade_v1',
-        usuario: user,
-        conta: account,
-        entidades: entities,            // cartões + contas bancárias
-        transacoes: transactions,
-        faturas: cardBills,
-        recorrências: recurring,
-        parcelamentos: purchases,
-        categorias: categories,
-        lembretes: reminders,
-        eventos_agenda: events
-      };
-
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="torrinco-dados-${userId}-${Date.now()}.json"`
-      );
-      res.json(payload);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Exclusão completa da conta (LGPD — art. 18, VI: eliminação).
-   * Soft-delete do usuário + hash do telefone/anonimização dos PII.
-   * Transações são retidas por 5 anos por obrigação contábil, mas PII
-   * (nome, email, telefone) são anonimizados imediatamente.
-   */
-  static async deleteAccount(req: JwtRequest, res: Response, next: NextFunction) {
-    try {
-      const userId = req.userId!;
-      const accountId = req.accountId!;
-
-      // 1. Busca dados antes de anonimizar (para revogar Google se preciso).
-      const user = await prisma.users.findUnique({
-        where: { id: userId },
-        select: { google_refresh_token: true, account_id: true }
-      });
-
-      // 2. Revoga integração Google (revoke no Google + limpa local).
-      if (user?.google_refresh_token) {
-        try {
-          const { google } = await import('googleapis');
-          const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET,
-            process.env.GOOGLE_REDIRECT_URI
-          );
-          oauth2Client.setCredentials({ refresh_token: user.google_refresh_token });
-          await oauth2Client.revokeToken(user.google_refresh_token);
-          console.log('✅ [deleteAccount] Token Google revogado');
-        } catch (googleErr) {
-          console.warn('⚠️ [deleteAccount] Falha ao revogar Google (continuando):', googleErr);
-        }
-      }
-
-      // 3. Revoga TODAS as sessões (refresh tokens) — impede novos refreshes.
-      await RefreshTokenService.revokeAllUserTokens(userId);
-
-      // 4. Anonimiza PII + desativa usuário imediatamente.
-      await prisma.users.update({
-        where: { id: userId },
-        data: {
-          name: 'conta_excluida',
-          phone_number: `deleted-${userId}`,
-          password_hash: null,
-          google_refresh_token: null,
-          google_email: null,
-          google_calendar_id: null,
-          status: 'inactive',
-        }
-      });
-
-      // 5. Cancela a conta — o gate de account_status em authenticateJwt bloqueia
-      //    access tokens antigos imediatamente (em até TTL_MS segundos).
-      await prisma.accounts.update({
-        where: { id: accountId },
-        data: { status: 'cancelled' }
-      });
-
-      // 6. Invalida cache de autenticação para esta conta (efeito imediato).
-      invalidateAccountStatusCache(accountId);
-
-      // 7. Limpa cookie de refresh token.
-      clearRefreshTokenCookie(res);
-
-      auditLog({
-        actor: { kind: 'user', id: userId },
-        action: 'user.delete_account',
-        target: { type: 'user', id: userId },
-        meta: {
-          retention_note: 'PII anonimizado; transações retidas 5 anos por obrigação contábil',
-          sessions_revoked: true,
-          google_revoked: !!user?.google_refresh_token,
-          account_cancelled: true,
-        }
-      });
-
-      res.json({
-        ok: true,
-        mensagem: 'Conta excluída. Todas as sessões foram revogadas, a integração Google foi desconectada e seus dados de identificação foram removidos. Transações são mantidas anonimizadas por 5 anos conforme obrigação contábil.'
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  static async listRequests(req:JwtRequest,res:Response,next:NextFunction){try{const requests=await prisma.data_subject_requests.findMany({where:{user_id:req.userId!},orderBy:{requested_at:'desc'}});res.json({requests:requests.map(r=>({...r,id:String(r.id)}))})}catch(error){next(error)}}
 }

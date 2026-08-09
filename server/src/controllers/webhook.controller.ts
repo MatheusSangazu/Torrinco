@@ -52,8 +52,14 @@ export class WebhookController {
     if (!phone || isGroup) return;
 
     // 1) Elegibilidade (telefone → user → plano ativo).
-    const eligibility = await checkEligibility(phone, isFromMe, isGroup);
+    const rawText = data?.message?.conversation ?? data?.message?.extendedTextMessage?.text ?? '';
+    const consentAccepted = typeof rawText === 'string' && rawText.trim().toLocaleUpperCase('pt-BR') === 'ACEITO TERMOS E PRIVACIDADE';
+    const eligibility = await checkEligibility(phone, isFromMe, isGroup, consentAccepted);
     if (!eligibility.ok) {
+      if (eligibility.reason === 'consent_required') {
+        const legalBaseUrl=(process.env.PUBLIC_LEGAL_BASE_URL||'https://apitorrinco.forjacorp.com').replace(/\/$/,'');
+        await EvolutionService.sendText(phone, `Para criar sua conta, leia os Termos e a Política de Privacidade em ${legalBaseUrl}/terms e ${legalBaseUrl}/privacy. Se concordar, responda exatamente: ACEITO TERMOS E PRIVACIDADE`);
+      }
       // Loga motivos esperados em debug, sem poluir.
       if (eligibility.reason && !['self_message', 'group_message'].includes(eligibility.reason)) {
         console.log(`[webhook] Mensagem de ${maskPhone(phone)} ignorada: ${eligibility.reason}`);

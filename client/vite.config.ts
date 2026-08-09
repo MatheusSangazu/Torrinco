@@ -10,24 +10,38 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon-32x32.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Torrinco - Assistente Pessoal AI',
+        id: '/',
+        name: 'Torrinco - Assistente Financeiro',
         short_name: 'Torrinco',
         description: 'Seu assistente pessoal financeiro e organizacional.',
         theme_color: '#16a34a',
         background_color: '#ffffff',
         display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        orientation: 'any',
+        lang: 'pt-BR',
+        categories: ['finance', 'productivity'],
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
@@ -47,9 +61,8 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom']
+        manualChunks(id) {
+          if (id.includes('node_modules/react-router')) return 'router';
         }
       }
     }

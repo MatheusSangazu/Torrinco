@@ -99,7 +99,14 @@ describe('1. Auth — validações', () => {
     it('aceita senha válida com 8+ caracteres', () => {
       expect(accepts(authSchemas.createPassword, {
         phone_number: '5511', code: '123456', password: 'senha123',
+        accept_terms: true, accept_privacy: true,
       })).toBe(true);
+    });
+
+    it('rejeita cadastro sem aceite explícito dos documentos legais', () => {
+      expect(accepts(authSchemas.createPassword, {
+        phone_number: '5511', code: '123456', password: 'senha123',
+      })).toBe(false);
     });
   });
 

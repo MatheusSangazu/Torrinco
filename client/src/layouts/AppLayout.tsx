@@ -1,7 +1,7 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft, Bell } from 'lucide-react';
+import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft, Bell, BadgeDollarSign } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 
@@ -30,6 +30,7 @@ export function AppLayout() {
     { path: '/reports', label: 'RELATÓRIOS', icon: PieChart },
     { path: '/reminders', label: 'LEMBRETES', icon: Bell },
     { path: '/calendar', label: 'AGENDA', icon: Calendar },
+    { path: '/subscription', label: 'PLANO', icon: BadgeDollarSign },
   ];
 
   return (
@@ -41,7 +42,7 @@ export function AppLayout() {
             <img src="/torrinco.png" alt="Torrinco" className="w-8 h-8 rounded-lg bg-white p-0.5" />
             <span className="text-xl font-bold">Torrinco</span>
          </div>
-         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2">
+         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="Abrir menu de navegação" aria-expanded={isMobileMenuOpen}>
            <Menu className="w-6 h-6" />
          </button>
       </div>
@@ -103,6 +104,7 @@ export function AppLayout() {
                 onClick={toggleTheme}
                 className="p-2 rounded-lg hover:bg-torrinco-500 transition-colors text-white"
                 title="Alternar Tema"
+                aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
               >
                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
@@ -110,6 +112,7 @@ export function AppLayout() {
               <button 
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 className="p-2 rounded-lg hover:bg-torrinco-500 transition-colors text-white"
+                aria-label={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
               >
                 {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <div className="flex items-center text-xs font-medium"><span className="mr-2">Recolher</span> <ChevronLeft className="w-4 h-4" /></div>}
               </button>
@@ -131,7 +134,7 @@ export function AppLayout() {
                     <p className="text-sm font-medium truncate max-w-[120px]">{user?.name || 'Usuário'}</p>
                   </div>
                </div>
-               <button onClick={() => setIsMobileMenuOpen(false)}><ChevronRight /></button>
+               <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Fechar menu de navegação" className="focus-visible:outline-2 focus-visible:outline-offset-2"><ChevronRight /></button>
              </div>
              <nav className="space-y-2">
               {navItems.map((item) => (

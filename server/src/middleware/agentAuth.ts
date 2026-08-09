@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { authenticateJwt, type JwtRequest } from './jwt.js';
 import { prisma } from '../lib/prisma.js';
+import { assertFeature } from '../services/subscription.service.js';
 
 /**
  * Auth dupla para a camada agent-friendly.
@@ -50,7 +51,12 @@ export async function agentAuth(req: JwtRequest, res: Response, next: NextFuncti
 
     req.userId = user.id;
     req.accountId = user.account_id;
-    return next();
+    try {
+      await assertFeature(user.account_id, 'ai');
+      return next();
+    } catch (error: any) {
+      return res.status(error.statusCode ?? 503).json({ error: 'Assistente indisponivel para esta conta', code: error.code ?? error.message });
+    }
   }
 
   // Sem API key → cai no fluxo JWT normal do app.

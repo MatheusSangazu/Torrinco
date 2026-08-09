@@ -10,7 +10,7 @@ export function InstallPWABadge() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setIsVisible(true);
+      setIsVisible(localStorage.getItem('torrinco:pwa-install-dismissed') !== 'true');
     };
 
     window.addEventListener('beforeinstallprompt', handler);
@@ -21,13 +21,16 @@ export function InstallPWABadge() {
     };
     
     checkInstalled();
-    window.addEventListener('appinstalled', () => {
+    const installedHandler = () => {
       setIsInstalled(true);
       setIsVisible(false);
-    });
+      localStorage.removeItem('torrinco:pwa-install-dismissed');
+    };
+    window.addEventListener('appinstalled', installedHandler);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
     };
   }, []);
 
@@ -45,6 +48,7 @@ export function InstallPWABadge() {
   };
 
   const handleDismiss = () => {
+    localStorage.setItem('torrinco:pwa-install-dismissed', 'true');
     setIsVisible(false);
   };
 
@@ -55,7 +59,7 @@ export function InstallPWABadge() {
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 p-3 flex items-center gap-3">
         <button
           onClick={handleInstall}
-          className="flex items-center gap-2 bg-torrinco-600 hover:bg-torrinco-700 text-white text-sm font-medium py-2 px-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-torrinco-500/20"
+          className="flex items-center gap-2 bg-torrinco-700 hover:bg-torrinco-800 text-white text-sm font-medium py-2 px-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-torrinco-500/20"
         >
           <Download className="h-4 w-4" />
           Instalar App
@@ -63,6 +67,7 @@ export function InstallPWABadge() {
         <button
           onClick={handleDismiss}
           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          aria-label="Dispensar convite de instalação"
         >
           <X className="h-4 w-4" />
         </button>

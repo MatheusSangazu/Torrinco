@@ -149,6 +149,17 @@ export function invalidateClient(userId: number): void {
   clientCache.delete(userId);
 }
 
+export async function disconnectGoogle(userId:number):Promise<{revoked:boolean}> {
+  const user=await prisma.users.findUnique({where:{id:userId},select:{google_refresh_token:true}});
+  let revoked=false;
+  if(user?.google_refresh_token){
+    try{const client=createBaseClient();await client.revokeToken(user.google_refresh_token);revoked=true}catch{/* token pode já estar inválido; limpeza local continua */}
+  }
+  await prisma.users.update({where:{id:userId},data:{google_refresh_token:null,google_email:null,google_calendar_id:null}});
+  invalidateClient(userId);
+  return {revoked};
+}
+
 /** Retorna o calendar_id configurado pelo usuário (default "primary"). */
 export async function getCalendarId(userId: number): Promise<string> {
   const user = await prisma.users.findUnique({

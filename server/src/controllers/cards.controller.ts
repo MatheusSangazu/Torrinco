@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import * as billing from '../services/billing.service.js';
+import { assertWithinLimit } from '../services/subscription.service.js';
 
 /** Mapeia códigos de erro do service de billing para status HTTP. */
 function billingErrorStatus(code: string): number {
@@ -75,6 +76,8 @@ export class CardsController {
       const { name, limit, closing_day, due_day, color } = req.body;
       const userId = req.userId!;
       const accountId = req.accountId!;
+
+      await assertWithinLimit(accountId, 'cards');
 
       if (!name) {
         return res.status(400).json({ error: 'Name is required' });

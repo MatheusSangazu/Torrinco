@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { CardsController } from '../controllers/cards.controller.js';
 import { authenticateJwt } from '../middleware/jwt.js';
+import { auditFinancialMutation } from '../middleware/financial-audit.js';
 import { validate } from '../middleware/validate.js';
 import { cardSchemas, commonSchemas } from '../schemas/index.js';
 
 const router = Router();
 
 router.use(authenticateJwt);
+router.use(auditFinancialMutation);
 
 // Cartões
 router.get('/', CardsController.list);

@@ -24,7 +24,7 @@ async function main() {
       price_monthly: 34.90,
       price_yearly: 349.00,
       features: { calendar: true, ai: true, import: true, installments: true, shared_cards: true },
-      status: 'active'
+      status: 'hidden'
     },
     {
       name: 'pro',
@@ -33,7 +33,7 @@ async function main() {
       price_monthly: 39.90,
       price_yearly: 399.00,
       features: { calendar: true, ai: true, import: true, installments: true, advanced_reports: true, api_access: true },
-      status: 'active'
+      status: 'hidden'
     },
     {
       name: 'free',
@@ -42,7 +42,7 @@ async function main() {
       price_monthly: 0,
       price_yearly: 0,
       features: { calendar: false, ai: true, import: false, installments: false },
-      status: 'active'
+      status: 'hidden'
     }
   ];
 

@@ -19,6 +19,10 @@ export const api = axios.create({
 
 // Request interceptor: anexa Bearer token do estado em memória.
 api.interceptors.request.use((config) => {
+  const method = (config.method ?? 'get').toLowerCase();
+  if (typeof navigator !== 'undefined' && !navigator.onLine && method !== 'get') {
+    return Promise.reject(Object.assign(new Error('Operação indisponível offline. Aguarde a conexão voltar.'), { code: 'OFFLINE_MUTATION_BLOCKED' }));
+  }
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }

@@ -7,6 +7,7 @@ import { Phone, Lock, ArrowRight, Loader2, Eye, EyeOff, Key, ShieldCheck, Refres
 type Step = 'phone' | 'code' | 'password';
 
 export function FirstAccess() {
+  const legalBaseUrl = import.meta.env.VITE_API_URL || '/api';
   const [step, setStep] = useState<Step>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
@@ -15,6 +16,7 @@ export function FirstAccess() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -67,6 +69,7 @@ export function FirstAccess() {
       setError('As senhas não coincidem.');
       return;
     }
+    if (!acceptedLegal) { setError('Você precisa aceitar os Termos e a Política de Privacidade.'); return; }
 
     if (password.length < 6) {
       setError('A senha deve ter no mínimo 6 caracteres.');
@@ -80,6 +83,8 @@ export function FirstAccess() {
         phone_number: phoneNumber,
         code,
         password,
+        accept_terms: acceptedLegal,
+        accept_privacy: acceptedLegal,
       });
 
       const { accessToken, user } = response.data;
@@ -203,6 +208,7 @@ export function FirstAccess() {
               </button>
             </div>
           </div>
+          <label className="flex items-start gap-3 rounded-xl border p-3 text-sm"><input type="checkbox" checked={acceptedLegal} onChange={e=>setAcceptedLegal(e.target.checked)} required className="mt-1"/><span>Li e aceito os <a href={`${legalBaseUrl}/legal/terms`} target="_blank" rel="noreferrer" className="font-semibold text-torrinco-700 underline">Termos de Serviço</a> e a <a href={`${legalBaseUrl}/legal/privacy`} target="_blank" rel="noreferrer" className="font-semibold text-torrinco-700 underline">Política de Privacidade</a>.</span></label>
 
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">

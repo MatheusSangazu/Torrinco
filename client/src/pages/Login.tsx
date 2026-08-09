@@ -85,6 +85,7 @@ export function Login() {
             type="button"
             className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
           >
             {showPassword ? (
               <EyeOff className="h-5 w-5" />
@@ -96,7 +97,7 @@ export function Login() {
       </div>
 
       <div className="flex items-center justify-end">
-            <Link to="/forgot-password" className="text-sm font-medium text-torrinco-600 hover:text-torrinco-500 dark:text-torrinco-400 dark:hover:text-torrinco-300">
+            <Link to="/forgot-password" className="text-sm font-medium text-torrinco-700 hover:text-torrinco-800 dark:text-torrinco-300 dark:hover:text-torrinco-200">
               Esqueci a senha
             </Link>
           </div>
@@ -105,7 +106,7 @@ export function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-torrinco-500/20 text-sm font-bold text-white bg-torrinco-600 hover:bg-torrinco-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-torrinco-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+          className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-torrinco-500/20 text-sm font-bold text-white bg-torrinco-700 hover:bg-torrinco-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-torrinco-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
         >
           {loading ? (
             <>
@@ -122,7 +123,7 @@ export function Login() {
       </div>
 
       <div className="text-center mt-4">
-        <Link to="/first-access" className="text-sm font-medium text-torrinco-600 hover:text-torrinco-500 dark:text-torrinco-400 dark:hover:text-torrinco-300 transition-colors">
+        <Link to="/first-access" className="text-sm font-medium text-torrinco-700 hover:text-torrinco-800 dark:text-torrinco-300 dark:hover:text-torrinco-200 transition-colors">
           Primeiro acesso? Crie sua senha
         </Link>
       </div>

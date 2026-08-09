@@ -1,12 +1,14 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma.js';
+import { assertWithinLimit } from '../services/subscription.service.js';
 import { generateAccessToken, type JwtRequest } from '../middleware/jwt.js';
 import { EvolutionService } from '../services/evolution.service.js';
 import { RefreshTokenService } from '../services/refresh-token.service.js';
 import { VerificationService } from '../services/verification.service.js';
 import { setRefreshTokenCookie, clearRefreshTokenCookie, getRefreshTokenFromCookies } from '../lib/cookie.js';
 import { maskPhone } from '../lib/mask.js';
+import { recordCurrentConsents } from '../services/privacy.service.js';
 
 // Senhas comuns e óbvias que devem ser bloqueadas.
 const COMMON_PASSWORDS = new Set([
@@ -145,6 +147,8 @@ export class AuthController {
       const accountId = req.accountId!;
       const { name, phone_number, email } = req.body;
 
+      await assertWithinLimit(accountId, 'users');
+
       if (!name || !phone_number) {
         return res.status(400).json({ error: 'Nome e número de telefone são obrigatórios' });
       }
@@ -221,12 +225,13 @@ export class AuthController {
    
   static async createPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { phone_number, code, password } = req.body;
+      const { phone_number, code, password, accept_terms, accept_privacy } = req.body;
       const user = await AuthController.findUserByPhone(phone_number);
 
       if (!user) {
         return res.status(400).json({ error: 'Código inválido ou expirado' });
       }
+      if (accept_terms !== true || accept_privacy !== true) return res.status(400).json({ error: 'O aceite explícito dos Termos e da Política de Privacidade é obrigatório' });
 
       if (user.password_hash) {
         return res.status(400).json({ error: 'Senha já definida' });
@@ -259,6 +264,7 @@ export class AuthController {
           account_id: true,
         },
       });
+      await recordCurrentConsents({ userId:updatedUser.id, accountId:updatedUser.account_id, origin:'pwa_first_access', ip:req.ip, userAgent:req.get('user-agent'), evidence:{flow:'first_access'} });
 
       const createPasswordPayload = {
         userId: updatedUser.id,

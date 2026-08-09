@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import { google } from 'googleapis';
 import { prisma } from '../lib/prisma.js';
-import { getAuthUrl, exchangeCode, verifyState, isConnected, invalidateClient } from '../services/google/auth.service.js';
+import { getAuthUrl, exchangeCode, verifyState, isConnected, invalidateClient, disconnectGoogle } from '../services/google/auth.service.js';
+import { privacyAudit } from '../services/privacy.service.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 
 /**
@@ -104,6 +105,7 @@ export class GoogleController {
       next(error);
     }
   }
+  static async disconnect(req:JwtRequest,res:Response,next:NextFunction){try{const result=await disconnectGoogle(req.userId!);await privacyAudit({userId:req.userId,accountId:req.accountId,eventType:'integration.google.disconnect',targetType:'google_calendar',outcome:'succeeded',metadata:{remoteRevocationConfirmed:result.revoked}});res.json({ok:true,...result})}catch(error){next(error)}}
 }
 
 /** Página HTML simples e auto-contida para as telas de sucesso/erro do callback. */

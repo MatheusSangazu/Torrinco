@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller.js';
 import { authenticateJwt, requireAdmin } from '../middleware/jwt.js';
+import { authenticateIdentity } from '../middleware/identity.js';
 import { authLimiter, passwordResetLimiter, firstAccessLimiter } from '../middleware/rate-limiter.js';
 import { validate } from '../middleware/validate.js';
 import { authSchemas, commonSchemas } from '../schemas/index.js';
@@ -22,7 +23,7 @@ router.post('/create-password', firstAccessLimiter, validate({ body: authSchemas
 router.post('/login', authLimiter, validate({ body: authSchemas.login }), AuthController.login);
 
 // Rota de Usuário Logado
-router.get('/me', authenticateJwt, AuthController.me);
+router.get('/me', authenticateIdentity, AuthController.me);
 
 // Rota para alterar senha (Requer estar logado)
 router.post('/change-password', authenticateJwt, validate({ body: authSchemas.changePassword }), AuthController.changePassword);

@@ -1,55 +1,28 @@
+import { lazy, Suspense, type ComponentType } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthLayout } from './layouts/AuthLayout';
 import { AppLayout } from './layouts/AppLayout';
-import { Login } from './pages/Login';
-import { FirstAccess } from './pages/FirstAccess';
-import { ForgotPassword } from './pages/ForgotPassword';
-import { Dashboard } from './pages/Dashboard';
-import { Transactions } from './pages/Transactions';
-import { Calendar } from './pages/Calendar';
-import { Categories } from './pages/Categories';
-import { Reports } from './pages/Reports';
-import { Cards } from './pages/Cards';
-import { IncomeSources } from './pages/IncomeSources';
-import { Reminders } from './pages/Reminders';
 import { InstallPWABadge } from './components/InstallPWABadge';
+import { NetworkStatus } from './components/NetworkStatus';
+import { PageLoading } from './components/PageState';
 import { Toaster } from 'react-hot-toast';
 import './App.css';
 
-function App() {
-  return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-        <AuthProvider>
-          <InstallPWABadge />
-          <Routes>
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<Login />} />
-              <Route path="/first-access" element={<FirstAccess />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-            </Route>
-            
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/categories" element={<Categories />} />
-              <Route path="/cards" element={<Cards />} />
-              <Route path="/income-sources" element={<IncomeSources />} />
-              <Route path="/reminders" element={<Reminders />} />
-              <Route path="/settings" element={<div className="p-4 text-gray-900 dark:text-white">Configurações (Em breve)</div>} />
-            </Route>
+const page=<T extends Record<string,ComponentType<any>>>(loader:()=>Promise<T>,name:keyof T)=>lazy(()=>loader().then(module=>({default:module[name]})));
+const Login=page(()=>import('./pages/Login'),'Login');
+const FirstAccess=page(()=>import('./pages/FirstAccess'),'FirstAccess');
+const ForgotPassword=page(()=>import('./pages/ForgotPassword'),'ForgotPassword');
+const Dashboard=page(()=>import('./pages/Dashboard'),'Dashboard');
+const Transactions=page(()=>import('./pages/Transactions'),'Transactions');
+const Calendar=page(()=>import('./pages/Calendar'),'Calendar');
+const Categories=page(()=>import('./pages/Categories'),'Categories');
+const Reports=page(()=>import('./pages/Reports'),'Reports');
+const Cards=page(()=>import('./pages/Cards'),'Cards');
+const IncomeSources=page(()=>import('./pages/IncomeSources'),'IncomeSources');
+const Reminders=page(()=>import('./pages/Reminders'),'Reminders');
+const Subscription=page(()=>import('./pages/Subscription'),'Subscription');
+const Settings=page(()=>import('./pages/Settings'),'Settings');
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  );
-}
-
-export default App;
+export default function App(){return <BrowserRouter><ThemeProvider><Toaster position="top-right" toastOptions={{duration:4000}}/><AuthProvider><NetworkStatus/><InstallPWABadge/><Suspense fallback={<PageLoading label="Carregando página…"/>}><Routes><Route element={<AuthLayout/>}><Route path="/login" element={<Login/>}/><Route path="/first-access" element={<FirstAccess/>}/><Route path="/forgot-password" element={<ForgotPassword/>}/></Route><Route element={<AppLayout/>}><Route path="/" element={<Dashboard/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/reports" element={<Reports/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/categories" element={<Categories/>}/><Route path="/cards" element={<Cards/>}/><Route path="/income-sources" element={<IncomeSources/>}/><Route path="/reminders" element={<Reminders/>}/><Route path="/subscription" element={<Subscription/>}/><Route path="/settings" element={<Settings/>}/></Route><Route path="*" element={<Navigate to="/" replace/>}/></Routes></Suspense></AuthProvider></ThemeProvider></BrowserRouter>}

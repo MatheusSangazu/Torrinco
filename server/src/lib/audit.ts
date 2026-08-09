@@ -42,4 +42,8 @@ export function auditLog(event: AuditEvent): void {
   };
   // JSON em uma linha — fácil de ingerir.
   console.log(`[audit] ${JSON.stringify(line)}`);
+  if (event.actor.kind === 'user') {
+    const actorId = event.actor.id;
+    import('../services/privacy.service.js').then(({privacyAudit}) => privacyAudit({ userId:actorId, eventType:event.action, targetType:event.target?.type, targetId:event.target?.id, outcome:'succeeded', metadata:event.meta })).catch(err => console.error('[audit] persistent sink failed', err));
+  }
 }

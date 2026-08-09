@@ -3,10 +3,12 @@ import { InstallmentsController } from '../controllers/installments.controller.j
 import { authenticateJwt } from '../middleware/jwt.js';
 import { validate } from '../middleware/validate.js';
 import { installmentSchemas, commonSchemas } from '../schemas/index.js';
+import { requireFeature } from '../middleware/plan.js';
 
 const router = Router();
 
 router.use(authenticateJwt);
+router.use(requireFeature('installments'));
 
 router.get('/', validate({ query: installmentSchemas.listQuery }), InstallmentsController.list);
 router.get('/:id', validate({ params: commonSchemas.idParams }), InstallmentsController.getById);

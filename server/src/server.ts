@@ -21,8 +21,10 @@ import agentRoutes from './routes/agent.routes.js';
 import webhookRoutes from './routes/webhooks.routes.js';
 import googleRoutes from './routes/google.routes.js';
 import userDataRoutes from './routes/user_data.routes.js';
+import subscriptionRoutes from './routes/subscription.routes.js';
 import { LegalController } from './controllers/legal.controller.js';
 import { apiLimiter } from './middleware/rate-limiter.js';
+import { schedulerHealthSnapshot } from './services/job-runtime.service.js';
 
 dotenv.config();
 
@@ -100,7 +102,12 @@ app.get('/health', async (req: Request, res: Response) => {
   try {
     const { prisma } = await import('./lib/prisma.js');
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'healthy', database: 'connected' });
+    const scheduler = schedulerHealthSnapshot();
+    const [retrying, permanentFailures] = await Promise.all([
+      prisma.reminder_deliveries.count({ where: { status: 'retry' } }),
+      prisma.reminder_deliveries.count({ where: { status: 'permanent_failure', failed_at: { gte: new Date(Date.now() - 24 * 60 * 60_000) } } })
+    ]);
+    res.json({ status: 'healthy', database: 'connected', scheduler: { started: scheduler.started, lastTickAt: scheduler.lastTickAt, lastSuccessAt: scheduler.lastSuccessAt, lastErrorAt: scheduler.lastErrorAt, retrying, permanentFailures24h: permanentFailures } });
   } catch (error) {
     res.status(503).json({ status: 'unhealthy', database: 'disconnected' });
   }
@@ -109,6 +116,8 @@ app.get('/health', async (req: Request, res: Response) => {
 // Páginas legais (públicas) — exigidas pelo Google OAuth consent screen.
 app.get('/privacy', LegalController.privacy);
 app.get('/terms', LegalController.terms);
+app.get('/api/legal/privacy', LegalController.privacy);
+app.get('/api/legal/terms', LegalController.terms);
 
 //// Registro de Módulos
 app.use('/api/auth', authRoutes);
@@ -126,6 +135,7 @@ app.use('/api/installments', installmentsRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/google', googleRoutes);
 app.use('/api/user', userDataRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 app.use('/webhooks', webhookRoutes);
 
 

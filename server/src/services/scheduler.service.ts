@@ -1,72 +1,46 @@
 import { prisma } from '../lib/prisma.js';
 import { materializeDue } from './recurring.service.js';
 import { syncBillCycle } from './billing.service.js';
+import { assertAccountAccess } from './subscription.service.js';
+import { jobLog, maskedAccount } from '../lib/job-log.js';
+import { runPrivacyRetentionJob } from './retention.service.js';
 
-/**
- * Orquestra os jobs agendados do servidor.
- *
- * O servidor é autossuficiente: mesmo que o n8n/IA esteja fora, este job roda
- * diariamente e mantém os dados atualizados (recorrências materializadas e
- * faturas com status correto). O agente de IA pode forçar a execução antes de
- * responder via POST /api/recurring/run para ter dados frescos.
- */
-
-/**
- * Materializa as recorrências vencidas de TODOS os usuários ativos.
- * Idempotente: a deduplicação por FK impede duplicação em execuções repetidas.
- */
 export async function runRecurringJob() {
-  const users = await prisma.users.findMany({
-    where: { status: 'active' },
-    select: { id: true }
-  });
-
+  const users = await prisma.users.findMany({ where: { status: 'active' }, select: { id: true, account_id: true } });
   const summary: { userId: number; created: number }[] = [];
-  for (const u of users) {
+  for (const user of users) {
+    const started = Date.now();
     try {
-      const created = await materializeDue(u.id);
-      if (created.length > 0) {
-        summary.push({ userId: u.id, created: created.length });
-      }
-    } catch (err) {
-      console.error(`[scheduler] Falha ao materializar recorrências do usuário ${u.id}:`, err);
+      await assertAccountAccess(user.account_id);
+      const created = await materializeDue(user.id);
+      if (created.length) summary.push({ userId: user.id, created: created.length });
+      jobLog('info', { job: 'recurring', account: maskedAccount(user.account_id), duration_ms: Date.now()-started, result: 'succeeded', created: created.length });
+    } catch (error: any) {
+      jobLog('error', { job: 'recurring', account: maskedAccount(user.account_id), duration_ms: Date.now()-started, result: error?.statusCode===403?'ineligible':'failed', error: String(error?.message ?? error) });
     }
   }
   return summary;
 }
 
-/**
- * Sincroniza o ciclo de faturas de TODOS os cartões ativos: garante a fatura do
- * ciclo atual criada e faturas vencidas marcadas como "closed".
- */
 export async function runBillCycleJob() {
-  const cards = await prisma.financial_entities.findMany({
-    where: { type: 'credit_card' },
-    select: { id: true, created_by_user_id: true }
-  });
-
+  const cards = await prisma.financial_entities.findMany({ where: { type: 'credit_card' }, select: { id: true, account_id: true, created_by_user_id: true } });
   const summary: { cardId: number; synced: boolean }[] = [];
-  for (const c of cards) {
+  for (const card of cards) {
+    const started = Date.now();
     try {
-      // syncBillCycle precisa de um userId; usa created_by_user_id (fallback pra primeiro user da conta).
-      const userId = c.created_by_user_id ?? 1;
-      await syncBillCycle(c.id, userId);
-      summary.push({ cardId: c.id, synced: true });
-    } catch (err) {
-      console.error(`[scheduler] Falha ao sincronizar faturas do cartão ${c.id}:`, err);
-      summary.push({ cardId: c.id, synced: false });
+      await assertAccountAccess(card.account_id);
+      const creator = card.created_by_user_id ? await prisma.users.findFirst({ where: { id: card.created_by_user_id, account_id: card.account_id, status: 'active' }, select: { id: true } }) : null;
+      const user = creator ?? await prisma.users.findFirst({ where: { account_id: card.account_id, status: 'active' }, orderBy: { id: 'asc' }, select: { id: true } });
+      if (!user) throw new Error('NO_ACTIVE_USER_FOR_CARD');
+      await syncBillCycle(card.id, user.id);
+      summary.push({ cardId: card.id, synced: true });
+      jobLog('info', { job: 'bill_cycle', account: maskedAccount(card.account_id), duration_ms: Date.now()-started, result: 'succeeded' });
+    } catch (error: any) {
+      summary.push({ cardId: card.id, synced: false });
+      jobLog('error', { job: 'bill_cycle', account: maskedAccount(card.account_id), duration_ms: Date.now()-started, result: error?.statusCode===403?'ineligible':'failed', error: String(error?.message ?? error) });
     }
   }
   return summary;
 }
 
-/**
- * Executa todos os jobs diários em sequência.
- * Ordem: primeiro materializa recorrências (para que as transações de crédito
- * já existam ao sincronizar as faturas), depois sincroniza o ciclo de faturas.
- */
-export async function runDailyJobs() {
-  const recurring = await runRecurringJob();
-  const bills = await runBillCycleJob();
-  return { recurring, bills };
-}
+export async function runDailyJobs() { return { recurring: await runRecurringJob(), bills: await runBillCycleJob(), privacy: await runPrivacyRetentionJob() }; }

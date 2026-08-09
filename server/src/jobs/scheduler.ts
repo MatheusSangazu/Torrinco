@@ -1,9 +1,10 @@
 import cron from 'node-cron';
 import { runDailyJobs } from '../services/scheduler.service.js';
-import { EvolutionService } from '../services/evolution.service.js';
 import { prisma } from '../lib/prisma.js';
 import { isConnected } from '../services/google/auth.service.js';
 import { listEvents } from '../services/google/calendar.service.js';
+import { dayExecutionKey, markSchedulerStarted, minuteExecutionKey, runIdempotentJob } from '../services/job-runtime.service.js';
+import { enqueueReminder, processReminderQueue } from '../services/reminder-delivery.service.js';
 
 /**
  * Registro dos jobs agendados do servidor.
@@ -13,22 +14,29 @@ import { listEvents } from '../services/google/calendar.service.js';
  * - 03:00: materializa recorrências e sincroniza faturas.
  */
 export function startScheduledJobs() {
+  markSchedulerStarted();
   // A cada minuto — checa lembretes internos prontos para disparar.
   cron.schedule('* * * * *', async () => {
-    await checkReminders();
-    await checkCalendarEventReminders();
+    const key = minuteExecutionKey();
+    await runIdempotentJob('reminder_tick', key, async () => {
+      await checkReminders();
+      await checkCalendarEventReminders();
+      return processReminderQueue();
+    }).catch(() => undefined);
   });
 
   // 07:00 horário de SP — agenda do dia (somente se o usuário tem eventos).
   cron.schedule('0 7 * * *', async () => {
-    await sendDailyAgenda();
+    await runIdempotentJob('daily_agenda', dayExecutionKey(), sendDailyAgenda, 10 * 60_000).catch(() => undefined);
   }, { timezone: 'America/Sao_Paulo' });
 
   // Diariamente às 03:00.
   cron.schedule('0 3 * * *', async () => {
     console.log('[cron] Iniciando jobs diários...');
     try {
-      const result = await runDailyJobs();
+      const execution = await runIdempotentJob('daily_maintenance', dayExecutionKey(), runDailyJobs, 30 * 60_000);
+      if (!execution.executed || !execution.result) return;
+      const result = execution.result;
       const recCount = result.recurring.reduce((s, r) => s + r.created, 0);
       const billCount = result.bills.filter(b => b.synced).length;
       console.log(`[cron] Jobs concluídos: ${recCount} recorrências materializadas, ${billCount} faturas sincronizadas.`);
@@ -56,16 +64,16 @@ async function checkReminders() {
         trigger_time: { lte: now, gte: windowStart }
       },
       include: {
-        users: { select: { phone_number: true, name: true } }
+        users: { select: { id: true, account_id: true, status: true, phone_number: true, name: true } }
       }
     });
 
     for (const reminder of due) {
       const phone = reminder.users?.phone_number;
-      if (!phone) continue;
+      if (!phone || reminder.users.status !== 'active') continue;
 
       const msg = `⏰ *Lembrete:* ${reminder.content}`;
-      await EvolutionService.sendText(phone, msg);
+      await enqueueReminder({ sourceType: 'internal', sourceId: String(reminder.id), occurrenceKey: reminder.trigger_time.toISOString(), accountId: reminder.users.account_id, userId: reminder.users.id, destination: phone, message: msg });
 
       // once → marca como completed (não repete).
       // daily/weekly/monthly → recálcula o próximo trigger.
@@ -84,7 +92,7 @@ async function checkReminders() {
         }
       }
 
-      console.log(`[cron] Lembrete ${reminder.id} disparado para ${phone}: ${reminder.content}`);
+      console.log(JSON.stringify({ component: 'scheduler', job: 'reminder_enqueue', reminder_id: reminder.id, result: 'queued' }));
     }
   } catch (err) {
     // Silencioso — não pode derrubar o servidor.
@@ -118,16 +126,6 @@ function calculateNextTrigger(frequency: string, current: Date): Date | null {
  * Cache de eventos do Google que já recebiam lembrete 15 min antes.
  * Chave: `${userId}:${googleEventId}`. Limpa automaticamente entradas velhas.
  */
-const remindedEvents = new Map<string, number>(); // id → timestamp de quando o evento começa
-const REMINDER_TTL_MS = 60 * 60 * 1000; // 1h
-
-function cleanupRemindedCache(now: number): void {
-  for (const [key, eventStart] of remindedEvents) {
-    if (eventStart + REMINDER_TTL_MS < now) {
-      remindedEvents.delete(key);
-    }
-  }
-}
 
 /** Formata datetime ISO do Google pra "HH:mm" no fuso de São Paulo. */
 function formatTimeBR(iso: string | null | undefined): string {
@@ -165,15 +163,14 @@ function todayBR(): string {
  */
 async function checkCalendarEventReminders() {
   const now = Date.now();
-  cleanupRemindedCache(now);
 
   // Janela: eventos que começam entre agora+14min e agora+16min.
   const from = new Date(now + 14 * 60_000);
   const to = new Date(now + 16 * 60_000);
 
   const users = await prisma.users.findMany({
-    where: { google_refresh_token: { not: null } },
-    select: { id: true, phone_number: true, name: true }
+    where: { google_refresh_token: { not: null }, status: 'active' },
+    select: { id: true, account_id: true, phone_number: true, name: true }
   });
 
   for (const user of users) {
@@ -190,13 +187,8 @@ async function checkCalendarEventReminders() {
         if (!Number.isFinite(startMs)) continue;
         if (startMs < from.getTime() || startMs > to.getTime()) continue;
 
-        const key = `${user.id}:${ev.id}`;
-        if (remindedEvents.has(key)) continue; // já lembrado
-        remindedEvents.set(key, startMs);
-
         const msg = `⏰ Em 15 min: *${ev.titulo}*${ev.local ? `\n📍 ${ev.local}` : ''}`;
-        await EvolutionService.sendText(phone, msg);
-        console.log(`[cron] Lembrete de evento enviado para ${phone}: ${ev.titulo}`);
+        await enqueueReminder({ sourceType: 'google_event', sourceId: String(ev.id), occurrenceKey: new Date(startMs).toISOString(), accountId: user.account_id, userId: user.id, destination: phone, message: msg });
       }
     } catch (err: any) {
       // GOOGLE_TOKEN_REVOKED / GOOGLE_NOT_CONNECTED → silencioso (token expirado em testing).
@@ -213,8 +205,8 @@ async function checkCalendarEventReminders() {
  */
 async function sendDailyAgenda() {
   const users = await prisma.users.findMany({
-    where: { google_refresh_token: { not: null } },
-    select: { id: true, phone_number: true, name: true }
+    where: { google_refresh_token: { not: null }, status: 'active' },
+    select: { id: true, account_id: true, phone_number: true, name: true }
   });
 
   const day = todayBR();
@@ -237,8 +229,7 @@ async function sendDailyAgenda() {
 
       const primeiro = eventos[0];
       const msg = `📅 *Sua agenda de hoje (${formatDateBR(primeiro?.inicio)}):*\n${linhas}\n\nTenha um bom dia! 👋`;
-      await EvolutionService.sendText(phone, msg);
-      console.log(`[cron] Agenda do dia enviada para ${phone}: ${eventos.length} evento(s).`);
+      await enqueueReminder({ sourceType: 'daily_agenda', sourceId: String(user.id), occurrenceKey: day, accountId: user.account_id, userId: user.id, destination: phone, message: msg });
     } catch (err: any) {
       if (err?.message !== 'GOOGLE_NOT_CONNECTED' && err?.message !== 'GOOGLE_TOKEN_REVOKED') {
         console.error(`[cron] Erro ao enviar agenda do dia para o usuário ${user.id}:`, err?.message ?? err);
