@@ -183,23 +183,40 @@ function formatBRL(valor: number): string {
 export async function createPendingAction(input: PendingActionInput): Promise<PendingActionResult> {
   const expiresAt = new Date(Date.now() + PENDING_TTL_MS);
 
-  const action = await prisma.pending_actions.create({
-    data: {
-      user_id: input.userId,
-      account_id: input.accountId,
-      action_type: input.actionType,
-      payload: JSON.stringify(input.payload),
-      idempotency_key: input.idempotencyKey ?? null,
-      summary: input.summary,
-      before_state: input.beforeState ? JSON.stringify(input.beforeState) : null,
-      status: 'pending',
-      expires_at: expiresAt,
-    },
-  });
+  let action;
+  try {
+    action = await prisma.pending_actions.create({
+      data: {
+        user_id: input.userId,
+        account_id: input.accountId,
+        action_type: input.actionType,
+        payload: JSON.stringify(input.payload),
+        idempotency_key: input.idempotencyKey ?? null,
+        summary: input.summary,
+        before_state: input.beforeState ? JSON.stringify(input.beforeState) : null,
+        status: 'pending',
+        expires_at: expiresAt,
+      },
+    });
+  } catch (error: any) {
+    if (error?.code !== 'P2002' || !input.idempotencyKey) throw error;
+    action = await prisma.pending_actions.findUnique({ where: { idempotency_key: input.idempotencyKey } });
+    if (!action || action.user_id !== input.userId || action.account_id !== input.accountId) throw error;
+    if (action.status === 'cancelled' || action.status === 'expired') {
+      action = await prisma.pending_actions.update({
+        where: { id: action.id },
+        data: {
+          payload: JSON.stringify(input.payload), summary: input.summary,
+          before_state: input.beforeState ? JSON.stringify(input.beforeState) : null,
+          status: 'pending', expires_at: expiresAt, confirmed_at: null, executed_at: null,
+        },
+      });
+    }
+  }
 
   return {
     id: action.id,
-    status: 'pending',
+    status: action.status,
     summary: action.summary,
     expiresAt: action.expires_at,
   };
@@ -336,7 +353,7 @@ export async function getLatestPending(userId: number, accountId: number): Promi
     where: {
       user_id: userId,
       account_id: accountId,
-      status: 'pending',
+      status: { in: ['pending', 'confirmed'] },
       expires_at: { gt: new Date() },
     },
     orderBy: { created_at: 'desc' },

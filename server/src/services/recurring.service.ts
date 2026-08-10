@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
-import { getCategoryForAccount } from './ownership.service.js';
+import { getCategoryForAccount, getEntityForAccount, getIncomeSourceForUser } from './ownership.service.js';
 import { assertAccountAccess } from './subscription.service.js';
 
 /**
@@ -23,8 +23,10 @@ export interface CreateRecurringInput {
   start_date: string | Date;
   category?: string;
   category_id?: number;
+  income_source_id?: number;
   entity_id?: number;
   payment_method?: string;
+  idempotency_key?: string;
 }
 
 /**
@@ -33,7 +35,7 @@ export interface CreateRecurringInput {
  */
 export async function createRecurring(userId: number, input: CreateRecurringInput) {
   const {
-    description, amount, type, frequency, category, category_id, entity_id, payment_method
+    description, amount, type, frequency, category, category_id, income_source_id, entity_id, payment_method, idempotency_key
   } = input;
 
   const startDate = typeof input.start_date === 'string' ? parseDate(input.start_date) : input.start_date;
@@ -45,46 +47,65 @@ export async function createRecurring(userId: number, input: CreateRecurringInpu
     select: { account_id: true }
   });
   if (!userRow) throw new Error('USER_NOT_FOUND');
+  await assertAccountAccess(userRow.account_id);
+
+  if (idempotency_key) {
+    const existing = await prisma.recurring_transactions.findFirst({ where: { creation_key: idempotency_key, user_id: userId } });
+    if (existing) return existing;
+  }
 
   // Resolve category_id/category name quando necessário (validando pertencimento).
   let finalCategoryId = category_id ?? null;
   let finalCategoryName = category ?? undefined;
   if (finalCategoryId && !finalCategoryName) {
     const cat = await getCategoryForAccount(finalCategoryId, userRow.account_id);
-    if (cat) finalCategoryName = cat.name;
+    if (!cat) throw Object.assign(new Error('CATEGORY_FORBIDDEN'), { statusCode: 403 });
+    finalCategoryName = cat.name;
   }
+  if (entity_id && !await getEntityForAccount(entity_id, userRow.account_id)) throw Object.assign(new Error('ENTITY_FORBIDDEN'), { statusCode: 403 });
+  if (income_source_id && !await getIncomeSourceForUser(income_source_id, userId)) throw Object.assign(new Error('INCOME_SOURCE_FORBIDDEN'), { statusCode: 403 });
 
   const nextDueDate = startDate.getTime() >= today.getTime()
     ? startDate
     : advanceDate(frequency, startDate);
 
-  const recurring = await prisma.recurring_transactions.create({
-    data: {
+  try {
+    return await prisma.$transaction(async tx => {
+      const recurring = await tx.recurring_transactions.create({ data: {
       user_id: userId,
       description,
       amount,
       type,
       category: finalCategoryName ?? null,
       category_id: finalCategoryId,
+      income_source_id: income_source_id ?? null,
+      creation_key: idempotency_key ?? null,
       frequency,
       start_date: startDate,
       next_due_date: nextDueDate,
       status: 'active',
       entity_id: entity_id ?? null,
       payment_method: payment_method ?? 'cash'
-    }
-  });
+      }});
 
   // Se a data de início for hoje, já gera a primeira ocorrência.
   const isToday = startDate.getUTCFullYear() === today.getUTCFullYear() &&
                   startDate.getUTCMonth() === today.getUTCMonth() &&
                   startDate.getUTCDate() === today.getUTCDate();
 
-  if (isToday) {
-    await materializeOne(userId, recurring.id, startDate);
+      if (isToday) await materializeWithClient(tx, userId, userRow.account_id, recurring, startDate);
+      return recurring;
+    });
+  } catch (error:any) {
+    if(error?.code==='P2002'&&idempotency_key){const existing=await prisma.recurring_transactions.findFirst({where:{creation_key:idempotency_key,user_id:userId}});if(existing)return existing}
+    throw error;
   }
+}
 
-  return recurring;
+async function materializeWithClient(db:any,userId:number,accountId:number,recurring:any,txDate:Date){
+  const existing=await db.transactions.findFirst({where:{user_id:userId,recurring_transaction_id:recurring.id,recurring_occurrence_at:txDate}});if(existing)return existing;
+  let created;try{created=await db.transactions.create({data:{account_id:accountId,user_id:userId,amount:recurring.amount,type:recurring.type,category:recurring.category,category_id:recurring.category_id,income_source_id:recurring.income_source_id,description:recurring.description,transaction_date:txDate,status:'paid',is_recurring:true,recurring_transaction_id:recurring.id,recurring_occurrence_at:txDate,entity_id:recurring.entity_id,payment_method:recurring.payment_method}})}catch(error:any){if(error?.code!=='P2002')throw error;created=await db.transactions.findFirst({where:{recurring_transaction_id:recurring.id,recurring_occurrence_at:txDate}});if(!created)throw error}
+  await db.recurring_transactions.update({where:{id:recurring.id},data:{next_due_date:advanceDate(recurring.frequency as Frequency,recurring.next_due_date)}});return created;
 }
 
 /**

@@ -8,58 +8,59 @@ datasource db {
 }
 
 model plans {
-  id            Int       @id @default(autoincrement())
-  name          String    @unique @db.VarChar(50)
-  max_users     Int       @default(1)
-  max_cards     Int       @default(5)
-  price_monthly Decimal?  @db.Decimal(10, 2)
-  price_yearly  Decimal?  @db.Decimal(10, 2)
-  features      Json?
-  status        String    @default("active") @db.VarChar(20)
-  created_at    DateTime  @default(now()) @db.DateTime(0)
-  accounts      accounts[]
+  id                   Int                    @id @default(autoincrement())
+  name                 String                 @unique @db.VarChar(50)
+  max_users            Int                    @default(1)
+  max_cards            Int                    @default(5)
+  price_monthly        Decimal?               @db.Decimal(10, 2)
+  price_yearly         Decimal?               @db.Decimal(10, 2)
+  features             Json?
+  status               String                 @default("active") @db.VarChar(20)
+  created_at           DateTime               @default(now()) @db.DateTime(0)
+  accounts             accounts[]
   subscription_history subscription_history[]
-  commerce_orders commerce_orders[]
+  commerce_orders      commerce_orders[]
 }
 
 model accounts {
-  id            Int                 @id @default(autoincrement())
-  name          String?             @default("Minha Conta") @db.VarChar(100)
-  plan_id       Int
-  status        accounts_status?    @default(trial)
-  trial_ends_at DateTime?           @db.DateTime(0)
-  current_period_ends_at DateTime?  @db.DateTime(0)
-  grace_period_ends_at DateTime?    @db.DateTime(0)
-  cancelled_at DateTime?            @db.DateTime(0)
-  created_at    DateTime?           @default(now()) @db.DateTime(0)
-  origin        String              @default("legacy") @db.VarChar(30)
-  plans         plans               @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_plan_fk")
-  transactions  transactions[]
-  users         users[]
-  financial_entities financial_entities[]
-  categories    categories[]
-  subscription_history subscription_history[]
-  account_invitations account_invitations[]
-  platform_admin_audit platform_admin_audit[]
-  account_members account_members[]
-  commerce_orders commerce_orders[]
-  billing_subscriptions billing_subscriptions[]
+  id                     Int                     @id @default(autoincrement())
+  name                   String?                 @default("Minha Conta") @db.VarChar(100)
+  plan_id                Int
+  status                 accounts_status?        @default(trial)
+  trial_ends_at          DateTime?               @db.DateTime(0)
+  current_period_ends_at DateTime?               @db.DateTime(0)
+  grace_period_ends_at   DateTime?               @db.DateTime(0)
+  cancelled_at           DateTime?               @db.DateTime(0)
+  created_at             DateTime?               @default(now()) @db.DateTime(0)
+  origin                 String                  @default("legacy") @db.VarChar(30)
+  plans                  plans                   @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "accounts_plan_fk")
+  transactions           transactions[]
+  users                  users[]
+  financial_entities     financial_entities[]
+  categories             categories[]
+  subscription_history   subscription_history[]
+  account_invitations    account_invitations[]
+  platform_admin_audit   platform_admin_audit[]
+  account_members        account_members[]
+  commerce_orders        commerce_orders[]
+  billing_subscriptions  billing_subscriptions[]
+  financial_imports      financial_imports[]
 
   @@index([plan_id], map: "accounts_plan_idx")
 }
 
 /// Auditoria imutavel de toda transicao comercial da assinatura.
 model subscription_history {
-  id              Int       @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   account_id      Int
   plan_id         Int
   previous_status accounts_status?
   new_status      accounts_status
-  reason          String    @db.VarChar(100)
+  reason          String           @db.VarChar(100)
   metadata        Json?
-  created_at      DateTime  @default(now()) @db.DateTime(0)
-  accounts        accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  plans           plans     @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  created_at      DateTime         @default(now()) @db.DateTime(0)
+  accounts        accounts         @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plans           plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([account_id, created_at])
 }
@@ -81,41 +82,41 @@ model billing_webhook_events {
 }
 
 model account_members {
-  id          Int          @id @default(autoincrement())
-  account_id  Int
-  user_id     Int
-  role        users_role   @default(member)
-  status      users_status @default(active)
-  created_at  DateTime     @default(now()) @db.DateTime(3)
-  accounts    accounts     @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users       users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id         Int          @id @default(autoincrement())
+  account_id Int
+  user_id    Int
+  role       users_role   @default(member)
+  status     users_status @default(active)
+  created_at DateTime     @default(now()) @db.DateTime(3)
+  accounts   accounts     @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([account_id, user_id])
   @@index([user_id, status])
 }
 
 model commerce_orders {
-  id                 Int                   @id @default(autoincrement())
-  public_id          String                @unique @db.VarChar(36)
-  idempotency_key    String                @unique @db.VarChar(100)
-  user_id            Int?
-  account_id         Int?
-  plan_id            Int
-  customer_name      String                @db.VarChar(100)
-  customer_phone     String                @db.VarChar(30)
-  customer_email     String?               @db.VarChar(150)
-  expected_amount    Decimal               @db.Decimal(10, 2)
-  currency           String                @default("BRL") @db.VarChar(3)
-  billing_period_days Int                  @default(30)
-  status             commerce_order_status @default(pending)
-  review_reason      String?               @db.VarChar(255)
-  created_at         DateTime              @default(now()) @db.DateTime(3)
-  updated_at         DateTime              @updatedAt @db.DateTime(3)
-  users              users?                @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  accounts           accounts?             @relation(fields: [account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  plans              plans                 @relation(fields: [plan_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  billing_checkouts  billing_checkouts[]
-  billing_payments   billing_payments[]
+  id                    Int                     @id @default(autoincrement())
+  public_id             String                  @unique @db.VarChar(36)
+  idempotency_key       String                  @unique @db.VarChar(100)
+  user_id               Int?
+  account_id            Int?
+  plan_id               Int
+  customer_name         String                  @db.VarChar(100)
+  customer_phone        String                  @db.VarChar(30)
+  customer_email        String?                 @db.VarChar(150)
+  expected_amount       Decimal                 @db.Decimal(10, 2)
+  currency              String                  @default("BRL") @db.VarChar(3)
+  billing_period_days   Int                     @default(30)
+  status                commerce_order_status   @default(pending)
+  review_reason         String?                 @db.VarChar(255)
+  created_at            DateTime                @default(now()) @db.DateTime(3)
+  updated_at            DateTime                @updatedAt @db.DateTime(3)
+  users                 users?                  @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  accounts              accounts?               @relation(fields: [account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  plans                 plans                   @relation(fields: [plan_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  billing_checkouts     billing_checkouts[]
+  billing_payments      billing_payments[]
   billing_subscriptions billing_subscriptions[]
 
   @@index([status, created_at])
@@ -139,17 +140,17 @@ model billing_checkouts {
 }
 
 model billing_payments {
-  id                  Int            @id @default(autoincrement())
+  id                  Int             @id @default(autoincrement())
   order_id            Int
-  provider            String         @db.VarChar(50)
-  external_payment_id String         @db.VarChar(191)
-  amount              Decimal        @db.Decimal(10, 2)
-  currency            String         @db.VarChar(3)
-  status              payment_status @default(pending)
-  paid_at             DateTime?      @db.DateTime(3)
-  refunded_at         DateTime?      @db.DateTime(3)
-  created_at          DateTime       @default(now()) @db.DateTime(3)
-  updated_at          DateTime       @updatedAt @db.DateTime(3)
+  provider            String          @db.VarChar(50)
+  external_payment_id String          @db.VarChar(191)
+  amount              Decimal         @db.Decimal(10, 2)
+  currency            String          @db.VarChar(3)
+  status              payment_status  @default(pending)
+  paid_at             DateTime?       @db.DateTime(3)
+  refunded_at         DateTime?       @db.DateTime(3)
+  created_at          DateTime        @default(now()) @db.DateTime(3)
+  updated_at          DateTime        @updatedAt @db.DateTime(3)
   orders              commerce_orders @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([provider, external_payment_id])
@@ -157,20 +158,20 @@ model billing_payments {
 }
 
 model billing_subscriptions {
-  id                       Int                 @id @default(autoincrement())
+  id                       Int                         @id @default(autoincrement())
   order_id                 Int
   account_id               Int
-  provider                 String              @db.VarChar(50)
-  external_customer_id     String?             @db.VarChar(191)
-  external_subscription_id String?             @db.VarChar(191)
+  provider                 String                      @db.VarChar(50)
+  external_customer_id     String?                     @db.VarChar(191)
+  external_subscription_id String?                     @db.VarChar(191)
   status                   billing_subscription_status @default(pending)
-  current_period_starts_at DateTime?           @db.DateTime(3)
-  current_period_ends_at   DateTime?           @db.DateTime(3)
-  last_event_at            DateTime?           @db.DateTime(3)
-  created_at               DateTime            @default(now()) @db.DateTime(3)
-  updated_at               DateTime            @updatedAt @db.DateTime(3)
-  orders                   commerce_orders     @relation(fields: [order_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  accounts                 accounts            @relation(fields: [account_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  current_period_starts_at DateTime?                   @db.DateTime(3)
+  current_period_ends_at   DateTime?                   @db.DateTime(3)
+  last_event_at            DateTime?                   @db.DateTime(3)
+  created_at               DateTime                    @default(now()) @db.DateTime(3)
+  updated_at               DateTime                    @updatedAt @db.DateTime(3)
+  orders                   commerce_orders             @relation(fields: [order_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  accounts                 accounts                    @relation(fields: [account_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([provider, external_subscription_id])
   @@index([account_id, status])
@@ -190,15 +191,16 @@ model budgets {
 }
 
 model categories {
-  id         Int       @id @default(autoincrement())
-  account_id Int
-  name       String    @db.VarChar(50)
-  type       String    @db.VarChar(20)
-  color      String?   @default("#3b82f6") @db.VarChar(20)
-  created_at DateTime? @default(now()) @db.Timestamp(0)
-  accounts   accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "categories_account_fk")
-  transactions transactions[]
+  id                     Int                      @id @default(autoincrement())
+  account_id             Int
+  name                   String                   @db.VarChar(50)
+  type                   String                   @db.VarChar(20)
+  color                  String?                  @default("#3b82f6") @db.VarChar(20)
+  created_at             DateTime?                @default(now()) @db.Timestamp(0)
+  accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "categories_account_fk")
+  transactions           transactions[]
   recurring_transactions recurring_transactions[]
+  financialImportItems   financial_import_items[]
 
   @@unique([account_id, name, type], map: "unique_account_category_type")
   @@index([account_id], map: "categories_account_idx")
@@ -219,34 +221,38 @@ model events {
 }
 
 model financial_entities {
-  id                    Int                     @id @default(autoincrement())
-  account_id            Int
-  created_by_user_id    Int?
-  name                  String                  @db.VarChar(100)
-  type                  financial_entities_type
-  balance               Decimal?                @default(0.00) @db.Decimal(10, 2)
-  credit_limit          Decimal?                @default(0.00) @db.Decimal(10, 2)
-  closing_day           Int?
-  due_day               Int?
-  color                 String?                 @default("from-purple-600 to-indigo-700") @db.VarChar(50)
-  created_at            DateTime?               @default(now()) @db.Timestamp(0)
-  accounts              accounts                @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "financial_entities_account_fk")
-  transactions          transactions[]
-  purchase_installments purchase_installments[]
+  id                     Int                      @id @default(autoincrement())
+  account_id             Int
+  created_by_user_id     Int?
+  name                   String                   @db.VarChar(100)
+  type                   financial_entities_type
+  balance                Decimal?                 @default(0.00) @db.Decimal(10, 2)
+  credit_limit           Decimal?                 @default(0.00) @db.Decimal(10, 2)
+  closing_day            Int?
+  due_day                Int?
+  color                  String?                  @default("from-purple-600 to-indigo-700") @db.VarChar(50)
+  created_at             DateTime?                @default(now()) @db.Timestamp(0)
+  accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "financial_entities_account_fk")
+  transactions           transactions[]
+  purchase_installments  purchase_installments[]
   recurring_transactions recurring_transactions[]
-  card_bills            card_bills[]
+  card_bills             card_bills[]
+  financial_imports      financial_imports[]
+  financial_import_items financial_import_items[]
 
   @@index([account_id], map: "financial_entities_account_idx")
 }
 
 model income_sources {
-  id         Int           @id @default(autoincrement())
-  user_id    Int
-  name       String        @db.VarChar(50)
-  color      String?       @default("#10b981") @db.VarChar(20)
-  created_at DateTime?     @default(now()) @db.Timestamp(0)
-  users      users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "income_sources_user_fk")
-  transactions transactions[]
+  id                     Int                      @id @default(autoincrement())
+  user_id                Int
+  name                   String                   @db.VarChar(50)
+  color                  String?                  @default("#10b981") @db.VarChar(20)
+  created_at             DateTime?                @default(now()) @db.Timestamp(0)
+  users                  users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "income_sources_user_fk")
+  transactions           transactions[]
+  recurring_transactions recurring_transactions[]
+  financial_import_items financial_import_items[]
 
   @@unique([user_id, name], map: "unique_user_income_source")
   @@index([user_id], map: "income_sources_user_idx")
@@ -255,21 +261,21 @@ model income_sources {
 /// Fatura materializada de cartão de crédito por ciclo.
 /// Status e vínculo de pagamento são a fonte única (sem heurística por string).
 model card_bills {
-  id                     Int              @id @default(autoincrement())
+  id                     Int                @id @default(autoincrement())
   card_id                Int
   user_id                Int
-  period_start           DateTime         @db.Date
-  period_end             DateTime         @db.Date
-  closing_date           DateTime         @db.Date
-  due_date               DateTime         @db.Date
-  status                 card_bills_status @default(open)
-  payment_transaction_id Int? @unique
-  created_at             DateTime?        @default(now()) @db.DateTime(0)
-  closed_at              DateTime?        @db.DateTime(0)
-  paid_at                DateTime?        @db.DateTime(0)
+  period_start           DateTime           @db.Date
+  period_end             DateTime           @db.Date
+  closing_date           DateTime           @db.Date
+  due_date               DateTime           @db.Date
+  status                 card_bills_status  @default(open)
+  payment_transaction_id Int?               @unique
+  created_at             DateTime?          @default(now()) @db.DateTime(0)
+  closed_at              DateTime?          @db.DateTime(0)
+  paid_at                DateTime?          @db.DateTime(0)
   financial_entities     financial_entities @relation(fields: [card_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_card_fk")
-  users                  users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_user_fk")
-  transactions           transactions?    @relation("card_bill_payment", fields: [payment_transaction_id], references: [id], onUpdate: NoAction, map: "card_bills_payment_fk")
+  users                  users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_user_fk")
+  transactions           transactions?      @relation("card_bill_payment", fields: [payment_transaction_id], references: [id], onUpdate: NoAction, map: "card_bills_payment_fk")
 
   @@unique([card_id, period_start], map: "unique_card_period")
   @@index([card_id], map: "card_bills_card_idx")
@@ -296,28 +302,32 @@ model recurring_events {
 }
 
 model recurring_transactions {
-  id            Int                              @id @default(autoincrement())
-  user_id       Int
-  description   String                           @db.VarChar(255)
-  amount        Decimal                          @db.Decimal(10, 2)
-  category      String?                          @db.VarChar(50)
-  type          recurring_transactions_type
-  frequency     recurring_transactions_frequency
-  start_date    DateTime                         @db.Date
-  next_due_date DateTime                         @db.Date
-  status        recurring_transactions_status?   @default(active)
-  created_at    DateTime?                        @default(now()) @db.Timestamp(0)
-  entity_id     Int?
-  payment_method String?                         @default("cash") @db.VarChar(20)
-  category_id   Int?
-  users         users                            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "recurring_transactions_ibfk_1")
-  transactions  transactions[]                    @relation("transactions_recurring_fk")
-  financial_entities financial_entities?         @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "recurring_transactions_entity_fk")
-  categories    categories?                      @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "recurring_transactions_category_fk")
+  id                 Int                              @id @default(autoincrement())
+  user_id            Int
+  description        String                           @db.VarChar(255)
+  amount             Decimal                          @db.Decimal(10, 2)
+  category           String?                          @db.VarChar(50)
+  type               recurring_transactions_type
+  frequency          recurring_transactions_frequency
+  start_date         DateTime                         @db.Date
+  next_due_date      DateTime                         @db.Date
+  status             recurring_transactions_status?   @default(active)
+  created_at         DateTime?                        @default(now()) @db.Timestamp(0)
+  entity_id          Int?
+  payment_method     String?                          @default("cash") @db.VarChar(20)
+  category_id        Int?
+  income_source_id   Int?
+  creation_key       String?                          @unique @db.VarChar(64)
+  users              users                            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "recurring_transactions_ibfk_1")
+  transactions       transactions[]                   @relation("transactions_recurring_fk")
+  financial_entities financial_entities?              @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "recurring_transactions_entity_fk")
+  categories         categories?                      @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "recurring_transactions_category_fk")
+  income_sources     income_sources?                  @relation(fields: [income_source_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "recurring_transactions_income_source_fk")
 
   @@index([user_id], map: "user_id")
   @@index([entity_id], map: "entity_id")
   @@index([category_id], map: "category_id")
+  @@index([income_source_id], map: "recurring_income_source_idx")
 }
 
 model reminder_logs {
@@ -349,55 +359,57 @@ model reminders {
 }
 
 model purchase_installments {
-  id                  Int                              @id @default(autoincrement())
-  user_id             Int
-  entity_id           Int
-  description         String                           @db.VarChar(255)
-  amount              Decimal                          @db.Decimal(10, 2)
-  installment_count   Int
-  installment_value   Decimal                          @db.Decimal(10, 2)
-  first_installment    Int                              @default(1)
-  start_date          DateTime                         @db.Date
-  status              purchase_installments_status?     @default(active)
-  created_at          DateTime?                        @default(now()) @db.Timestamp(0)
-  users               users                            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_installments_user_fk")
-  financial_entities  financial_entities               @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "purchase_installments_entity_fk")
-  transactions        transactions[]
+  id                 Int                           @id @default(autoincrement())
+  user_id            Int
+  entity_id          Int
+  description        String                        @db.VarChar(255)
+  amount             Decimal                       @db.Decimal(10, 2)
+  installment_count  Int
+  installment_value  Decimal                       @db.Decimal(10, 2)
+  first_installment  Int                           @default(1)
+  start_date         DateTime                      @db.Date
+  status             purchase_installments_status? @default(active)
+  created_at         DateTime?                     @default(now()) @db.Timestamp(0)
+  users              users                         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "purchase_installments_user_fk")
+  financial_entities financial_entities            @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "purchase_installments_entity_fk")
+  transactions       transactions[]
 
   @@index([user_id], map: "purchase_installments_user_idx")
   @@index([entity_id], map: "purchase_installments_entity_idx")
 }
 
 model transactions {
-  id                  Int                  @id @default(autoincrement())
-  account_id          Int
-  user_id             Int
-  entity_id           Int?
-  amount              Decimal              @db.Decimal(10, 2)
-  type                transactions_type
-  status              transactions_status? @default(paid)
-  category            String?              @db.VarChar(50)
-  description         String?              @db.VarChar(255)
-  transaction_date    DateTime             @db.DateTime(0)
-  created_at          DateTime?            @default(now()) @db.DateTime(0)
-  is_recurring        Boolean?             @default(false)
-  deleted_at          DateTime?            @db.DateTime(0)
-  payment_method      String?              @default("cash") @db.VarChar(20)
-  category_id         Int?
-  income_source_id    Int?
-  installment_id      Int?
-  installment_number  Int?
+  id                       Int                     @id @default(autoincrement())
+  account_id               Int
+  user_id                  Int
+  entity_id                Int?
+  amount                   Decimal                 @db.Decimal(10, 2)
+  type                     transactions_type
+  status                   transactions_status?    @default(paid)
+  category                 String?                 @db.VarChar(50)
+  description              String?                 @db.VarChar(255)
+  transaction_date         DateTime                @db.DateTime(0)
+  created_at               DateTime?               @default(now()) @db.DateTime(0)
+  is_recurring             Boolean?                @default(false)
+  deleted_at               DateTime?               @db.DateTime(0)
+  payment_method           String?                 @default("cash") @db.VarChar(20)
+  category_id              Int?
+  income_source_id         Int?
+  installment_id           Int?
+  installment_number       Int?
   recurring_transaction_id Int?
-  recurring_occurrence_at DateTime? @db.DateTime(0)
-  financial_entities  financial_entities?  @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "fk_transaction_entity")
-  accounts            accounts             @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_1")
-  users               users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_2")
-  categories          categories?          @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_category_fk")
-  income_sources      income_sources?      @relation(fields: [income_source_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_income_source_fk")
-  purchase_installments purchase_installments? @relation(fields: [installment_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_installment_fk")
-  recurring_transactions recurring_transactions? @relation("transactions_recurring_fk", fields: [recurring_transaction_id], references: [id])
-  card_bill_paid        card_bills?           @relation("card_bill_payment")
+  recurring_occurrence_at  DateTime?               @db.DateTime(0)
+  financial_entities       financial_entities?     @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "fk_transaction_entity")
+  accounts                 accounts                @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_1")
+  users                    users                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_2")
+  categories               categories?             @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_category_fk")
+  income_sources           income_sources?         @relation(fields: [income_source_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_income_source_fk")
+  purchase_installments    purchase_installments?  @relation(fields: [installment_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_installment_fk")
+  recurring_transactions   recurring_transactions? @relation("transactions_recurring_fk", fields: [recurring_transaction_id], references: [id])
+  card_bill_paid           card_bills?             @relation("card_bill_payment")
+  financial_import_item    financial_import_items?
 
+  @@unique([recurring_transaction_id, recurring_occurrence_at], map: "transactions_recurring_occurrence_uq")
   @@index([account_id], map: "account_id")
   @@index([entity_id], map: "fk_transaction_entity")
   @@index([user_id], map: "user_id")
@@ -405,7 +417,6 @@ model transactions {
   @@index([income_source_id], map: "income_source_id")
   @@index([installment_id], map: "installment_id")
   @@index([recurring_transaction_id], map: "recurring_transaction_id")
-  @@unique([recurring_transaction_id, recurring_occurrence_at], map: "transactions_recurring_occurrence_uq")
 }
 
 model scheduler_locks {
@@ -462,25 +473,25 @@ model reminder_deliveries {
 /// Desafios OTP (códigos de verificação) para primeiro acesso e recuperação de senha.
 /// Apenas o hash do código é persistido — o código em texto plano nunca é armazenado.
 model otp_challenges {
-  id            Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   /// SHA-256 do código OTP (nunca o código em texto plano).
-  code_hash     String    @db.VarChar(128)
+  code_hash    String   @db.VarChar(128)
   /// Finalidade: "first_access" ou "password_reset".
-  purpose       String    @db.VarChar(30)
+  purpose      String   @db.VarChar(30)
   /// ID do usuário alvo (FK).
-  user_id       Int
+  user_id      Int
   /// Telefone normalizado do usuário (para lookup sem join).
-  phone_number  String    @db.VarChar(50)
+  phone_number String   @db.VarChar(50)
   /// Contador de tentativas de validação.
-  attempts      Int       @default(0)
+  attempts     Int      @default(0)
   /// Máximo de tentativas antes do bloqueio.
-  max_attempts  Int       @default(5)
+  max_attempts Int      @default(5)
   /// Indica se o código já foi consumido (impede reutilização).
-  consumed      Boolean   @default(false)
-  expires_at    DateTime  @db.DateTime(0)
-  created_at    DateTime  @default(now()) @db.DateTime(0)
+  consumed     Boolean  @default(false)
+  expires_at   DateTime @db.DateTime(0)
+  created_at   DateTime @default(now()) @db.DateTime(0)
 
-  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "otp_challenges_user_fk")
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "otp_challenges_user_fk")
 
   @@index([user_id], map: "otp_challenges_user_idx")
   @@index([phone_number, purpose], map: "otp_challenges_phone_purpose_idx")
@@ -489,30 +500,30 @@ model otp_challenges {
 /// Ações pendentes que exigem confirmação do usuário antes de executar.
 /// Ex.: exclusões, alterações em lote, criação de recorrências.
 model pending_actions {
-  id            Int       @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   /// ID do usuário que solicitou a ação.
-  user_id       Int
+  user_id         Int
   /// ID da conta (tenant) do usuário.
-  account_id    Int
+  account_id      Int
   /// Tipo da ação (ex: "delete_transaction", "create_recurring", "bulk_import").
-  action_type   String    @db.VarChar(60)
+  action_type     String    @db.VarChar(60)
   /// Payload validado da ação (JSON serializado).
-  payload       String    @db.Text
+  payload         String    @db.Text
   /// Chave de idempotência (ex.: hash do documento de importação). Quando presente, evita duplicidade.
-  idempotency_key String?  @unique @db.VarChar(128)
+  idempotency_key String?   @unique @db.VarChar(128)
   /// Resumo legível para o usuário (ex: "Excluir: Mercado R$ 50,00 de hoje").
-  summary       String    @db.VarChar(500)
+  summary         String    @db.VarChar(500)
   /// Estado anterior (JSON) para auditoria e desfazer.
-  before_state  String?   @db.Text
+  before_state    String?   @db.Text
   /// Status: "pending", "confirmed", "cancelled", "expired", "executed".
-  status        String    @default("pending") @db.VarChar(20)
+  status          String    @default("pending") @db.VarChar(20)
   /// Data de expiração (confirmação deve ocorrer antes).
-  expires_at    DateTime  @db.DateTime(0)
-  created_at    DateTime  @default(now()) @db.DateTime(0)
-  confirmed_at  DateTime? @db.DateTime(0)
-  executed_at   DateTime? @db.DateTime(0)
+  expires_at      DateTime  @db.DateTime(0)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  confirmed_at    DateTime? @db.DateTime(0)
+  executed_at     DateTime? @db.DateTime(0)
 
-  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pending_actions_user_fk")
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pending_actions_user_fk")
 
   @@index([user_id], map: "pending_actions_user_idx")
   @@index([account_id], map: "pending_actions_account_idx")
@@ -521,20 +532,20 @@ model pending_actions {
 
 /// Registro de auditoria para ações do agente (estado anterior e posterior).
 model action_audit {
-  id            Int       @id @default(autoincrement())
-  user_id       Int
-  account_id    Int
+  id           Int      @id @default(autoincrement())
+  user_id      Int
+  account_id   Int
   /// Tipo da ação auditada.
-  action_type   String    @db.VarChar(60)
+  action_type  String   @db.VarChar(60)
   /// "execute" (direto), "confirm" (confirmou pendente), "undo" (desfazer).
-  execution     String    @default("execute") @db.VarChar(20)
+  execution    String   @default("execute") @db.VarChar(20)
   /// Estado anterior (JSON).
-  before_state  String?   @db.Text
+  before_state String?  @db.Text
   /// Estado posterior (JSON).
-  after_state   String?   @db.Text
-  created_at    DateTime  @default(now()) @db.DateTime(0)
+  after_state  String?  @db.Text
+  created_at   DateTime @default(now()) @db.DateTime(0)
 
-  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "action_audit_user_fk")
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "action_audit_user_fk")
 
   @@index([user_id], map: "action_audit_user_idx")
   @@index([account_id], map: "action_audit_account_idx")
@@ -579,19 +590,21 @@ model users {
   recurring_transactions recurring_transactions[]
   reminder_logs          reminder_logs[]
   reminders              reminders[]
-  purchase_installments   purchase_installments[]
+  purchase_installments  purchase_installments[]
   transactions           transactions[]
   card_bills             card_bills[]
   legal_consents         legal_consents[]
   data_subject_requests  data_subject_requests[]
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
   platform_roles         platform_user_roles[]
-  created_invitations    account_invitations[]     @relation("invitation_creator")
-  invitation_user        account_invitations[]     @relation("invitation_user")
-  platform_audit_actor   platform_admin_audit[]    @relation("platform_audit_actor")
-  platform_audit_target  platform_admin_audit[]    @relation("platform_audit_target")
+  created_invitations    account_invitations[]    @relation("invitation_creator")
+  invitation_user        account_invitations[]    @relation("invitation_user")
+  platform_audit_actor   platform_admin_audit[]   @relation("platform_audit_actor")
+  platform_audit_target  platform_admin_audit[]   @relation("platform_audit_target")
   account_members        account_members[]
   commerce_orders        commerce_orders[]
+  financial_imports      financial_imports[]
+  financial_import_items financial_import_items[] @relation("import_item_editor")
 
   @@index([account_id], map: "account_id")
 }
@@ -617,54 +630,135 @@ enum accounts_status {
 }
 
 model legal_consents {
-  id                BigInt   @id @default(autoincrement())
-  user_id           Int
-  account_id        Int
-  document_type     String   @db.VarChar(30)
-  document_version  String   @db.VarChar(30)
-  accepted_at       DateTime @default(now()) @db.DateTime(3)
-  origin            String   @db.VarChar(30)
-  ip_hash           String?  @db.VarChar(64)
-  user_agent         String?  @db.VarChar(255)
-  evidence           Json?
-  users              users   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id               BigInt   @id @default(autoincrement())
+  user_id          Int
+  account_id       Int
+  document_type    String   @db.VarChar(30)
+  document_version String   @db.VarChar(30)
+  accepted_at      DateTime @default(now()) @db.DateTime(3)
+  origin           String   @db.VarChar(30)
+  ip_hash          String?  @db.VarChar(64)
+  user_agent       String?  @db.VarChar(255)
+  evidence         Json?
+  users            users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, document_type, document_version])
   @@index([account_id, accepted_at])
 }
 
 model data_subject_requests {
-  id                BigInt    @id @default(autoincrement())
-  user_id           Int
-  account_id        Int
-  request_type      String    @db.VarChar(30)
-  status            String    @default("requested") @db.VarChar(30)
-  requested_at      DateTime  @default(now()) @db.DateTime(3)
-  due_at             DateTime? @db.DateTime(3)
-  completed_at       DateTime? @db.DateTime(3)
-  cancellation_at    DateTime? @db.DateTime(3)
-  result             Json?
-  last_error         String?   @db.Text
-  users              users     @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id              BigInt    @id @default(autoincrement())
+  user_id         Int
+  account_id      Int
+  request_type    String    @db.VarChar(30)
+  status          String    @default("requested") @db.VarChar(30)
+  requested_at    DateTime  @default(now()) @db.DateTime(3)
+  due_at          DateTime? @db.DateTime(3)
+  completed_at    DateTime? @db.DateTime(3)
+  cancellation_at DateTime? @db.DateTime(3)
+  result          Json?
+  last_error      String?   @db.Text
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([status, due_at])
   @@index([account_id, requested_at])
 }
 
 model privacy_audit_events {
-  id            BigInt   @id @default(autoincrement())
-  user_id       Int?
-  account_id    Int?
-  event_type    String   @db.VarChar(60)
-  target_type   String?  @db.VarChar(60)
-  target_id     String?  @db.VarChar(100)
-  outcome       String   @db.VarChar(20)
-  metadata      Json?
-  created_at    DateTime @default(now()) @db.DateTime(3)
+  id          BigInt   @id @default(autoincrement())
+  user_id     Int?
+  account_id  Int?
+  event_type  String   @db.VarChar(60)
+  target_type String?  @db.VarChar(60)
+  target_id   String?  @db.VarChar(100)
+  outcome     String   @db.VarChar(20)
+  metadata    Json?
+  created_at  DateTime @default(now()) @db.DateTime(3)
 
   @@index([account_id, created_at])
   @@index([user_id, created_at])
   @@index([event_type, created_at])
+}
+
+/// Lote persistente de importacao financeira. O arquivo original nao e armazenado.
+model financial_imports {
+  id                        Int                      @id @default(autoincrement())
+  account_id                Int
+  user_id                   Int
+  target_entity_id          Int?
+  file_name                 String                   @db.VarChar(255)
+  file_hash                 String                   @db.Char(64)
+  mime_type                 String                   @db.VarChar(100)
+  file_size                 Int
+  document_type             import_document_type     @default(unknown)
+  status                    financial_import_status  @default(uploaded)
+  issuer                    String?                  @db.VarChar(120)
+  card_last_four            String?                  @db.Char(4)
+  holder_name               String?                  @db.VarChar(120)
+  period_start              DateTime?                @db.Date
+  period_end                DateTime?                @db.Date
+  closing_date              DateTime?                @db.Date
+  due_date                  DateTime?                @db.Date
+  document_total            Decimal?                 @db.Decimal(12, 2)
+  selected_expense_total    Decimal                  @default(0) @db.Decimal(12, 2)
+  selected_income_total     Decimal                  @default(0) @db.Decimal(12, 2)
+  selected_total            Decimal                  @default(0) @db.Decimal(12, 2)
+  reconciliation_difference Decimal?                 @db.Decimal(12, 2)
+  difference_reason         String?                  @db.VarChar(500)
+  warning_message           String?                  @db.VarChar(500)
+  confirmed_at              DateTime?                @db.DateTime(3)
+  completed_at              DateTime?                @db.DateTime(3)
+  cancelled_at              DateTime?                @db.DateTime(3)
+  created_at                DateTime                 @default(now()) @db.DateTime(3)
+  updated_at                DateTime                 @updatedAt @db.DateTime(3)
+  accounts                  accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  users                     users                    @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  target_entity             financial_entities?      @relation(fields: [target_entity_id], references: [id], onDelete: SetNull)
+  items                     financial_import_items[]
+
+  @@index([account_id, user_id, created_at])
+  @@index([account_id, file_hash])
+  @@index([status, created_at])
+}
+
+/// Linha estruturada e revisavel extraida de um lote.
+model financial_import_items {
+  id                      Int                 @id @default(autoincrement())
+  import_id               Int
+  edited_by_user_id       Int?
+  row_index               Int
+  included                Boolean             @default(true)
+  transaction_date        DateTime            @db.Date
+  original_description    String              @db.VarChar(500)
+  description             String              @db.VarChar(255)
+  original_excerpt        String?             @db.VarChar(1000)
+  amount                  Decimal             @db.Decimal(12, 2)
+  type                    transactions_type
+  category_id             Int?
+  entity_id               Int?
+  payment_method          String?             @db.VarChar(30)
+  transaction_status      transactions_status @default(paid)
+  item_kind               import_item_kind    @default(unknown)
+  confidence              Decimal             @default(0.5) @db.Decimal(4, 3)
+  requires_review         Boolean             @default(false)
+  duplicate_kind          String?             @db.VarChar(40)
+  duplicate_reason        String?             @db.VarChar(255)
+  exclusion_reason        String?             @db.VarChar(255)
+  fingerprint             String              @db.Char(64)
+  imported_transaction_id Int?                @unique
+  created_at              DateTime            @default(now()) @db.DateTime(3)
+  updated_at              DateTime            @updatedAt @db.DateTime(3)
+  financial_imports       financial_imports   @relation(fields: [import_id], references: [id], onDelete: Cascade)
+  edited_by               users?              @relation("import_item_editor", fields: [edited_by_user_id], references: [id], onDelete: SetNull)
+  categories              categories?         @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  financial_entities      financial_entities? @relation(fields: [entity_id], references: [id], onDelete: SetNull)
+  imported_transaction    transactions?       @relation(fields: [imported_transaction_id], references: [id], onDelete: SetNull)
+  incomeSources           income_sources?     @relation(fields: [income_sourcesId], references: [id])
+  income_sourcesId        Int?
+
+  @@unique([import_id, row_index])
+  @@index([import_id, included])
+  @@index([fingerprint])
 }
 
 enum card_bills_status {
@@ -692,6 +786,40 @@ enum users_role {
   member
 }
 
+enum financial_import_status {
+  uploaded
+  processing
+  review
+  confirmed
+  importing
+  completed
+  completed_with_warnings
+  failed
+  cancelled
+}
+
+enum import_document_type {
+  card_statement
+  bank_statement
+  spreadsheet
+  boleto
+  receipt
+  unknown
+}
+
+enum import_item_kind {
+  purchase
+  fee
+  interest
+  fine
+  refund
+  credit
+  bill_payment
+  previous_balance
+  installment
+  unknown
+}
+
 enum platform_role {
   platform_owner
   platform_support
@@ -706,55 +834,55 @@ enum invitation_status {
 }
 
 model platform_user_roles {
-  id          Int           @id @default(autoincrement())
-  user_id     Int
-  role        platform_role
-  created_at  DateTime      @default(now()) @db.DateTime(3)
-  revoked_at  DateTime?     @db.DateTime(3)
-  users       users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id         Int           @id @default(autoincrement())
+  user_id    Int
+  role       platform_role
+  created_at DateTime      @default(now()) @db.DateTime(3)
+  revoked_at DateTime?     @db.DateTime(3)
+  users      users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, role])
   @@index([role, revoked_at])
 }
 
 model account_invitations {
-  id              Int               @id @default(autoincrement())
-  user_id         Int
-  account_id      Int
-  purpose         String            @db.VarChar(40)
-  token_hash      String            @unique @db.VarChar(64)
-  status          invitation_status @default(pending)
-  expires_at      DateTime          @db.DateTime(3)
-  send_count      Int               @default(0)
-  created_by      Int?
-  accepted_at     DateTime?         @db.DateTime(3)
-  revoked_at      DateTime?         @db.DateTime(3)
-  metadata        Json?
-  created_at      DateTime          @default(now()) @db.DateTime(3)
-  updated_at      DateTime          @updatedAt @db.DateTime(3)
-  users           users             @relation("invitation_user", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  accounts        accounts          @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator         users?            @relation("invitation_creator", fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id          Int               @id @default(autoincrement())
+  user_id     Int
+  account_id  Int
+  purpose     String            @db.VarChar(40)
+  token_hash  String            @unique @db.VarChar(64)
+  status      invitation_status @default(pending)
+  expires_at  DateTime          @db.DateTime(3)
+  send_count  Int               @default(0)
+  created_by  Int?
+  accepted_at DateTime?         @db.DateTime(3)
+  revoked_at  DateTime?         @db.DateTime(3)
+  metadata    Json?
+  created_at  DateTime          @default(now()) @db.DateTime(3)
+  updated_at  DateTime          @updatedAt @db.DateTime(3)
+  users       users             @relation("invitation_user", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounts    accounts          @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator     users?            @relation("invitation_creator", fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([account_id, status])
   @@index([user_id, purpose, status])
 }
 
 model platform_admin_audit {
-  id              BigInt    @id @default(autoincrement())
-  actor_user_id   Int
-  target_user_id  Int?
+  id                BigInt    @id @default(autoincrement())
+  actor_user_id     Int
+  target_user_id    Int?
   target_account_id Int?
-  action          String    @db.VarChar(80)
-  reason          String?   @db.VarChar(500)
-  outcome         String    @db.VarChar(20)
-  ip_hash         String?   @db.VarChar(64)
-  user_agent      String?   @db.VarChar(255)
-  metadata        Json?
-  created_at      DateTime  @default(now()) @db.DateTime(3)
-  actor           users     @relation("platform_audit_actor", fields: [actor_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  target_user     users?    @relation("platform_audit_target", fields: [target_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  target_account  accounts? @relation(fields: [target_account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  action            String    @db.VarChar(80)
+  reason            String?   @db.VarChar(500)
+  outcome           String    @db.VarChar(20)
+  ip_hash           String?   @db.VarChar(64)
+  user_agent        String?   @db.VarChar(255)
+  metadata          Json?
+  created_at        DateTime  @default(now()) @db.DateTime(3)
+  actor             users     @relation("platform_audit_actor", fields: [actor_user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  target_user       users?    @relation("platform_audit_target", fields: [target_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  target_account    accounts? @relation(fields: [target_account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([actor_user_id, created_at])
   @@index([target_account_id, created_at])

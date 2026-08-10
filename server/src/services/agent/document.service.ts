@@ -16,7 +16,7 @@ import { extractPdfText } from './pdf.service.js';
  *    estourar o contexto do LLM.
  */
 
-export const MAX_DOC_CHARS = 6000;
+export const MAX_DOC_CHARS = Number(process.env.WHATSAPP_DOCUMENT_MAX_CHARS || 50_000);
 
 export type DocKind = 'pdf' | 'spreadsheet' | 'unknown';
 

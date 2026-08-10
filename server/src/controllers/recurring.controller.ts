@@ -4,7 +4,7 @@ import type { JwtRequest } from '../middleware/jwt.js';
 import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
 import * as recurringService from '../services/recurring.service.js';
 import { getCategoryForAccount, getEntityForAccount } from '../services/ownership.service.js';
-import { getValidatedQuery } from '../middleware/validate.js';
+import { getValidatedBody, getValidatedQuery } from '../middleware/validate.js';
 
 export class RecurringController {
   /**
@@ -12,17 +12,17 @@ export class RecurringController {
    */
   static async createTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { description, amount, category, category_id, type, frequency, start_date, entity_id, payment_method } = req.body;
+      const { description, amount, category, category_id, income_source_id, type, frequency, start_date, entity_id, payment_method, idempotency_key } = getValidatedBody<any>(req);
       const userId = req.userId!;
 
       if (!description || !amount || !type || !frequency || !start_date) {
         return res.status(400).json({
-          error: 'Description, amount, type, frequency and start_date are required'
+          code: 'REQUIRED_FIELDS', error: 'Descrição, valor, tipo, frequência e data inicial são obrigatórios.'
         });
       }
 
       if (!['income', 'expense'].includes(type)) {
-        return res.status(400).json({ error: 'Type must be income or expense' });
+        return res.status(400).json({ code: 'INVALID_TYPE', error: 'O tipo deve ser receita ou despesa.' });
       }
 
       // Validar pertencimento de category_id e entity_id à conta.
@@ -35,6 +35,11 @@ export class RecurringController {
         const entity = await getEntityForAccount(Number(entity_id), accountId);
         if (!entity) return res.status(403).json({ error: 'Entidade não pertence a esta conta' });
       }
+      if (income_source_id) {
+        if (type !== 'income') return res.status(400).json({ code: 'INCOME_SOURCE_TYPE_MISMATCH', error: 'Fonte de renda só pode ser usada em receitas.' });
+        const source = await prisma.income_sources.findFirst({ where: { id: Number(income_source_id), user_id: userId } });
+        if (!source) return res.status(403).json({ code: 'INCOME_SOURCE_FORBIDDEN', error: 'A fonte de renda informada não pertence a este usuário.' });
+      }
 
       const recurringTransaction = await recurringService.createRecurring(userId, {
         description,
@@ -44,8 +49,10 @@ export class RecurringController {
         start_date,
         category,
         category_id: category_id ? Number(category_id) : undefined,
+        income_source_id: income_source_id ? Number(income_source_id) : undefined,
         entity_id: entity_id ? Number(entity_id) : undefined,
-        payment_method
+        payment_method,
+        idempotency_key,
       });
 
       res.status(201).json({ recurringTransaction });
@@ -85,7 +92,7 @@ export class RecurringController {
   static async updateTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { description, amount, category, category_id, frequency, status, entity_id, payment_method } = req.body;
+      const { description, amount, category, category_id, income_source_id, frequency, status, entity_id, payment_method } = req.body;
       const userId = req.userId!;
 
       const existing = await prisma.recurring_transactions.findFirst({
@@ -93,7 +100,7 @@ export class RecurringController {
       });
 
       if (!existing) {
-        return res.status(404).json({ error: 'Recurring transaction not found' });
+        return res.status(404).json({ error: 'Transação recorrente não encontrada.' });
       }
 
       // Resolver category_id e category name se necessário
@@ -114,6 +121,10 @@ export class RecurringController {
         const entity = await getEntityForAccount(Number(entity_id), accountId);
         if (!entity) return res.status(403).json({ error: 'Entidade não pertence a esta conta' });
       }
+      if (income_source_id) {
+        const source=await prisma.income_sources.findFirst({where:{id:Number(income_source_id),user_id:userId}});
+        if(!source)return res.status(403).json({code:'INCOME_SOURCE_FORBIDDEN',error:'A fonte de renda informada não pertence a este usuário.'});
+      }
 
       // Mapear status 'pending' para 'active' se vier do frontend (visto que recorrência é sempre active/inactive)
       let finalStatus = status;
@@ -130,6 +141,7 @@ export class RecurringController {
           frequency: frequency ?? undefined,
           status: (finalStatus as any) ?? undefined,
           entity_id: entity_id !== undefined ? (entity_id ? parseInt(entity_id) : null) : undefined,
+          income_source_id: income_source_id !== undefined ? (income_source_id ? Number(income_source_id) : null) : undefined,
           payment_method: payment_method ?? undefined
         }
       });
@@ -153,7 +165,7 @@ export class RecurringController {
       });
 
       if (!existing) {
-        return res.status(404).json({ error: 'Recurring transaction not found' });
+        return res.status(404).json({ error: 'Transação recorrente não encontrada.' });
       }
 
       await prisma.recurring_transactions.update({
@@ -161,7 +173,7 @@ export class RecurringController {
         data: { status: 'cancelled' }
       });
 
-      res.json({ message: 'Recurring transaction cancelled successfully' });
+      res.json({ message: 'Transação recorrente cancelada com sucesso.' });
     } catch (error) {
       next(error);
     }
@@ -179,7 +191,8 @@ export class RecurringController {
       const transaction = await recurringService.materializeOne(userId, Number(id), date);
       res.status(201).json({ transaction });
     } catch (error: any) {
-      res.status(error?.message === 'RECURRING_NOT_FOUND' ? 404 : 400).json({ error: error?.message });
+      const notFound=error?.message==='RECURRING_NOT_FOUND';
+      res.status(notFound ? 404 : 400).json({ code:notFound?'RECURRING_NOT_FOUND':'RECURRING_GENERATION_FAILED',error:notFound?'Transação recorrente não encontrada.':'Não foi possível gerar a ocorrência recorrente.' });
     }
   }
 

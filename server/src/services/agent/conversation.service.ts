@@ -98,7 +98,7 @@ TRATAMENTO POR TIPO (você decide qual se aplica):
 1) FATURA DE CARTÃO:
    - Identifique cada transação/compra (descrição + valor + data se houver).
    - IGNORE linhas de "Pagamento recebido" / "Payment received" / "Pagamento da fatura" — são pagamentos que o usuário fez pra quitar faturas anteriores, NÃO são despesas novas. Registrá-las seria conta dupla.
-   - IGNORE também valores negativos (ex: -100,00) — em fatura de cartão, negativo significa crédito/estorno, não despesa.
+   - Valores negativos que representem estorno ou crédito DEVEM aparecer na prévia como receita/crédito. Não os descarte silenciosamente.
    - Chame registrar_despesa para CADA compra restante, usando o cartão correspondente.
    - Se o nome do cartão não estiver claro, PERGUNTE antes de registrar.
    - Resumo final: "✅ Importei N transações da fatura do [cartão]." — NÃO informe o total em dinheiro. Você (LLM) não consegue somar valores com precisão, então informar um total inventado é desonesto. Se o usuário quiser o total, sugira que ele pergunte "quanto gastei neste cartão?" pra ser calculado pelo sistema.
@@ -127,7 +127,7 @@ TRATAMENTO POR TIPO (você decide qual se aplica):
 
 REGRAS GERAIS:
 - Para qualquer documento que envolva dinheiro saindo, CONFIRME antes de registrar.
-- Se o texto estiver truncado, registre o que conseguir e AVISE: "O arquivo é grande e pode ter mais dados; registrei os primeiros N."
+- Se o documento estiver truncado ou incompleto, NÃO registre nenhum item. Informe que é necessário enviar uma versão menor ou usar a Central de Importação no PWA.
 - Se não houver texto (imagem/scanner), avise: "Não consegui ler esse arquivo. Tente enviar como PDF de texto ou planilha."
 - NUNCA informe totais em dinheiro que você mesmo somou. Você (LLM) erra aritmética. Para totais, diga apenas a CONTAGEM de itens ("Importei N transações") e deixe o sistema calcular o valor quando o usuário perguntar.
 - Sempre mostre um RESUMO no final do que foi importado, com a CONTAGEM em *negrito* (não o total em dinheiro).
@@ -288,8 +288,15 @@ export async function processConversation(
       ).map(c => ({ name: c.name, arguments: c.arguments }));
 
       if (mutatingCalls.length > 0) {
-        const preview = buildImportPreview(mutatingCalls);
-        const idempotencyKey = computeIdempotencyKey(userText);
+        const deduped = await filterWhatsAppImportDuplicates(accountId, mutatingCalls);
+        const selectedCalls = deduped.calls;
+        const preview = buildImportPreview(selectedCalls);
+        if (selectedCalls.length === 0) {
+          const reply = `Os ${mutatingCalls.length} lançamentos encontrados já parecem estar cadastrados. Nenhuma duplicidade foi criada.`;
+          if (phone) appendToHistory(phone, userText, reply);
+          return reply;
+        }
+        const idempotencyKey = computeIdempotencyKey(`${accountId}:${userId}:${userText}`);
 
         let pendingId: number | null = null;
         try {
@@ -297,18 +304,23 @@ export async function processConversation(
             userId,
             accountId,
             actionType: 'bulk_import',
-            payload: { toolCalls: mutatingCalls, idempotencyKey },
+            payload: { toolCalls: selectedCalls, idempotencyKey },
             idempotencyKey,
-            summary: `Importar ${preview.count} lançamentos do documento (total ${formatBRL(preview.total)}, duplicidades ${preview.duplicates})`,
+            summary: `Importar ${preview.count} lançamentos do documento (${deduped.duplicates} duplicidades ignoradas)`,
           });
+          if (pending.status === 'executed') {
+            const reply = 'Este documento já foi confirmado anteriormente. Nenhum lançamento duplicado foi criado.';
+            if (phone) appendToHistory(phone, userText, reply);
+            return reply;
+          }
           pendingId = pending.id;
         } catch (err: any) {
           console.error('[import] erro ao criar pendência:', err?.message);
         }
 
         const reply = pendingId
-          ? `Encontrei ${preview.count} lançamentos no documento (total ${formatBRL(preview.total)}). Possíveis duplicidades: ${preview.duplicates}. Quer importar? Responda *sim* para gravar ou *não* para cancelar.`
-          : `Encontrei ${preview.count} lançamentos no documento (total ${formatBRL(preview.total)}). Não consegui criar a pendência de importação. Tente novamente.`;
+          ? `Encontrei ${mutatingCalls.length} lançamentos no documento. Serão cadastrados ${preview.count}; duplicidades ignoradas: ${deduped.duplicates}. Total selecionado: ${formatBRL(preview.total)}. Quer importar? Responda *sim* para gravar ou *não* para cancelar.`
+          : `Encontrei ${mutatingCalls.length} lançamentos no documento, mas não consegui criar a confirmação da importação. Tente novamente.`;
 
         if (phone) appendToHistory(phone, userText, reply);
         return reply;
@@ -467,6 +479,32 @@ async function undoFromAudit(
   }
 
   return false;
+}
+
+async function filterWhatsAppImportDuplicates(
+  accountId: number,
+  calls: Array<{ name: string; arguments: Record<string, any> }>,
+): Promise<{ calls: Array<{ name: string; arguments: Record<string, any> }>; duplicates: number }> {
+  const normalize = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const selected: typeof calls = []; const seen = new Set<string>(); let duplicates = 0;
+  for (const call of calls) {
+    const args = call.arguments ?? {}; const description = String(args.descricao ?? '').trim(); const amount = Number(args.valor);
+    let date: Date; try { date = args.data ? parseDate(String(args.data)) : todayUTC(); } catch { selected.push(call); continue; }
+    const type = call.name === 'registrar_receita' ? 'income' : 'expense';
+    let entityId: number | null = null;
+    if (args.cartao) {
+      const cards = await prisma.financial_entities.findMany({ where: { account_id: accountId, type: 'credit_card', name: { contains: String(args.cartao).trim() } }, select: { id: true, name: true } });
+      if (cards.length === 1) entityId = cards[0]!.id;
+    }
+    const key = `${date.toISOString().slice(0, 10)}|${amount.toFixed(2)}|${normalize(description)}|${type}|${entityId ?? 'none'}`;
+    if (seen.has(key)) { duplicates++; continue; }
+    seen.add(key);
+    const start = new Date(date); start.setUTCHours(0, 0, 0, 0); const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
+    const matches = await prisma.transactions.findMany({ where: { account_id: accountId, entity_id: entityId, type, amount, deleted_at: null, transaction_date: { gte: start, lt: end } }, select: { description: true } });
+    if (matches.some(item => normalize(item.description) === normalize(description))) { duplicates++; continue; }
+    selected.push(call);
+  }
+  return { calls: selected, duplicates };
 }
 
 async function executeBulkImport(

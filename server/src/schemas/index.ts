@@ -18,8 +18,17 @@ import { z } from 'zod';
 /** Inteiro positivo (aceita string numérica vinda de query/params). */
 const positiveInt = z.coerce.number().int().positive();
 
+/** ID opcional: null/string vazia significam ausência; demais valores devem ser inteiros positivos. */
+const optionalId = z.preprocess(
+  value => value === null || (typeof value === 'string' && value.trim() === '') ? undefined : value,
+  positiveInt.optional(),
+);
+
 /** ID opcional anulável (para updates onde null = limpar). */
-const optionalNullableId = z.union([z.coerce.number().int().positive(), z.null()]).optional();
+const optionalNullableId = z.preprocess(
+  value => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.union([positiveInt, z.null()]).optional(),
+);
 
 /** Valor monetário: finite, >= 0 (aceita string numérica). */
 const monetary = z.coerce.number().finite().min(0);
@@ -216,8 +225,10 @@ export const recurringSchemas = {
     frequency: frequencyEnum,
     start_date: dateString,
     category: optionalString(100),
-    category_id: positiveInt.optional(),
-    entity_id: positiveInt.optional(),
+    category_id: optionalId,
+    income_source_id: optionalId,
+    entity_id: optionalId,
+    idempotency_key: z.string().uuid().optional(),
     payment_method: paymentMethodEnum.optional(),
   }),
 
@@ -226,6 +237,7 @@ export const recurringSchemas = {
     amount: monetary.optional(),
     category: optionalString(100),
     category_id: optionalNullableId,
+    income_source_id: optionalNullableId,
     frequency: frequencyEnum.optional(),
     status: z.enum(['active', 'inactive', 'cancelled', 'pending', 'paid']).optional(),
     entity_id: optionalNullableId,

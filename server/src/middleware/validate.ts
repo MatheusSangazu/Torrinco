@@ -36,17 +36,31 @@ interface ValidationSchemas {
   params?: ZodSchema;
 }
 
-function formatZodError(error: z.ZodError): Array<{ field: string; message: string }> {
+const FIELD_LABELS: Record<string, string> = {
+  entity_id: 'Conta ou cartão', category_id: 'Categoria', income_source_id: 'Fonte de renda',
+  amount: 'Valor', start_date: 'Data inicial', frequency: 'Frequência', description: 'Descrição', type: 'Tipo',
+};
+
+function issueMessage(issue: z.core.$ZodIssue, field: string): string {
+  const label = FIELD_LABELS[field] ?? 'Campo';
+  if (field.endsWith('_id')) return `${label} informado(a) é inválido(a).`;
+  if (issue.code === 'too_small') return `${label} deve ser preenchido(a) corretamente.`;
+  if (issue.code === 'invalid_type' || issue.code === 'invalid_value') return `${label} possui um valor inválido.`;
+  return `${label} possui um valor inválido.`;
+}
+
+function formatZodError(error: z.ZodError): Array<{ field: string; label: string; message: string }> {
   return error.issues.map((issue) => ({
     field: issue.path.join('.') || '(root)',
-    message: issue.message,
+    label: FIELD_LABELS[issue.path.join('.')] ?? (issue.path.join('.') || 'Dados informados'),
+    message: issueMessage(issue, issue.path.join('.')),
   }));
 }
 
 export function validate(schemas: ValidationSchemas) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const sources: ValidationTarget[] = ['params', 'query', 'body'];
-    const allDetails: Array<{ field: string; message: string }> = [];
+    const allDetails: Array<{ field: string; label: string; message: string }> = [];
 
     for (const source of sources) {
       const schema = schemas[source];
@@ -71,7 +85,8 @@ export function validate(schemas: ValidationSchemas) {
 
     if (allDetails.length > 0) {
       res.status(400).json({
-        error: 'Requisição inválida',
+        code: 'VALIDATION_ERROR',
+        error: 'Não foi possível salvar a transação. Verifique os dados informados.',
         details: allDetails,
       });
       return;

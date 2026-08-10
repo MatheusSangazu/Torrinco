@@ -105,6 +105,14 @@ export async function processMedia(
             `${fileName} sem texto extraível (provavelmente é imagem/scanner)`
           );
         }
+        if (doc.truncated) {
+          return {
+            text: `O arquivo ${fileName} é grande demais para uma leitura completa e segura pelo WhatsApp. Nenhum lançamento foi cadastrado. Envie uma versão menor ou use a Central de Importação no PWA.`,
+            mediaType: 'text',
+            userId,
+            receivedAt
+          };
+        }
         // Sanitiza o texto do documento (proteção contra prompt injection)
         // e envolve em delimitadores para o LLM tratar como dados, não instruções.
         return {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CreditCard as CreditCardIcon, Plus, Pencil, Trash2, X, Check, AlertCircle, ChevronDown, ChevronUp, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
+import { CreditCard as CreditCardIcon, Plus, Pencil, Trash2, X, Check, AlertCircle, ChevronDown, ChevronUp, Loader2, CheckCircle2, RotateCcw, FileUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cardsService, type CreditCard, type CreateCardDTO } from '../services/cards.service';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -359,7 +360,7 @@ export function Cards() {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Cartões de Crédito</h1>
           <p className="text-gray-500 dark:text-slate-400 text-sm">Gerencie seus cartões e acompanhe faturas</p>
         </div>
-        <button
+        <div className="flex gap-2"><Link to="/imports" className="flex items-center gap-2 rounded-xl border border-torrinco-600 px-4 py-2 text-torrinco-600"><FileUp size={18}/><span className="hidden sm:inline">Importar fatura</span></Link><button
           onClick={() => {
             setEditingCard(null);
             setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined, color: 'from-purple-600 to-indigo-700' });
@@ -369,7 +370,7 @@ export function Cards() {
         >
           <Plus size={18} />
           <span className="hidden sm:inline">Novo Cartão</span>
-        </button>
+        </button></div>
       </div>
 
       {loading ? (

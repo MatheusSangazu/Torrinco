@@ -1,0 +1,25 @@
+import {beforeEach,describe,expect,it,vi} from 'vitest';
+
+const h=vi.hoisted(()=>{const state:any={recurring:[],transactions:[],failTransaction:false,nextId:1};const db:any={users:{findUnique:vi.fn(async()=>({account_id:1}))},recurring_transactions:{findUnique:vi.fn(async({where}:any)=>state.recurring.find((r:any)=>Object.entries(where).every(([k,v])=>r[k]===v))??null),create:vi.fn(async({data}:any)=>{const r={id:state.nextId++,...data};state.recurring.push(r);return r}),update:vi.fn(async({where,data}:any)=>Object.assign(state.recurring.find((r:any)=>r.id===where.id),data))},transactions:{findFirst:vi.fn(async({where}:any)=>state.transactions.find((t:any)=>Object.entries(where).every(([k,v])=>t[k]===v))??null),create:vi.fn(async({data}:any)=>{if(state.failTransaction)throw new Error('DB_WRITE_FAILED');const t={id:state.nextId++,...data};state.transactions.push(t);return t})}};db.$transaction=vi.fn(async(fn:any)=>{const snapshot={recurring:structuredClone(state.recurring),transactions:structuredClone(state.transactions),nextId:state.nextId};try{return await fn(db)}catch(e){state.recurring=snapshot.recurring;state.transactions=snapshot.transactions;state.nextId=snapshot.nextId;throw e}});return{state,db,reset(){state.recurring=[];state.transactions=[];state.failTransaction=false;state.nextId=1}}});
+h.db.recurring_transactions.findFirst=h.db.recurring_transactions.findUnique;
+vi.mock('../src/lib/prisma.js',()=>({prisma:h.db}));
+vi.mock('../src/services/subscription.service.js',()=>({assertAccountAccess:vi.fn(async()=>({}))}));
+vi.mock('../src/services/ownership.service.js',()=>({getCategoryForAccount:vi.fn(async()=>({id:1,name:'Teste'})),getEntityForAccount:vi.fn(async()=>({id:9})),getIncomeSourceForUser:vi.fn(async()=>({id:7}))}));
+import {createRecurring} from '../src/services/recurring.service.js';
+import {financeSchemas,recurringSchemas} from '../src/schemas/index.js';
+import {getApiErrorMessage} from '../../client/src/lib/api-error.js';
+
+const today=()=>{const d=new Date();return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`};
+const base=(type:'income'|'expense',extra:any={})=>({description:type==='income'?'Salário':'Aluguel',amount:100,type,frequency:'monthly' as const,start_date:today(),idempotency_key:'123e4567-e89b-42d3-a456-426614174000',...extra});
+describe('integridade de recorrências',()=>{
+ beforeEach(()=>{h.reset();vi.clearAllMocks()});
+ it.each(['income','expense'] as const)('%s recorrente funciona sem entidade',async type=>{const recurring=await createRecurring(1,base(type));expect(recurring.entity_id).toBeNull();expect(h.state.transactions).toHaveLength(1)});
+ it('preserva entidade válida e fonte de renda no template e ocorrência',async()=>{await createRecurring(1,base('income',{entity_id:9,income_source_id:7}));expect(h.state.recurring[0]).toMatchObject({entity_id:9,income_source_id:7});expect(h.state.transactions[0]).toMatchObject({entity_id:9,income_source_id:7})});
+ it('retry com a mesma chave cria exatamente um template e uma ocorrência',async()=>{await createRecurring(1,base('expense'));await createRecurring(1,base('expense'));expect(h.state.recurring).toHaveLength(1);expect(h.state.transactions).toHaveLength(1)});
+ it('falha da primeira ocorrência desfaz também o template',async()=>{h.state.failTransaction=true;await expect(createRecurring(1,base('income'))).rejects.toThrow('DB_WRITE_FAILED');expect(h.state.recurring).toHaveLength(0);expect(h.state.transactions).toHaveLength(0)});
+ it.each([0,-1,1.5,'texto'])('rejeita entity_id inválido: %s',value=>expect(recurringSchemas.create.safeParse({...base('expense'),entity_id:value}).success).toBe(false));
+ it.each([null,'',undefined])('normaliza entity_id vazio como ausência: %s',value=>{const result=recurringSchemas.create.safeParse({...base('income'),entity_id:value});expect(result.success).toBe(true);if(result.success)expect(result.data.entity_id).toBeUndefined()});
+ it('normaliza categoria e fonte vazias como ausência',()=>{const result=recurringSchemas.create.safeParse({...base('income'),category_id:null,income_source_id:''});expect(result.success).toBe(true);if(result.success){expect(result.data.category_id).toBeUndefined();expect(result.data.income_source_id).toBeUndefined()}});
+ it('mantém criação de transação comum válida',()=>expect(financeSchemas.create.safeParse({description:'Avulsa',amount:10,type:'income',transaction_date:today()}).success).toBe(true));
+ it('frontend prioriza details e nunca mostra mensagem interna do Axios',()=>{expect(getApiErrorMessage({message:'Request failed with status code 400',response:{data:{error:'Revise os dados.',details:[{message:'A conta ou o cartão informado é inválido.'}]}}},'Falha segura')).toBe('A conta ou o cartão informado é inválido.');expect(getApiErrorMessage({message:'Request failed with status code 500'},'Falha segura')).toBe('Falha segura')});
+});

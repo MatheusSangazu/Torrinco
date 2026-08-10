@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, ArrowUpCircle, ArrowDownCircle, Edit2, Trash2, X, CreditCard, ChevronLeft, ChevronRight, Calendar, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Search, Filter, ArrowUpCircle, ArrowDownCircle, Edit2, Trash2, X, CreditCard, ChevronLeft, ChevronRight, Calendar, CheckCircle, FileUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { cardsService, type CreditCard as CreditCardType } from '../services/cards.service';
 import { installmentsService } from '../services/installments.service';
@@ -11,6 +12,7 @@ import { Input } from '../components/Input';
 import { DatePicker } from '../components/DatePicker';
 import { DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../lib/api-error';
 
 interface Category {
   id: number;
@@ -58,6 +60,7 @@ interface Transaction {
 }
 
 export function Transactions() {
+  const recurringRequestKey = useRef(crypto.randomUUID());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
@@ -197,9 +200,10 @@ export function Transactions() {
           amount: finalAmount,
           type: formData.type,
           category: formData.category,
-          category_id: formData.category_id ? Number(formData.category_id) : null,
-          income_source_id: formData.income_source_id ? Number(formData.income_source_id) : null,
-          entity_id: formData.entity_id ? Number(formData.entity_id) : null,
+          category_id: formData.category_id ? Number(formData.category_id) : undefined,
+          income_source_id: formData.income_source_id ? Number(formData.income_source_id) : undefined,
+          entity_id: formData.entity_id ? Number(formData.entity_id) : undefined,
+          idempotency_key: recurringRequestKey.current,
           start_date: formData.date,
           status: 'active',
           frequency: 'monthly',
@@ -286,7 +290,7 @@ export function Transactions() {
       toast.success('Transação salva com sucesso!');
     } catch (error: any) {
       console.error('Erro ao salvar transação:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Erro ao salvar transação. Verifique os dados.';
+      const errorMessage = getApiErrorMessage(error, 'Não foi possível salvar a transação. Verifique os dados informados.');
       toast.error(errorMessage);
     }
   };
@@ -310,7 +314,7 @@ export function Transactions() {
       toast.success('Transação excluída com sucesso!');
     } catch (error: any) {
       console.error('Erro ao excluir:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Erro ao excluir transação.';
+      const errorMessage = getApiErrorMessage(error, 'Não foi possível excluir a transação.');
       toast.error(errorMessage);
     }
   };
@@ -354,7 +358,7 @@ export function Transactions() {
       toast.success(`${selectedTransactions.size} transação(ões) excluída(s) com sucesso!`);
     } catch (error: any) {
       console.error('Erro ao excluir em massa:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Erro ao excluir transações.';
+      const errorMessage = getApiErrorMessage(error, 'Não foi possível excluir as transações.');
       toast.error(errorMessage);
     }
   };
@@ -390,6 +394,7 @@ export function Transactions() {
   };
 
   const resetForm = () => {
+    recurringRequestKey.current = crypto.randomUUID();
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     setFormData({
@@ -449,6 +454,9 @@ export function Transactions() {
             <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">Gerencie suas receitas e despesas</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
+            <Link to="/imports" className="flex items-center justify-center rounded-xl border border-torrinco-600 px-3 py-2 text-sm font-medium text-torrinco-600">
+              <FileUp size={16} className="mr-1.5" /> Importar
+            </Link>
             <button 
               onClick={openNewModal}
               className="flex items-center justify-center px-3 sm:px-4 py-2 bg-torrinco-600 hover:bg-torrinco-700 text-white rounded-xl transition-colors font-medium shadow-sm w-full sm:w-auto text-sm"

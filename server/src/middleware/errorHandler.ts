@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'node:crypto';
+import { ZodError } from 'zod';
+import multer from 'multer';
 
 export const errorHandler = (
   error: any,
@@ -31,9 +33,19 @@ export const errorHandler = (
     });
   }
 
-  const message = error?.message || 'Internal server error';
+  if (error instanceof ZodError) {
+    return res.status(400).json({ code: 'VALIDATION_ERROR', error: 'Não foi possível processar a solicitação. Verifique os dados informados.', details: error.issues.map(issue => ({ field: issue.path.join('.'), message: 'O valor informado é inválido.' })) });
+  }
+
+  if (error instanceof multer.MulterError) {
+    const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+    return res.status(tooLarge ? 413 : 400).json({ code: error.code, error: tooLarge ? 'O arquivo excede o tamanho máximo permitido.' : 'Não foi possível receber o arquivo enviado.' });
+  }
+
+  const message = error?.message || 'Erro interno do servidor';
 
   res.status(statusCode).json({
+    ...(error?.code && { code: error.code }),
     error: message,
     ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
   });

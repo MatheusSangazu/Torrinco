@@ -23,6 +23,7 @@ describe('validação integrada no Express 5.2.1', () => {
     app.get('/api/finance/transactions', validate({ query: commonSchemas.transactionListQuery }), echoQuery);
     app.get('/api/reminders/due', validate({ query: reminderSchemas.dueQuery }), echoQuery);
     app.get('/api/recurring/due', validate({ query: recurringSchemas.dueQuery }), echoQuery);
+    app.post('/api/recurring', validate({ body: recurringSchemas.create }), (req,res)=>res.status(201).json({validated:getValidatedBody(req)}));
     app.get('/api/calendar', validate({ query: calendarSchemas.listQuery }), echoQuery);
 
     app.post('/body', validate({ body: z.object({ amount: z.coerce.number() }) }), (req, res) => {
@@ -77,7 +78,12 @@ describe('validação integrada no Express 5.2.1', () => {
   it('retorna 400 para query inválida', async () => {
     const response = await fetch(`${baseUrl}/api/reminders/due?days=not-a-number`);
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: 'Requisição inválida' });
+    expect(await response.json()).toMatchObject({ code: 'VALIDATION_ERROR', error: expect.stringContaining('Não foi possível') });
+  });
+
+  it('retorna erro de ID recorrente em português sem detalhes internos',async()=>{
+    const response=await fetch(`${baseUrl}/api/recurring`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({description:'Teste',amount:10,type:'income',frequency:'monthly',start_date:'2026-08-09',entity_id:0})});
+    const payload=await response.json();expect(response.status).toBe(400);expect(payload).toMatchObject({code:'VALIDATION_ERROR',details:[{field:'entity_id',label:'Conta ou cartão'}]});expect(JSON.stringify(payload)).not.toMatch(/Too small|Invalid input|Zod|Prisma|stack/i);
   });
 
   it('valida e substitui body e params separadamente', async () => {
