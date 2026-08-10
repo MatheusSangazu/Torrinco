@@ -252,7 +252,6 @@ model income_sources {
   users                  users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "income_sources_user_fk")
   transactions           transactions[]
   recurring_transactions recurring_transactions[]
-  financial_import_items financial_import_items[]
 
   @@unique([user_id, name], map: "unique_user_income_source")
   @@index([user_id], map: "income_sources_user_idx")
@@ -753,8 +752,6 @@ model financial_import_items {
   categories              categories?         @relation(fields: [category_id], references: [id], onDelete: SetNull)
   financial_entities      financial_entities? @relation(fields: [entity_id], references: [id], onDelete: SetNull)
   imported_transaction    transactions?       @relation(fields: [imported_transaction_id], references: [id], onDelete: SetNull)
-  incomeSources           income_sources?     @relation(fields: [income_sourcesId], references: [id])
-  income_sourcesId        Int?
 
   @@unique([import_id, row_index])
   @@index([import_id, included])

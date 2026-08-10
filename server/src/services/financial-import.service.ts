@@ -67,6 +67,24 @@ const detailInclude = { items: { orderBy: { row_index: 'asc' as const }, include
 export class FinancialImportService {
   static async upload(input: UploadInput) {
     const { parsed, hash } = await parseFinancialDocument(input.buffer, input.fileName, input.mimeType);
+    const activeDraft = await prisma.financial_imports.findFirst({
+      where: {
+        account_id: input.accountId,
+        user_id: input.userId,
+        file_hash: hash,
+        status: { in: ['uploaded', 'processing', 'review'] },
+      },
+      orderBy: { created_at: 'asc' },
+      select: { id: true },
+    });
+    if (activeDraft) {
+      await prisma.financial_imports.update({
+        where: { id: activeDraft.id },
+        data: { warning_message: 'Este arquivo já possui um rascunho em revisão.' },
+      });
+      await audit(input, 'financial_import.upload_reused', activeDraft.id, 'success', { fileHash: hash });
+      return this.get(input, activeDraft.id);
+    }
     const prior = await prisma.financial_imports.findFirst({ where: { account_id: input.accountId, file_hash: hash, status: { in: ['completed', 'completed_with_warnings'] } }, select: { id: true } });
     const candidates = await markDuplicates(input, parsed.items);
     const created = await prisma.$transaction(async tx => {
@@ -85,9 +103,11 @@ export class FinancialImportService {
       const totals = reconciliation(candidates.map(c => ({ ...c.item, item_kind: c.item.kind, included: c.included, duplicate_kind: c.duplicateKind })), parsed.documentTotal);
       await tx.financial_imports.update({ where: { id: batch.id }, data: { status: 'review', selected_expense_total: totals.expenseTotal, selected_income_total: totals.incomeTotal, selected_total: totals.selectedTotal, reconciliation_difference: totals.difference } });
       await audit(input, 'financial_import.uploaded', batch.id, 'success', { fileHash: hash, itemCount: totals.found, duplicateFile: Boolean(prior) }, tx);
-      return batch;
+      const detail = await tx.financial_imports.findUnique({ where: { id: batch.id }, include: detailInclude });
+      if (!detail) throw new FinancialImportError('IMPORT_NOT_FOUND', 'ImportaÃ§Ã£o nÃ£o encontrada.', 500);
+      return { ...detail, reconciliation: reconciliation(detail.items, detail.document_total) };
     });
-    return this.get(input, created.id);
+    return created;
   }
 
   static async list(scope: Scope) {

@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "platform-owner": "tsx scripts/platform-owner.ts"
+    "platform-owner": "tsx scripts/platform-owner.ts",
+    "test:schema": "prisma migrate deploy && prisma generate && tsx scripts/schema-smoke.ts"
   },
   "keywords": [],
   "author": "Matheus",

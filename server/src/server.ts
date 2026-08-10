@@ -28,12 +28,14 @@ import importsRoutes from './routes/imports.routes.js';
 import { LegalController } from './controllers/legal.controller.js';
 import { apiLimiter } from './middleware/rate-limiter.js';
 import { schedulerHealthSnapshot } from './services/job-runtime.service.js';
+import { configureTrustProxy } from './config/trust-proxy.js';
 
 dotenv.config();
 
 process.env.TZ = 'America/Sao_Paulo';
 
 const app = express();
+const trustProxyHops = configureTrustProxy(app);
 const PORT = process.env.PORT || 3001;
 
 // --- Middlewares Globais ---
