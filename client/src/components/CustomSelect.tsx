@@ -15,6 +15,7 @@ interface CustomSelectProps {
   placeholder?: string;
   className?: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
 export function CustomSelect({ 
@@ -24,7 +25,8 @@ export function CustomSelect({
   options, 
   placeholder = 'Selecione...', 
   className = '',
-  required
+  required,
+  disabled = false
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useClickOutside<HTMLDivElement>(() => setIsOpen(false));
@@ -41,13 +43,15 @@ export function CustomSelect({
       
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
         className={`
           w-full px-4 py-3 text-left bg-white dark:bg-slate-900 
           border rounded-xl flex items-center justify-between
           transition-all duration-200
           min-h-[48px]
           ${isOpen ? 'ring-2 ring-torrinco-500 border-transparent' : 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'}
+          disabled:cursor-not-allowed disabled:opacity-60
         `}
       >
         <span className={`block truncate text-base ${!selectedOption ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
