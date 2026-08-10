@@ -210,7 +210,7 @@ export const financeSchemas = {
   }),
 
   forecastQuery: z.object({
-    period: z.string().max(20).optional(),
+    period: z.enum(['current_month', 'next_month']).default('next_month'),
     target_user_id: positiveInt.optional(),
   }),
 };

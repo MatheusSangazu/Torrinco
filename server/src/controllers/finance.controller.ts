@@ -505,7 +505,7 @@ export class FinanceController {
       let userId = req.userId!;
       const accountId = req.accountId!;
       const { target_user_id, period: requestedPeriod } = getValidatedQuery(req);
-      const period = (requestedPeriod as string) || 'next_month';
+      const period = requestedPeriod as 'current_month' | 'next_month';
 
       // Se for admin e enviar target_user_id, valida que o alvo pertence à mesma conta.
       if ((req.userRole === 'owner' || req.userRole === 'admin') && target_user_id) {
@@ -515,7 +515,7 @@ export class FinanceController {
 
       const result = await summary.getForecast(
         userId,
-        (period === 'current_month' ? 'current_month' : 'next_month')
+        period
       );
       res.json(result);
     } catch (error) {

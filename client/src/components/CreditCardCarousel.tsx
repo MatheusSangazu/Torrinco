@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { ConfirmModal } from './ConfirmModal';
+import { formatLocalDate } from '../lib/local-date';
 
 interface CreditCardCarouselProps {
   className?: string;
@@ -15,6 +16,7 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [paying, setPaying] = useState(false);
   const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
   const [cardToUndo, setCardToUndo] = useState<CreditCard | null>(null);
@@ -22,10 +24,12 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
   const fetchCards = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const data = await cardsService.list();
       setCards(data);
     } catch (error) {
       console.error('Erro ao carregar cartões:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -41,7 +45,7 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
     const toastId = toast.loading(`Registrando pagamento do cartão ${card.name}...`);
     try {
       setPaying(true);
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
       
       const paymentData = {
         amount: card.currentBill,
@@ -162,6 +166,10 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
         <div className="h-40 sm:h-48 bg-gray-100 dark:bg-slate-700 rounded-xl animate-pulse" />
       </div>
     );
+  }
+
+  if (loadError) {
+    return <div className={clsx('bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700', className)}><div className="flex items-center gap-3 mb-4"><CreditCardIcon size={24} className="text-purple-600"/><span className="font-medium dark:text-white">Cartões de Crédito</span></div><p className="text-sm text-red-600">Não foi possível carregar os cartões.</p><button onClick={fetchCards} className="mt-3 rounded-lg border px-3 py-2 text-sm font-medium">Tentar novamente</button></div>;
   }
 
   if (cards.length === 0) {

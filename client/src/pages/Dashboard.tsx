@@ -8,6 +8,20 @@ import { CreditCardCarousel } from '../components/CreditCardCarousel';
 import toast from 'react-hot-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { formatLocalDate } from '../lib/local-date';
+import { getDashboardRequestParams, settleDashboardWidgets } from '../lib/dashboard-data';
+
+type WidgetStatus = 'loading' | 'loaded' | 'empty' | 'error' | 'unavailable';
+type WidgetKey = 'summary' | 'transactions' | 'recurring' | 'calendar' | 'forecast' | 'currentForecast' | 'chart' | 'reminders';
+const initialWidgetStatus: Record<WidgetKey, WidgetStatus> = { summary: 'loading', transactions: 'loading', recurring: 'loading', calendar: 'loading', forecast: 'loading', currentForecast: 'loading', chart: 'loading', reminders: 'loading' };
+
+function WidgetFeedback({ status, error, empty, unavailable, retry }: { status: WidgetStatus; error: string; empty?: string; unavailable?: string; retry: () => void }) {
+  if (status === 'loading') return <div className="flex items-center gap-2 py-4 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Carregando…</div>;
+  if (status === 'error') return <div className="py-3 text-sm text-red-600"><p>{error}</p><button onClick={event => { event.stopPropagation(); retry(); }} className="mt-2 rounded-lg border border-red-200 px-3 py-1.5 font-medium">Tentar novamente</button></div>;
+  if (status === 'unavailable') return <div className="py-3 text-sm text-gray-500">{unavailable ?? 'Recurso não incluído no seu plano.'}</div>;
+  if (status === 'empty') return <div className="py-3 text-sm text-gray-500">{empty ?? 'Não há dados neste período.'}</div>;
+  return null;
+}
 
 interface Summary {
   income: number;
@@ -116,8 +130,10 @@ export function Dashboard() {
   const [currentMonthForecast, setCurrentMonthForecast] = useState<Forecast | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
+  const [recurringAgenda, setRecurringAgenda] = useState<Array<RecurringTransaction & { itemType: 'recurring' }>>([]);
+  const [calendarAgenda, setCalendarAgenda] = useState<Array<Event & { itemType: 'event' }>>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [widgetStatus, setWidgetStatus] = useState<Record<WidgetKey, WidgetStatus>>(initialWidgetStatus);
   const [period, setPeriod] = useState<'month' | 'all'>('month');
   const [chartData, setChartData] = useState<Array<{name: string; receitas: number; despesas: number}>>([]);
   const [showForecastModal, setShowForecastModal] = useState(false);
@@ -127,82 +143,72 @@ export function Dashboard() {
   const [undoPaymentId, setUndoPaymentId] = useState<number | null>(null);
   const [isUndoing, setIsUndoing] = useState(false);
 
-  const fetchData = async () => {
+  const setStatus = (key: WidgetKey, status: WidgetStatus) => setWidgetStatus(previous => ({ ...previous, [key]: status }));
+  const loadSummary = async () => {
+    setStatus('summary', 'loading');
+    try { const response = await api.get('/finance/summary', { params: getDashboardRequestParams(period).summary }); const value = response.data.month_summary; setSummary(value); setStatus('summary', value ? 'loaded' : 'empty'); }
+    catch (error) { console.error('Falha no resumo do dashboard:', error); setSummary(null); setStatus('summary', 'error'); }
+  };
+  const loadTransactions = async () => {
+    setStatus('transactions', 'loading');
+    try { const response = await api.get('/finance/transactions', { params: getDashboardRequestParams(period).transactions }); const items = response.data.transactions || []; setTransactions(items); setStatus('transactions', items.length ? 'loaded' : 'empty'); }
+    catch (error) { console.error('Falha nas transações do dashboard:', error); setTransactions([]); setStatus('transactions', 'error'); }
+  };
+  const loadForecast = async (kind: 'current_month' | 'next_month') => {
+    const key: WidgetKey = kind === 'current_month' ? 'currentForecast' : 'forecast'; setStatus(key, 'loading');
+    const params = kind === 'current_month' ? getDashboardRequestParams(period).currentForecast : getDashboardRequestParams(period).nextForecast;
+    try { const response = await api.get('/finance/forecast', { params }); if (kind === 'current_month') setCurrentMonthForecast(response.data); else setForecast(response.data); setStatus(key, 'loaded'); }
+    catch (error) { console.error(`Falha na previsão ${kind}:`, error); if (kind === 'current_month') setCurrentMonthForecast(null); else setForecast(null); setStatus(key, 'error'); }
+  };
+  const loadChart = async () => {
+    setStatus('chart', 'loading');
+    try { const response = await api.get('/finance/transactions', { params: getDashboardRequestParams(period).chart }); const data = generateChartData(response.data.transactions || []); setChartData(data); setStatus('chart', data.length ? 'loaded' : 'empty'); }
+    catch (error) { console.error('Falha no gráfico do dashboard:', error); setChartData([]); setStatus('chart', 'error'); }
+  };
+  const loadRecurring = async () => {
+    setStatus('recurring', 'loading');
+    try { const response = await api.get('/recurring/due', { params: { days: 7 } }); const items = (response.data.dueTransactions || []).map((item: RecurringTransaction) => ({ ...item, itemType: 'recurring' as const })); setRecurringAgenda(items); setStatus('recurring', items.length ? 'loaded' : 'empty'); }
+    catch (error) { console.error('Falha nas recorrências do dashboard:', error); setRecurringAgenda([]); setStatus('recurring', 'error'); }
+  };
+  const loadCalendar = async () => {
+    setStatus('calendar', 'loading');
     try {
-      setLoading(true);
-      
-      // Calculate date range for next 7 days
-      const today = new Date();
-      const nextWeek = new Date();
-      nextWeek.setDate(today.getDate() + 7);
-      
-      const startDateStr = today.toISOString().split('T')[0];
-      const endDateStr = nextWeek.toISOString().split('T')[0];
-
-      // Calculate date range for current month (cash details)
-      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const startDateMonth = firstDayOfMonth.toISOString().split('T')[0];
-
-      // Calculate date range for last 6 months (chart)
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-      sixMonthsAgo.setDate(1);
-      const startDateChart = sixMonthsAgo.toISOString().split('T')[0];
-
-      const [summaryRes, transactionsRes, dueRes, eventsRes, forecastRes, currentMonthForecastRes, chartRes] = await Promise.all([
-        api.get(`/finance/summary?period=${period}`),
-        api.get(`/finance/transactions?start_date=${period === 'month' ? startDateMonth : '1970-01-01'}&end_date=${endDateStr}`),
-        api.get('/recurring/due?days=7'),
-        api.get(`/calendar?start_date=${startDateStr}&end_date=${endDateStr}`),
-        api.get('/finance/forecast?period=next_month'),
-        api.get('/finance/forecast?period=month'),
-        api.get(`/finance/transactions?start_date=${startDateChart}`)
-      ]);
-
-      setSummary(summaryRes.data.month_summary);
-      setForecast(forecastRes.data);
-      setCurrentMonthForecast(currentMonthForecastRes.data);
-      setTransactions(transactionsRes.data.transactions);
-      setChartData(generateChartData(chartRes.data.transactions));
-
-      const dueReminders = await remindersService.listDue();
-      setReminders(dueReminders);
-      
-      // Combine recurring transactions and events
-      const recurring = (dueRes.data.dueTransactions || []).map((item: RecurringTransaction) => ({
-        ...item,
-        itemType: 'recurring' as const
-      }));
-      
-      const events = (eventsRes.data.events || []).map((item: Event) => ({
-        ...item,
-        itemType: 'event' as const
-      }));
-
-      // Sort by date
-      const combined = [...recurring, ...events].sort((a, b) => {
-        const dateA = a.itemType === 'recurring' ? parseDateLocal(a.next_due_date) : parseDateLocal(a.event_date);
-        const dateB = b.itemType === 'recurring' ? parseDateLocal(b.next_due_date) : parseDateLocal(b.event_date);
-        return dateA.getTime() - dateB.getTime();
-      });
-
-      setAgendaItems(combined);
-    } catch (error) {
-      console.error('Erro ao carregar dashboard:', error);
-    } finally {
-      setLoading(false);
+      const subscription = await api.get('/subscription');
+      if (subscription.data?.plan?.features?.calendar !== true) { setCalendarAgenda([]); setStatus('calendar', 'unavailable'); return; }
+      const response = await api.get('/calendar', { params: getDashboardRequestParams(period).calendar });
+      const items = (response.data.events || []).map((item: Event) => ({ ...item, itemType: 'event' as const })); setCalendarAgenda(items); setStatus('calendar', items.length ? 'loaded' : 'empty');
+    } catch (error: any) {
+      console.error('Falha no calendário do dashboard:', error); setCalendarAgenda([]);
+      setStatus('calendar', error?.response?.status === 403 ? 'unavailable' : 'error');
     }
   };
+  const loadReminders = async () => {
+    setStatus('reminders', 'loading');
+    try { const items = await remindersService.listDue(); setReminders(items); setStatus('reminders', items.length ? 'loaded' : 'empty'); }
+    catch (error) { console.error('Falha nos lembretes do dashboard:', error); setReminders([]); setStatus('reminders', 'error'); }
+  };
+  const fetchData = async () => {
+    await settleDashboardWidgets([loadSummary, loadTransactions, loadRecurring, loadCalendar, () => loadForecast('next_month'), () => loadForecast('current_month'), loadChart, loadReminders]);
+  };
+
 
   useEffect(() => {
     fetchData();
   }, [period]);
 
+  useEffect(() => {
+    setAgendaItems([...recurringAgenda, ...calendarAgenda].sort((a, b) => {
+      const dateA = a.itemType === 'recurring' ? parseDateLocal(a.next_due_date) : parseDateLocal(a.event_date);
+      const dateB = b.itemType === 'recurring' ? parseDateLocal(b.next_due_date) : parseDateLocal(b.event_date);
+      return dateA.getTime() - dateB.getTime();
+    }));
+  }, [recurringAgenda, calendarAgenda]);
+
   const handlePayCardBill = async (bill: any) => {
     const toastId = toast.loading('Registrando pagamento...');
     try {
       const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const todayStr = formatLocalDate(today);
       const dueDate = new Date(bill.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
       
       const paymentData = {
@@ -332,13 +338,6 @@ export function Dashboard() {
     return totalIncome - totalExpense;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
-        Carregando informações...
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -394,6 +393,9 @@ export function Dashboard() {
             <span className="text-gray-500 dark:text-slate-400 font-medium">Saldo {period === 'month' ? 'do Mês' : 'Acumulado'}</span>
           </div>
           <div>
+            {(widgetStatus.summary === 'error' || widgetStatus.transactions === 'error' || widgetStatus.summary === 'loading' || widgetStatus.transactions === 'loading') ? (
+              <WidgetFeedback status={widgetStatus.summary === 'error' || widgetStatus.transactions === 'error' ? 'error' : 'loading'} error="Não foi possível carregar o resumo financeiro." retry={() => { loadSummary(); loadTransactions(); }} />
+            ) : (<>
             <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
               {formatCurrency(calculateCashBalance())}
             </h3>
@@ -405,6 +407,7 @@ export function Dashboard() {
                 Ver detalhes <ArrowUpRight size={12} className="text-blue-500" />
               </p>
             </div>
+            </>)}
           </div>
         </div>
 
@@ -424,17 +427,18 @@ export function Dashboard() {
             <span className="text-gray-500 dark:text-slate-400 font-medium">Próximo Mês</span>
           </div>
           <div>
+            {widgetStatus.forecast !== 'loaded' && <WidgetFeedback status={widgetStatus.forecast} error="Não foi possível carregar a previsão do próximo mês." retry={() => loadForecast('next_month')} />}
             <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
-              {/* Aqui usamos o optional chaining "?." e o nullish coalescing "??" para segurança */}
-              {formatCurrency(forecast?.forecast?.balance ?? 0)}
+              {/* O valor só aparece após carregamento bem-sucedido. */}
+              {widgetStatus.forecast === 'loaded' && forecast ? formatCurrency(forecast.forecast.balance) : null}
             </h3>
             <div className="mt-1 space-y-1">
               <p className="text-sm text-gray-500 dark:text-slate-400">
-                <span className="text-green-600 font-semibold">{formatCurrency(forecast?.forecast?.income ?? 0)}</span>
+                <span className="text-green-600 font-semibold">{widgetStatus.forecast === 'loaded' && forecast ? formatCurrency(forecast.forecast.income) : null}</span>
                 {' '}entradas
               </p>
               <p className="text-sm text-gray-500 dark:text-slate-400">
-                <span className="text-red-600 font-semibold">{formatCurrency(forecast?.forecast?.expenses ?? 0)}</span>
+                <span className="text-red-600 font-semibold">{widgetStatus.forecast === 'loaded' && forecast ? formatCurrency(forecast.forecast.expenses) : null}</span>
                 {' '}saídas
               </p>
             </div>
@@ -459,8 +463,9 @@ export function Dashboard() {
             <span className="text-gray-500 dark:text-slate-400 font-medium">Resumo Detalhado</span>
           </div>
           <div>
+            {widgetStatus.currentForecast !== 'loaded' && <WidgetFeedback status={widgetStatus.currentForecast} error="Não foi possível carregar a previsão do mês atual." retry={() => loadForecast('current_month')} />}
             <h3 className="text-3xl font-bold text-gray-800 dark:text-white">
-              {currentMonthForecast ? formatCurrency(currentMonthForecast.forecast.balance) : 'R$ 0,00'}
+              {widgetStatus.currentForecast === 'loaded' && currentMonthForecast ? formatCurrency(currentMonthForecast.forecast.balance) : null}
             </h3>
             <div className="mt-1 space-y-1">
               <p className="text-sm text-gray-500 dark:text-slate-400 flex items-center justify-between">
@@ -481,7 +486,13 @@ export function Dashboard() {
             <span className="text-gray-500 dark:text-slate-400 font-medium">Agenda (7 dias)</span>
           </div>
           <div className="space-y-3">
-            {agendaItems.length > 0 ? (
+            {(widgetStatus.recurring === 'loading' || widgetStatus.calendar === 'loading') ? (
+              <WidgetFeedback status="loading" error="" retry={() => { loadRecurring(); loadCalendar(); }} />
+            ) : (widgetStatus.calendar === 'unavailable' && widgetStatus.recurring === 'empty') ? (
+              <WidgetFeedback status="unavailable" error="" unavailable="Calendário não incluído no seu plano." retry={loadCalendar} />
+            ) : ((widgetStatus.recurring === 'error' || widgetStatus.calendar === 'error') && agendaItems.length === 0) ? (
+              <WidgetFeedback status="error" error="Não foi possível carregar a agenda." retry={() => { loadRecurring(); loadCalendar(); }} />
+            ) : agendaItems.length > 0 ? (
               agendaItems.map((item, index) => {
                 if (item.itemType === 'recurring') {
                   return (
@@ -529,7 +540,11 @@ export function Dashboard() {
             <span className="text-gray-500 dark:text-slate-400 font-medium">Lembretes</span>
           </div>
           <div className="space-y-3">
-            {reminders.length > 0 ? (
+            {widgetStatus.reminders === 'loading' ? (
+              <WidgetFeedback status="loading" error="" retry={loadReminders} />
+            ) : widgetStatus.reminders === 'error' ? (
+              <WidgetFeedback status="error" error="Não foi possível carregar os lembretes." retry={loadReminders} />
+            ) : reminders.length > 0 ? (
               reminders.slice(0, 3).map((reminder, index) => (
                 <div key={`rem-${reminder.id}-${index}`} className="flex justify-between items-start text-sm">
                   <div className="flex-1 min-w-0">
@@ -586,7 +601,11 @@ export function Dashboard() {
             </div>
           </div>
           <div className="h-72">
-          {chartData.length > 0 ? (
+          {widgetStatus.chart === 'loading' ? (
+            <WidgetFeedback status="loading" error="" retry={loadChart} />
+          ) : widgetStatus.chart === 'error' ? (
+            <WidgetFeedback status="error" error="Não foi possível carregar o gráfico." retry={loadChart} />
+          ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -666,7 +685,11 @@ export function Dashboard() {
           </div>
 
           <div className="space-y-4">
-            {transactions.length > 0 ? (
+            {widgetStatus.transactions === 'loading' ? (
+              <WidgetFeedback status="loading" error="" retry={loadTransactions} />
+            ) : widgetStatus.transactions === 'error' ? (
+              <WidgetFeedback status="error" error="Não foi possível carregar as movimentações." retry={loadTransactions} />
+            ) : transactions.length > 0 ? (
               transactions.map((transaction) => {
                 const Icon = getCategoryIcon(transaction.category || '');
                 return (

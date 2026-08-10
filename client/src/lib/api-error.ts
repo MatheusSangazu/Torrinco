@@ -1,5 +1,5 @@
 interface ApiErrorDetail { message?:unknown }
-interface ApiErrorPayload { error?:unknown; details?:ApiErrorDetail[] }
+interface ApiErrorPayload { error?:unknown; details?:ApiErrorDetail[]|Record<string,unknown> }
 
 export function getApiErrorMessage(error:unknown,fallback='Não foi possível concluir a operação. Tente novamente.'){
   const payload=(error as {response?:{data?:ApiErrorPayload}})?.response?.data;

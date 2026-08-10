@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const { extractPdfText } = vi.hoisted(() => ({ extractPdfText: vi.fn() }));
 vi.mock('../src/services/agent/pdf.service.js', () => ({ extractPdfText }));
@@ -51,5 +53,37 @@ describe('parser central de importações financeiras', () => {
     const buffer = sheetBuffer([{ Data: '04/08/2026', Descrição: 'Compra', Valor: '10,00' }]);
     const result = await parseFinancialDocument(buffer, 'dados.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(result.parsed.items).toHaveLength(1);
+  });
+  it('aceita o perfil oficial de CSV do cartão Nubank sem classificar Pix no Crédito como receita', () => {
+    const fixture = readFileSync(fileURLToPath(new URL('./fixtures/nubank-credit-card.csv', import.meta.url)));
+    const parsed = parseSpreadsheetRows(fixture, 'Nubank_2026-09-08.csv');
+    expect(parsed.sourceProfile).toBe('nubank_credit_card_csv');
+    expect(parsed.documentType).toBe('card_statement');
+    expect(parsed.items).toHaveLength(11);
+    const pix = parsed.items.filter(item => item.description.startsWith('Pix no Crédito'));
+    expect(pix).toHaveLength(3);
+    expect(pix.every(item => item.type === 'expense' && item.kind === 'purchase')).toBe(true);
+    expect(pix[0]?.amount).toBe(163.23);
+    expect(parsed.items.find(item => item.description === 'Loja de teste')).toMatchObject({ type: 'expense', amount: 97 });
+    expect(parsed.items.find(item => item.description === 'Pagamento recebido')).toMatchObject({ kind: 'bill_payment', type: 'expense', amount: 2942.17, included: false });
+    expect(parsed.items.find(item => item.description === 'Estorno de compra')).toMatchObject({ kind: 'refund', type: 'income', amount: 50, included: true });
+    expect(parsed.items.filter(item => item.included)).toHaveLength(10);
+  });
+  it('mantém valor negativo desconhecido do perfil Nubank visível e marcado para revisão', () => {
+    const parsed = parseSpreadsheetRows(Buffer.from('date,title,amount\n2026-08-01,Ajuste não identificado,"- 10,00"'), 'nubank.csv');
+    expect(parsed.items[0]).toMatchObject({ kind: 'unknown', type: 'income', included: true, requiresReview: true, amount: 10 });
+  });
+  it('normaliza BOM, caixa, acentos e espaços dos aliases de cabeçalho', () => {
+    const parsed = parseSpreadsheetRows(Buffer.from('\uFEFF DATE , Transaction Description , AMOUNT \n2026-08-01,Compra segura,"12,34"'), 'arquivo.csv');
+    expect(parsed.items[0]).toMatchObject({ description: 'Compra segura', amount: 12.34 });
+  });
+  it('retorna diagnóstico seguro quando faltam campos obrigatórios', () => {
+    try {
+      parseSpreadsheetRows(Buffer.from('date,unknown,amount\n2026-08-01,segredo,"10,00"'), 'arquivo.csv');
+      throw new Error('deveria falhar');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'NO_ITEMS_FOUND', details: { detected_headers: ['date', 'unknown', 'amount'], mapped_fields: ['date', 'amount'], missing_fields: ['description'], rows_read: 1, rows_accepted: 0, rows_rejected: 1 } });
+      expect(JSON.stringify((error as ImportFileError).details)).not.toContain('segredo');
+    }
   });
 });

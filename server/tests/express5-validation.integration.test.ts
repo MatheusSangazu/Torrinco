@@ -49,7 +49,8 @@ describe('validação integrada no Express 5.2.1', () => {
 
   it.each([
     ['/api/finance/summary?period=month', { period: 'month' }],
-    ['/api/finance/forecast?period=month', { period: 'month' }],
+    ['/api/finance/forecast?period=current_month', { period: 'current_month' }],
+    ['/api/finance/forecast?period=next_month', { period: 'next_month' }],
     ['/api/finance/transactions?start_date=2026-08-01&end_date=2026-08-31', { start_date: '2026-08-01', end_date: '2026-08-31' }],
     ['/api/reminders/due?days=7', { days: 7 }],
     ['/api/calendar?start_date=2026-08-01&end_date=2026-08-31', { start_date: '2026-08-01', end_date: '2026-08-31' }],
@@ -84,6 +85,12 @@ describe('validação integrada no Express 5.2.1', () => {
   it('retorna erro de ID recorrente em português sem detalhes internos',async()=>{
     const response=await fetch(`${baseUrl}/api/recurring`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({description:'Teste',amount:10,type:'income',frequency:'monthly',start_date:'2026-08-09',entity_id:0})});
     const payload=await response.json();expect(response.status).toBe(400);expect(payload).toMatchObject({code:'VALIDATION_ERROR',details:[{field:'entity_id',label:'Conta ou cartão'}]});expect(JSON.stringify(payload)).not.toMatch(/Too small|Invalid input|Zod|Prisma|stack/i);
+  });
+
+  it('rejeita periodo de previsao desconhecido', async () => {
+    const response = await fetch(`${baseUrl}/api/finance/forecast?period=month`);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('valida e substitui body e params separadamente', async () => {
