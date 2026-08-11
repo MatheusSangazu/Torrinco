@@ -6,6 +6,15 @@ import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { CustomSelect } from '../components/CustomSelect';
 import { EmptyState, PageError, PageLoading } from '../components/PageState';
+import {
+  addMonthsToYearMonth,
+  formatMonthLong,
+  formatYearMonthShort,
+  fromYearMonthParts,
+  getLocalDateDayOfWeek,
+  getMonthDateRange,
+  localDateFromApi,
+} from '../lib/local-date';
 
 interface Transaction {
   id: number;
@@ -48,6 +57,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export function Reports() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [trendTransactions, setTrendTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -69,15 +79,18 @@ export function Reports() {
     try {
       setLoading(true);
       setLoadError('');
-      const startDate = new Date(selectedYear, selectedMonth, 1);
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
+      const selectedPeriod = fromYearMonthParts(selectedYear, selectedMonth + 1);
+      const selectedRange = getMonthDateRange(selectedPeriod);
+      const trendStart = getMonthDateRange(addMonthsToYearMonth(selectedPeriod, -5)).startDate;
       
-      const response = await api.get('/finance/transactions', {
-        params: {
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0]
-        }
-      });
+      const [response, trendResponse] = await Promise.all([
+        api.get('/finance/transactions', {
+          params: { start_date: selectedRange.startDate, end_date: selectedRange.endDate }
+        }),
+        api.get('/finance/transactions', {
+          params: { start_date: trendStart, end_date: selectedRange.endDate }
+        })
+      ]);
       console.log('Transações recebidas do backend:', response.data.transactions);
       // Garantir que amount seja número (vem como string do backend se for Decimal)
       const transactionsData = response.data.transactions.map((t: any) => ({
@@ -86,6 +99,7 @@ export function Reports() {
       }));
       console.log('Transações processadas:', transactionsData);
       setTransactions(transactionsData);
+      setTrendTransactions(trendResponse.data.transactions.map((t: any) => ({ ...t, amount: Number(t.amount) })));
       console.log('Transações definidas no estado:', transactionsData.length);
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
@@ -102,8 +116,7 @@ export function Reports() {
   const getFilteredTransactions = () => {
     console.log('Filtrando transações - Total:', transactions.length, 'Mês:', selectedMonth, 'Ano:', selectedYear);
     const filtered = transactions.filter(t => {
-      const date = new Date(t.transaction_date);
-      const matchesDate = date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+      const matchesDate = localDateFromApi(t.transaction_date).startsWith(fromYearMonthParts(selectedYear, selectedMonth + 1));
       const matchesType = filterType === 'all' || t.type === filterType;
       const matchesCategory = filterCategory === 'all' || t.category === filterCategory || t.categories?.name === filterCategory;
       const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
@@ -211,8 +224,7 @@ export function Reports() {
     }));
 
     filtered.forEach(t => {
-      const date = new Date(t.transaction_date);
-      const dayOfWeek = date.getDay();
+      const dayOfWeek = getLocalDateDayOfWeek(localDateFromApi(t.transaction_date));
       expensesByDay[dayOfWeek].amount += t.amount;
     });
 
@@ -222,8 +234,7 @@ export function Reports() {
   const handleExportExcel = async () => {
     try {
       setExporting(true);
-      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
+      const { startDate, endDate } = getMonthDateRange(fromYearMonthParts(selectedYear, selectedMonth + 1));
       
       const params: any = {
         start_date: startDate,
@@ -261,8 +272,7 @@ export function Reports() {
   const handleSendWhatsApp = async () => {
     try {
       setSendingWhatsApp(true);
-      const startDate = new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
+      const { startDate, endDate } = getMonthDateRange(fromYearMonthParts(selectedYear, selectedMonth + 1));
       
       const params: any = {
         start_date: startDate,
@@ -296,23 +306,18 @@ export function Reports() {
   // Simple Bar Chart Data (Last 6 months)
   const getLast6MonthsData = () => {
     const data = [];
-    const today = new Date();
+    const selectedPeriod = fromYearMonthParts(selectedYear, selectedMonth + 1);
     
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const month = d.getMonth();
-      const year = d.getFullYear();
+      const period = addMonthsToYearMonth(selectedPeriod, -i);
       
-      const monthTrans = transactions.filter(t => {
-        const tDate = new Date(t.transaction_date);
-        return tDate.getMonth() === month && tDate.getFullYear() === year;
-      });
+      const monthTrans = trendTransactions.filter(t => localDateFromApi(t.transaction_date).startsWith(period));
 
       const inc = monthTrans.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
       const exp = monthTrans.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
 
       data.push({
-        label: d.toLocaleDateString('pt-BR', { month: 'short' }),
+        label: formatYearMonthShort(period),
         income: inc,
         expense: exp
       });
@@ -342,7 +347,7 @@ export function Reports() {
                 onChange={(value) => setSelectedMonth(Number(value))}
                 options={Array.from({ length: 12 }, (_, i) => ({
                   value: i,
-                  label: new Date(0, i).toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+                  label: formatMonthLong(i + 1).replace(/^\w/, c => c.toUpperCase())
                 }))}
                 className="w-40"
                 placeholder="Mês"

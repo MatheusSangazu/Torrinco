@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test:temporal": "node --test src/lib/local-date.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

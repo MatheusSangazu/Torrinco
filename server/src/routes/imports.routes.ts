@@ -16,6 +16,7 @@ router.post('/', uploadLimiter, upload.single('file'), ImportsController.upload)
 router.get('/:id', ImportsController.get);
 router.patch('/:id', ImportsController.update);
 router.post('/:id/items', ImportsController.addItem);
+router.patch('/:id/items/bulk', ImportsController.updateItemsBulk);
 router.patch('/:id/items/:itemId', ImportsController.updateItem);
 router.post('/:id/confirm', ImportsController.confirm);
 router.post('/:id/cancel', ImportsController.cancel);

@@ -1,11 +1,13 @@
 import { prisma } from '../lib/prisma.js';
 
-export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'past_due' | 'cancelled' | 'suspended';
+export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'past_due' | 'cancelled';
+export type AccountAccessStatus = 'enabled' | 'suspended';
 export type PlanFeature = 'calendar' | 'ai' | 'import' | 'installments' | 'shared_cards' | 'advanced_reports' | 'api_access';
 
 export interface AccountAccess {
   allowed: boolean;
   status: SubscriptionStatus;
+  accessStatus: AccountAccessStatus;
   reason: string | null;
   inGracePeriod: boolean;
   accessEndsAt: Date | null;
@@ -17,38 +19,43 @@ export function configuredGracePeriodDays(): number {
 }
 
 export function evaluateAccountAccess(account: {
-  status: SubscriptionStatus | null;
+  status: SubscriptionStatus | 'suspended' | null;
+  access_status?: AccountAccessStatus | null;
   trial_ends_at?: Date | null;
   current_period_ends_at?: Date | null;
   grace_period_ends_at?: Date | null;
 }, now = new Date()): AccountAccess {
-  const status = account.status ?? 'suspended';
+  const accessStatus = account.access_status ?? (account.status === 'suspended' ? 'suspended' : 'enabled');
+  const status = account.status === 'suspended' || account.status === null ? 'expired' : account.status;
+  if (accessStatus === 'suspended') {
+    return { allowed: false, status, accessStatus, reason: 'ADMINISTRATIVELY_SUSPENDED', inGracePeriod: false, accessEndsAt: null };
+  }
   if (status === 'trial') {
     const end = account.trial_ends_at ?? null;
     return end && end.getTime() > now.getTime()
-      ? { allowed: true, status, reason: null, inGracePeriod: false, accessEndsAt: end }
-      : { allowed: false, status: 'expired', reason: 'TRIAL_EXPIRED', inGracePeriod: false, accessEndsAt: end };
+      ? { allowed: true, status, accessStatus, reason: null, inGracePeriod: false, accessEndsAt: end }
+      : { allowed: false, status: 'expired', accessStatus, reason: 'TRIAL_EXPIRED', inGracePeriod: false, accessEndsAt: end };
   }
   if (status === 'active') {
     const end = account.current_period_ends_at ?? null;
     if (!end || end.getTime() > now.getTime()) {
-      return { allowed: true, status, reason: null, inGracePeriod: false, accessEndsAt: end };
+      return { allowed: true, status, accessStatus, reason: null, inGracePeriod: false, accessEndsAt: end };
     }
     const configuredDays = configuredGracePeriodDays();
     const configuredEnd = configuredDays > 0 ? new Date(end.getTime() + configuredDays * 86_400_000) : null;
     const graceEnd = account.grace_period_ends_at ?? configuredEnd;
     if (graceEnd && graceEnd.getTime() > now.getTime()) {
-      return { allowed: true, status: 'past_due', reason: null, inGracePeriod: true, accessEndsAt: graceEnd };
+      return { allowed: true, status: 'past_due', accessStatus, reason: null, inGracePeriod: true, accessEndsAt: graceEnd };
     }
-    return { allowed: false, status: 'expired', reason: 'SUBSCRIPTION_EXPIRED', inGracePeriod: false, accessEndsAt: graceEnd ?? end };
+    return { allowed: false, status: 'expired', accessStatus, reason: 'SUBSCRIPTION_EXPIRED', inGracePeriod: false, accessEndsAt: graceEnd ?? end };
   }
   if (status === 'past_due') {
     const end = account.grace_period_ends_at ?? null;
     return end && end.getTime() > now.getTime()
-      ? { allowed: true, status, reason: null, inGracePeriod: true, accessEndsAt: end }
-      : { allowed: false, status, reason: 'PAYMENT_OVERDUE', inGracePeriod: false, accessEndsAt: end };
+      ? { allowed: true, status, accessStatus, reason: null, inGracePeriod: true, accessEndsAt: end }
+      : { allowed: false, status, accessStatus, reason: 'PAYMENT_OVERDUE', inGracePeriod: false, accessEndsAt: end };
   }
-  return { allowed: false, status, reason: status.toUpperCase(), inGracePeriod: false, accessEndsAt: null };
+  return { allowed: false, status, accessStatus, reason: status.toUpperCase(), inGracePeriod: false, accessEndsAt: null };
 }
 
 function featuresOf(value: unknown): Record<string, boolean> {

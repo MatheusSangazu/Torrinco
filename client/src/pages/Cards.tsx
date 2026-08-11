@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { Input } from '../components/Input';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { formatLocalDate, formatLocalDateLong, formatLocalDateShort, localDateFromApi } from '../lib/local-date';
 
 interface Transaction {
   id: number;
@@ -224,8 +225,12 @@ export function Cards() {
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    return formatLocalDateLong(date instanceof Date?formatLocalDate(date):localDateFromApi(String(date)));
   };
+
+  const formatBillMonth = (date: Date) => new Intl.DateTimeFormat('pt-BR', {
+    month: 'long', year: 'numeric', timeZone: 'UTC'
+  }).format(date instanceof Date ? date : new Date(String(date)));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -531,7 +536,7 @@ export function Cards() {
                               <div className="flex justify-between items-start mb-3">
                                 <div>
                                   <p className="font-semibold text-gray-800 dark:text-white">
-                                    Fatura {formatDate(bill.period_start)}
+                                    Fatura de {formatBillMonth(bill.due_date)}
                                   </p>
                                   <p className="text-xs text-gray-500 dark:text-slate-400">
                                     {formatDate(bill.period_start)} - {formatDate(bill.period_end)}
@@ -602,7 +607,7 @@ export function Cards() {
                                             )}
                                           </div>
                                           <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                                            {parseDateLocal(transaction.transaction_date).toLocaleDateString('pt-BR')}
+                                            {formatLocalDateShort(localDateFromApi(String(transaction.transaction_date)))}
                                           </p>
                                           {transaction.installment_number && transaction.purchase_installments && (
                                             <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">

@@ -53,6 +53,8 @@ torrinco/
 - Integração com Evolution API para automação via WhatsApp
 - PWA (Progressive Web App) 100% responsivo para mobile e desktop
 - Temas Claro e Escuro (Dark Mode) adaptativo
+- Central de Importação com conferência, conciliação e criação atômica de lançamentos
+- Backoffice da plataforma com contas, testadores, suspensão de acesso e auditoria
 
 ## Instalação
 
@@ -70,37 +72,22 @@ CREATE DATABASE finance_bot;
 
 2. Configure as variáveis de ambiente (ver seção de variáveis abaixo)
 
-3. Execute as migrações do Prisma:
+3. Em desenvolvimento local, execute as migrações e gere o client Prisma:
 ```bash
 cd server
 npx prisma migrate dev
 npx prisma generate
 ```
 
+Em produção, use `npm run test:schema`/`prisma migrate deploy`; não use `prisma migrate dev`. As migrations de datas civis, precisão técnica e separação de acesso administrativo exigem backup restaurável e os checklists em `docs/MISSION_05_TRANSACTION_CIVIL_DATES.md`, `docs/MISSION_06_TIMESTAMP_PRECISION.md` e `docs/platform-backoffice.md`.
+
 ### Variáveis de Ambiente
 
-Para desenvolvimento local, use o arquivo `.env` na raiz do projeto com todas as variáveis de server e client.
-
-**Server**:
-```env
-PORT=3001
-DATABASE_URL="mysql://user:password@host:3306/finance_bot"
-JWT_SECRET=your-secret-key
-EVOLUTION_API_URL=https://your-evolution-api-url
-EVOLUTION_API_KEY=your-api-key
-EVOLUTION_INSTANCE_NAME=your-instance
-ALLOWED_ORIGINS=https://torrinco.forjacorp.com
-```
-
-**Client**:
-```env
-VITE_API_URL=https://apiTorrinco.forjacorp.com
-```
+Para desenvolvimento local, copie `server/.env.example` para `server/.env` e `client/.env.example` para `client/.env`. Esses arquivos são as listas oficiais de variáveis; não concentre segredos em um `.env` na raiz.
 
 ## Deploy
 
 O projeto está configurado para ser executado em ambiente de produção com suporte a HTTPS e cabeçalhos de segurança CORS. Certifique-se de que as variáveis `ALLOWED_ORIGINS` e `VITE_API_URL` apontem para os domínios corretos.
-```
 
 ## Desenvolvimento
 
@@ -236,6 +223,13 @@ npm run start        # Inicia ambos em modo produção
 ## API Documentation
 
 Para documentação completa da API, consulte [server/README.md](./server/README.md)
+
+Documentos operacionais principais:
+
+- [Central de Importação](./docs/import-center.md)
+- [Backoffice da plataforma](./docs/platform-backoffice.md)
+- [Contrato temporal](./docs/TEMPORAL_CONTRACT.md)
+- [Contrato dos componentes de formulário](./docs/ui-component-contract.md)
 
 ## Endpoints Principais
 

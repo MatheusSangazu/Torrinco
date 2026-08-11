@@ -1,150 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { format, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useEffect, useId, useRef, useState } from 'react';
 import { DayPicker } from 'react-day-picker';
-import { Calendar as CalendarIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { ptBR } from 'date-fns/locale';
+import { Calendar as CalendarIcon, X } from 'lucide-react';
 import { useClickOutside } from '../hooks/useClickOutside';
+import { formatLocalDate, formatLocalDateLong, parseLocalDate } from '../lib/local-date';
 import 'react-day-picker/dist/style.css';
 
-interface DatePickerProps {
-  label?: string;
-  value: string;
-  onChange: (date: string) => void;
-  required?: boolean;
-  className?: string;
-}
+interface DatePickerProps { label?:string;value:string;onChange:(date:string)=>void;required?:boolean;className?:string;disabled?:boolean;error?:string;help?:string }
+const toDate=(value:string)=>{const parts=parseLocalDate(value);return parts?new Date(parts.year,parts.month-1,parts.day):undefined};
 
-function parseLocalDate(dateString: string): Date | undefined {
-  if (!dateString) return undefined;
-  const parts = dateString.split('-');
-  if (parts.length !== 3) return undefined;
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return undefined;
-  const date = new Date(year, month, day);
-  return isValid(date) ? date : undefined;
-}
-
-export function DatePicker({ label, value, onChange, required, className = '' }: DatePickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    value ? parseLocalDate(value) : undefined
-  );
-
-  // Update internal state when prop changes
-  useEffect(() => {
-    if (value) {
-      const date = parseLocalDate(value);
-      if (date) {
-        setSelectedDate(date);
-      }
-    }
-  }, [value]);
-
-  const containerRef = useClickOutside<HTMLDivElement>(() => setIsOpen(false));
-
-  const handleSelect = (date: Date | undefined) => {
-    setSelectedDate(date);
-    if (date) {
-      onChange(format(date, 'yyyy-MM-dd'));
-      setIsOpen(false);
-    } else {
-      onChange('');
-    }
-  };
-
-  const formattedDate = selectedDate && isValid(selectedDate) 
-    ? format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-    : '';
-
-  return (
-    <div className={`relative ${className}`} ref={containerRef}>
-      {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-      )}
-      
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`
-          w-full px-4 py-3 text-left bg-white dark:bg-slate-900 
-          border rounded-xl flex items-center justify-between
-          transition-all duration-200
-          min-h-[48px]
-          ${isOpen ? 'ring-2 ring-torrinco-500 border-transparent' : 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'}
-        `}
-      >
-        <span className={`block truncate text-base ${!selectedDate ? 'text-gray-400' : 'text-gray-900 dark:text-white capitalize'}`}>
-          {formattedDate || 'Selecione uma data'}
-        </span>
-        <CalendarIcon className={`w-5 h-5 ${isOpen ? 'text-torrinco-500' : 'text-gray-400'}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 right-0 z-50 mt-2 p-3 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-200">
-          <style>{`
-            .rdp {
-              --rdp-cell-size: 40px;
-              --rdp-accent-color: #7c3aed;
-              --rdp-background-color: #f3f4f6;
-              margin: 0;
-            }
-            .rdp-day_selected:not([disabled]) { 
-              background-color: var(--rdp-accent-color); 
-              color: white;
-              font-weight: bold;
-            }
-            .rdp-day_selected:hover:not([disabled]) { 
-              background-color: var(--rdp-accent-color);
-            }
-            .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
-              background-color: #f3f4f6;
-              color: #1f2937;
-            }
-            .dark .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
-              background-color: #1e293b;
-              color: #e2e8f0;
-            }
-            .rdp-day_today {
-              font-weight: bold;
-              color: var(--rdp-accent-color);
-            }
-            .dark .rdp-caption_label, .dark .rdp-head_cell, .dark .rdp-day {
-              color: #e2e8f0;
-            }
-            .dark .rdp-nav_button {
-              color: #94a3b8;
-            }
-            .rdp-nav_button:hover {
-              background-color: #f3f4f6;
-            }
-            .dark .rdp-nav_button:hover {
-              background-color: #1e293b;
-            }
-          `}</style>
-          <DayPicker
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleSelect}
-            locale={ptBR}
-            components={{
-              Chevron: (props) => {
-                if (props.orientation === 'left') {
-                  return <ChevronLeftIcon {...props} className="w-5 h-5" />;
-                }
-                return <ChevronRightIcon {...props} className="w-5 h-5" />;
-              }
-            }}
-            modifiersClassNames={{
-              selected: 'bg-torrinco-600 text-white hover:bg-torrinco-700',
-              today: 'font-bold text-torrinco-600'
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
+export function DatePicker({label,value,onChange,required,className='',disabled=false,error,help}:DatePickerProps){
+  const [open,setOpen]=useState(false);const [selected,setSelected]=useState<Date|undefined>(()=>toDate(value));const triggerRef=useRef<HTMLButtonElement>(null);const id=useId();
+  const rootRef=useClickOutside<HTMLDivElement>(()=>setOpen(false));
+  useEffect(()=>setSelected(toDate(value)),[value]);
+  const close=(restore=false)=>{setOpen(false);if(restore)requestAnimationFrame(()=>triggerRef.current?.focus())};
+  const select=(date:Date|undefined)=>{setSelected(date);onChange(date?formatLocalDate(date):'');if(date)close(true)};
+  const helpId=`${id}-help`,dialogId=`${id}-dialog`;
+  return <div className={`relative space-y-1 ${className}`} ref={rootRef}>{label&&<label id={`${id}-label`} className="block text-sm font-medium text-gray-700 dark:text-slate-300">{label}{required&&<span className="text-red-500"> *</span>}</label>}<div className="relative"><button ref={triggerRef} type="button" aria-labelledby={label?`${id}-label`:undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={dialogId} aria-describedby={(error||help)?helpId:undefined} aria-invalid={Boolean(error)} disabled={disabled} onClick={()=>setOpen(current=>!current)} onKeyDown={event=>{if(event.key==='Escape'&&open){event.preventDefault();close(true)}}} className={`flex min-h-11 w-full items-center justify-between rounded-xl border bg-white px-3 py-2.5 text-left text-sm dark:bg-slate-900 ${error?'border-red-400 focus:ring-red-500':'border-gray-200 focus:ring-torrinco-500 dark:border-slate-700'} focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60`}><span className={selected?'capitalize text-gray-900 dark:text-white':'text-gray-400'}>{selected?formatLocalDateLong(formatLocalDate(selected)):'Selecione uma data'}</span><CalendarIcon aria-hidden="true" className="h-5 w-5 text-gray-400"/></button>{selected&&!disabled&&<button type="button" aria-label="Limpar data" onClick={()=>{setSelected(undefined);onChange('');close()}} className="absolute right-9 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800"><X className="h-4 w-4"/></button>}</div>{(error||help)&&<p id={helpId} className={`text-xs ${error?'text-red-600 dark:text-red-400':'text-gray-500'}`}>{error||help}</p>}{open&&<div id={dialogId} role="dialog" aria-label={label?`Escolher ${label}`:'Escolher data'} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close(true)}}} className="absolute z-50 mt-1 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800"><DayPicker autoFocus mode="single" selected={selected} onSelect={select} locale={ptBR} modifiersClassNames={{selected:'bg-torrinco-600 text-white',today:'font-bold text-torrinco-600'}}/></div>}</div>;
 }

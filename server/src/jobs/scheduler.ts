@@ -5,6 +5,7 @@ import { isConnected } from '../services/google/auth.service.js';
 import { listEvents } from '../services/google/calendar.service.js';
 import { dayExecutionKey, markSchedulerStarted, minuteExecutionKey, runIdempotentJob } from '../services/job-runtime.service.js';
 import { enqueueReminder, processReminderQueue } from '../services/reminder-delivery.service.js';
+import { DEFAULT_ACCOUNT_TIMEZONE, isReminderDue, reminderOccurrenceKey } from '../lib/reminder-time.js';
 
 /**
  * Registro dos jobs agendados do servidor.
@@ -27,14 +28,14 @@ export function startScheduledJobs() {
 
   // 07:00 horário de SP — agenda do dia (somente se o usuário tem eventos).
   cron.schedule('0 7 * * *', async () => {
-    await runIdempotentJob('daily_agenda', dayExecutionKey(), sendDailyAgenda, 10 * 60_000).catch(() => undefined);
-  }, { timezone: 'America/Sao_Paulo' });
+    await runIdempotentJob('daily_agenda', dayExecutionKey(new Date(), DEFAULT_ACCOUNT_TIMEZONE), sendDailyAgenda, 10 * 60_000).catch(() => undefined);
+  }, { timezone: DEFAULT_ACCOUNT_TIMEZONE });
 
   // Diariamente às 03:00.
   cron.schedule('0 3 * * *', async () => {
     console.log('[cron] Iniciando jobs diários...');
     try {
-      const execution = await runIdempotentJob('daily_maintenance', dayExecutionKey(), runDailyJobs, 30 * 60_000);
+      const execution = await runIdempotentJob('daily_maintenance', dayExecutionKey(new Date(), DEFAULT_ACCOUNT_TIMEZONE), runDailyJobs, 30 * 60_000);
       if (!execution.executed || !execution.result) return;
       const result = execution.result;
       const recCount = result.recurring.reduce((s, r) => s + r.created, 0);
@@ -43,25 +44,22 @@ export function startScheduledJobs() {
     } catch (err) {
       console.error('[cron] Erro nos jobs diários:', err);
     }
-  });
+  }, { timezone: DEFAULT_ACCOUNT_TIMEZONE });
 
   console.log('✅ Jobs agendados registrados (lembretes a cada min, agenda às 07:00, recorrências às 03:00).');
 }
 
 /**
  * Checa lembretes ativos cujo trigger_time chegou e dispara no WPP.
- * Marca os "once" como fired após disparar; recálcula o próximo trigger para recorrentes.
+ * Marca os lembretes pontuais como concluídos; recorrentes permanecem ativos.
  */
 async function checkReminders() {
   const now = new Date();
-  // Janela de 1 minuto (evita disparar o mesmo lembrete várias vezes).
-  const windowStart = new Date(now.getTime() - 60_000);
 
   try {
     const due = await prisma.reminders.findMany({
       where: {
-        status: 'active',
-        trigger_time: { lte: now, gte: windowStart }
+        status: 'active'
       },
       include: {
         users: { select: { id: true, account_id: true, status: true, phone_number: true, name: true } }
@@ -69,27 +67,20 @@ async function checkReminders() {
     });
 
     for (const reminder of due) {
+      if (!isReminderDue(reminder, now, DEFAULT_ACCOUNT_TIMEZONE)) continue;
       const phone = reminder.users?.phone_number;
       if (!phone || reminder.users.status !== 'active') continue;
 
       const msg = `⏰ *Lembrete:* ${reminder.content}`;
-      await enqueueReminder({ sourceType: 'internal', sourceId: String(reminder.id), occurrenceKey: reminder.trigger_time.toISOString(), accountId: reminder.users.account_id, userId: reminder.users.id, destination: phone, message: msg });
+      await enqueueReminder({ sourceType: 'internal', sourceId: String(reminder.id), occurrenceKey: reminderOccurrenceKey(reminder, now), accountId: reminder.users.account_id, userId: reminder.users.id, destination: phone, message: msg });
 
       // once → marca como completed (não repete).
-      // daily/weekly/monthly → recálcula o próximo trigger.
+      // Recorrentes mantêm o horário local; a chave de ocorrência evita duplicidade.
       if (reminder.frequency === 'once') {
         await prisma.reminders.update({
           where: { id: reminder.id },
           data: { status: 'completed' }
         });
-      } else if (reminder.frequency) {
-        const next = calculateNextTrigger(reminder.frequency, reminder.trigger_time);
-        if (next) {
-          await prisma.reminders.update({
-            where: { id: reminder.id },
-            data: { trigger_time: next }
-          });
-        }
       }
 
       console.log(JSON.stringify({ component: 'scheduler', job: 'reminder_enqueue', reminder_id: reminder.id, result: 'queued' }));
@@ -97,24 +88,6 @@ async function checkReminders() {
   } catch (err) {
     // Silencioso — não pode derrubar o servidor.
     console.error('[cron] Erro ao checar lembretes:', err);
-  }
-}
-
-/** Calcula o próximo trigger com base na frequência. */
-function calculateNextTrigger(frequency: string, current: Date): Date | null {
-  const next = new Date(current);
-  switch (frequency) {
-    case 'daily':
-      next.setDate(next.getDate() + 1);
-      return next;
-    case 'weekly':
-      next.setDate(next.getDate() + 7);
-      return next;
-    case 'monthly':
-      next.setMonth(next.getMonth() + 1);
-      return next;
-    default:
-      return null;
   }
 }
 
@@ -135,7 +108,7 @@ function formatTimeBR(iso: string | null | undefined): string {
   return d.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'America/Sao_Paulo',
+    timeZone: DEFAULT_ACCOUNT_TIMEZONE,
     hour12: false
   });
 }
@@ -148,13 +121,13 @@ function formatDateBR(iso: string | null | undefined): string {
   return d.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
-    timeZone: 'America/Sao_Paulo'
+    timeZone: DEFAULT_ACCOUNT_TIMEZONE
   });
 }
 
 /** Retorna "hoje" no formato YYYY-MM-DD no fuso de São Paulo. */
 function todayBR(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  return new Date().toLocaleDateString('en-CA', { timeZone: DEFAULT_ACCOUNT_TIMEZONE });
 }
 
 /**

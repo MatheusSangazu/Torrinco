@@ -2,6 +2,17 @@ import type { Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
 import { getValidatedQuery } from '../middleware/validate.js';
+import { formatDatabaseDate, formatDatabaseTime, isReminderDue, parseLocalDate, parseLocalTime } from '../lib/reminder-time.js';
+
+function serializeReminder<T extends { trigger_time: Date; specific_date: Date | null }>(reminder: T) {
+  return { ...reminder, trigger_time: formatDatabaseTime(reminder.trigger_time), specific_date: formatDatabaseDate(reminder.specific_date) };
+}
+
+function scheduleError(frequency: string, specificDate?: string | null, weekday?: string | null): string | null {
+  if ((frequency === 'once' || frequency === 'monthly') && !specificDate) return 'specific_date is required for once and monthly reminders';
+  if (frequency === 'weekly' && !weekday) return 'weekday is required for weekly reminders';
+  return null;
+}
 
 export class ReminderController {
   /**
@@ -15,20 +26,23 @@ export class ReminderController {
       if (!content || !trigger_time) {
         return res.status(400).json({ error: 'Content and trigger_time are required' });
       }
+      const normalizedFrequency = frequency || 'once';
+      const invalidSchedule = scheduleError(normalizedFrequency, specific_date, weekday);
+      if (invalidSchedule) return res.status(400).json({ error: invalidSchedule });
 
       const reminder = await prisma.reminders.create({
         data: {
           user_id: userId,
           content,
-          trigger_time: new Date(trigger_time),
-          frequency: frequency || 'once',
-          specific_date: specific_date ? new Date(specific_date) : null,
-          weekday,
+          trigger_time: parseLocalTime(trigger_time),
+          frequency: normalizedFrequency,
+          specific_date: specific_date ? parseLocalDate(specific_date) : null,
+          weekday: normalizedFrequency === 'weekly' ? weekday : null,
           status: 'active'
         }
       });
 
-      res.status(201).json({ reminder });
+      res.status(201).json({ reminder: serializeReminder(reminder) });
     } catch (error) {
       next(error);
     }
@@ -53,7 +67,7 @@ export class ReminderController {
         }
       });
 
-      res.json({ reminders });
+      res.json({ reminders: reminders.map(serializeReminder) });
     } catch (error) {
       next(error);
     }
@@ -78,7 +92,7 @@ export class ReminderController {
         return res.status(404).json({ error: 'Reminder not found' });
       }
 
-      res.json({ reminder });
+      res.json({ reminder: serializeReminder(reminder) });
     } catch (error) {
       next(error);
     }
@@ -103,20 +117,27 @@ export class ReminderController {
       if (!reminder) {
         return res.status(404).json({ error: 'Reminder not found' });
       }
+      const normalizedFrequency = frequency ?? reminder.frequency ?? 'once';
+      const normalizedSpecificDate = specific_date === undefined ? formatDatabaseDate(reminder.specific_date) : specific_date;
+      const normalizedWeekday = weekday === undefined ? reminder.weekday : weekday;
+      const invalidSchedule = scheduleError(normalizedFrequency, normalizedSpecificDate, normalizedWeekday);
+      if (invalidSchedule) return res.status(400).json({ error: invalidSchedule });
 
       const updatedReminder = await prisma.reminders.update({
         where: { id: reminder.id },
         data: {
           content,
-          trigger_time: trigger_time ? new Date(trigger_time) : undefined,
+          trigger_time: trigger_time ? parseLocalTime(trigger_time) : undefined,
           frequency,
-          specific_date: specific_date !== undefined ? (specific_date ? new Date(specific_date) : null) : undefined,
-          weekday,
+          specific_date: specific_date !== undefined
+            ? (specific_date ? parseLocalDate(specific_date) : null)
+            : (frequency && (normalizedFrequency === 'daily' || normalizedFrequency === 'weekly') ? null : undefined),
+          weekday: normalizedFrequency === 'weekly' ? normalizedWeekday : null,
           status
         }
       });
 
-      res.json({ reminder: updatedReminder });
+      res.json({ reminder: serializeReminder(updatedReminder) });
     } catch (error) {
       next(error);
     }
@@ -216,50 +237,20 @@ export class ReminderController {
       getValidatedQuery<{ days?: number }>(req);
 
       const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
-
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
 
       const reminders = await prisma.reminders.findMany({
         where: {
           user_id: userId,
-          status: 'active',
-          OR: [
-            {
-              frequency: 'once',
-              specific_date: {
-                equals: todayDate
-              }
-            },
-            {
-              frequency: 'daily'
-            },
-            {
-              frequency: 'weekly',
-              weekday: now.toLocaleDateString('en-US', { weekday: 'long' }) as any
-            },
-            {
-              frequency: 'monthly',
-              specific_date: {
-                not: null
-              }
-            }
-          ]
+          status: 'active'
         },
         orderBy: {
           trigger_time: 'asc'
         }
       });
 
-      const dueReminders = reminders.filter(r => {
-        const triggerHour = r.trigger_time.getHours();
-        const triggerMinute = r.trigger_time.getMinutes();
-        return triggerHour === currentHour && triggerMinute === currentMinute;
-      });
+      const dueReminders = reminders.filter(reminder => isReminderDue(reminder, now));
 
-      res.json({ dueReminders });
+      res.json({ dueReminders: dueReminders.map(serializeReminder) });
     } catch (error) {
       next(error);
     }

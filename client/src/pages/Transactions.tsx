@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import { cardsService, type CreditCard as CreditCardType } from '../services/cards.service';
 import { installmentsService } from '../services/installments.service';
 import { clsx } from 'clsx';
-import { Select } from '../components/Select';
 import { CustomSelect } from '../components/CustomSelect';
 import { CategorySelect } from '../components/CategorySelect';
 import { Input } from '../components/Input';
@@ -13,6 +12,7 @@ import { DatePicker } from '../components/DatePicker';
 import { DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '../lib/api-error';
+import { formatLocalDate, formatYearMonthLong } from '../lib/local-date';
 
 interface Category {
   id: number;
@@ -199,7 +199,7 @@ export function Transactions() {
           description: formData.description,
           amount: finalAmount,
           type: formData.type,
-          category: formData.category,
+          category: formData.category || undefined,
           category_id: formData.category_id ? Number(formData.category_id) : undefined,
           income_source_id: formData.income_source_id ? Number(formData.income_source_id) : undefined,
           entity_id: formData.entity_id ? Number(formData.entity_id) : undefined,
@@ -226,7 +226,7 @@ export function Transactions() {
         description: formData.description,
         amount: finalAmount,
         type: formData.type,
-        category: formData.category,
+        category: formData.category || undefined,
         category_id: formData.category_id ? Number(formData.category_id) : undefined,
         income_source_id: formData.income_source_id ? Number(formData.income_source_id) : undefined,
         entity_id: formData.entity_id ? Number(formData.entity_id) : undefined,
@@ -247,7 +247,7 @@ export function Transactions() {
           amount: finalAmount,
           installment_count: parseInt(formData.installmentCount),
           start_date: formData.date,
-          category: formData.category,
+          category: formData.category || undefined,
           category_id: formData.category_id ? Number(formData.category_id) : undefined
         };
 
@@ -438,7 +438,7 @@ export function Transactions() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const currentMonthLabel = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const currentMonthLabel = formatYearMonthLong(formatLocalDate(currentDate).slice(0,7));
   const currentMonthName = currentMonthLabel.charAt(0).toUpperCase() + currentMonthLabel.slice(1);
   const currentMonthParts = currentMonthName.split(' ');
   const monthName = currentMonthParts[0];
@@ -853,6 +853,7 @@ export function Transactions() {
                 <div>
                   {creditCards.length > 0 ? (
                     <CustomSelect
+                      searchable
                       label="Cartão de Crédito"
                       value={formData.entity_id}
                       onChange={(value) => setFormData({...formData, entity_id: value as string})}

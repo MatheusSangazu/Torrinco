@@ -2,7 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ upload: vi.fn(), list: vi.fn(), get: vi.fn(), update: vi.fn(), updateItem: vi.fn(), addItem: vi.fn(), confirm: vi.fn(), cancel: vi.fn() }));
+const mocks = vi.hoisted(() => ({ upload: vi.fn(), list: vi.fn(), get: vi.fn(), update: vi.fn(), updateItem: vi.fn(), updateItemsBulk: vi.fn(), addItem: vi.fn(), confirm: vi.fn(), cancel: vi.fn() }));
 vi.mock('../src/middleware/jwt.js', () => ({ authenticateJwt: (req: any, _res: any, next: any) => { req.userId = 7; req.accountId = 11; req.userRole = 'member'; next(); } }));
 vi.mock('../src/services/financial-import.service.js', () => ({ FinancialImportService: mocks, FinancialImportError: class extends Error {}, ImportFileError: class extends Error { code='FILE_REQUIRED'; statusCode=400; } }));
 import importsRoutes from '../src/routes/imports.routes.js';
@@ -29,13 +29,27 @@ describe('API de importações em uma aplicação Express real', () => {
     expect(response.status).toBe(400); expect(mocks.upload).not.toHaveBeenCalled();
   });
   it('lista somente no escopo autenticado', async () => {
-    mocks.list.mockResolvedValue([]); const response = await fetch(`${base}/api/imports`);
-    expect(response.status).toBe(200); expect(mocks.list).toHaveBeenCalledWith({ accountId: 11, userId: 7 });
+    mocks.list.mockResolvedValue({ imports: [], next_cursor: null, has_more: false }); const response = await fetch(`${base}/api/imports`);
+    expect(response.status).toBe(200); expect(mocks.list).toHaveBeenCalledWith({ accountId: 11, userId: 7 }, { limit: 20 });
+  });
+  it('valida e encaminha cursor, pesquisa, status e período', async () => {
+    mocks.list.mockResolvedValue({ imports: [], next_cursor: null, has_more: false });
+    const response = await fetch(`${base}/api/imports?cursor=90&limit=25&search=fatura&status=review&from=2026-07-01&to=2026-07-31`);
+    expect(response.status).toBe(200);expect(mocks.list).toHaveBeenCalledWith({ accountId: 11, userId: 7 }, { cursor: 90, limit: 25, search: 'fatura', status: 'review', from: '2026-07-01', to: '2026-07-31' });
   });
   it('editar item não confirma nem grava a importação', async () => {
     mocks.updateItem.mockResolvedValue({ id: 3, status: 'review' });
     const response = await fetch(`${base}/api/imports/3/items/9`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ description: 'Corrigida' }) });
     expect(response.status).toBe(200); expect(mocks.confirm).not.toHaveBeenCalled();
+  });
+  it('envia cem itens em uma única operação em massa', async () => {
+    mocks.updateItemsBulk.mockResolvedValue({ id: 3, status: 'review', items: [] });
+    const item_ids = Array.from({ length: 100 }, (_, index) => index + 1);
+    const response = await fetch(`${base}/api/imports/3/items/bulk`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ item_ids, changes: { included: false } }) });
+    expect(response.status).toBe(200);
+    expect(mocks.updateItemsBulk).toHaveBeenCalledTimes(1);
+    expect(mocks.updateItemsBulk).toHaveBeenCalledWith({ accountId: 11, userId: 7 }, 3, { item_ids, changes: { included: false } });
+    expect(mocks.updateItem).not.toHaveBeenCalled();
   });
   it('confirma por endpoint separado e mantém o escopo do token', async () => {
     mocks.confirm.mockResolvedValue({ id: 3, status: 'completed', importedCount: 1 });

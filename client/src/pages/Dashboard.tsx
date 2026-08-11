@@ -8,12 +8,13 @@ import { CreditCardCarousel } from '../components/CreditCardCarousel';
 import toast from 'react-hot-toast';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { formatLocalDate } from '../lib/local-date';
+import { formatLocalDate, formatLocalDateShort, formatYearMonthShort, localDateFromApi } from '../lib/local-date';
 import { getDashboardRequestParams, settleDashboardWidgets } from '../lib/dashboard-data';
 
 type WidgetStatus = 'loading' | 'loaded' | 'empty' | 'error' | 'unavailable';
 type WidgetKey = 'summary' | 'transactions' | 'recurring' | 'calendar' | 'forecast' | 'currentForecast' | 'chart' | 'reminders';
 const initialWidgetStatus: Record<WidgetKey, WidgetStatus> = { summary: 'loading', transactions: 'loading', recurring: 'loading', calendar: 'loading', forecast: 'loading', currentForecast: 'loading', chart: 'loading', reminders: 'loading' };
+const civilDateShort=(value:string|Date)=>formatLocalDateShort(value instanceof Date?formatLocalDate(value):localDateFromApi(value));
 
 function WidgetFeedback({ status, error, empty, unavailable, retry }: { status: WidgetStatus; error: string; empty?: string; unavailable?: string; retry: () => void }) {
   if (status === 'loading') return <div className="flex items-center gap-2 py-4 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Carregando…</div>;
@@ -209,7 +210,7 @@ export function Dashboard() {
     try {
       const today = new Date();
       const todayStr = formatLocalDate(today);
-      const dueDate = new Date(bill.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+      const dueDate = formatLocalDateShort(localDateFromApi(bill.due_date));
       
       const paymentData = {
         amount: bill.transactions.reduce((sum: number, t: any) => sum + t.amount, 0),
@@ -314,7 +315,7 @@ export function Dashboard() {
       const expense = monthTrans.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
 
       data.push({
-        name: d.toLocaleDateString('pt-BR', { month: 'short' }),
+        name: formatYearMonthShort(formatLocalDate(d).slice(0,7)),
         receitas: income,
         despesas: expense
       });
@@ -512,7 +513,7 @@ export function Dashboard() {
                          <span className="truncate">{item.title}</span>
                        </div>
                        <span className="text-xs text-gray-400 whitespace-nowrap">
-                         {new Date(item.event_date).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}
+                         {civilDateShort(item.event_date)}
                        </span>
                     </div>
                   );
@@ -557,7 +558,7 @@ export function Dashboard() {
                     <div className="flex items-center gap-2 mt-0.5">
                       <Clock size={12} className="text-gray-400" />
                       <span className="text-xs text-gray-400 dark:text-slate-500">
-                        {new Date(reminder.trigger_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {reminder.trigger_time.slice(0,5)}
                       </span>
                     </div>
                   </div>
@@ -708,7 +709,7 @@ export function Dashboard() {
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
                           <span>{transaction.categories?.name || transaction.category}</span>
                           <span>•</span>
-                          <span>{new Date(transaction.transaction_date).toLocaleDateString()}</span>
+                          <span>{civilDateShort(transaction.transaction_date)}</span>
                         </div>
                       </div>
                     </div>
@@ -797,7 +798,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                {civilDateShort(item.next_due_date)}
                               </p>
                             </div>
                           </div>
@@ -824,7 +825,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                {civilDateShort(item.transaction_date)}
                               </p>
                             </div>
                           </div>
@@ -851,7 +852,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                {new Date(item.next_due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                {civilDateShort(item.next_due_date)}
                               </p>
                             </div>
                           </div>
@@ -878,7 +879,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                {civilDateShort(item.transaction_date)}
                               </p>
                             </div>
                           </div>
@@ -905,7 +906,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                Parcela {item.installment_number} • {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                Parcela {item.installment_number} • {civilDateShort(item.transaction_date)}
                               </p>
                             </div>
                           </div>
@@ -955,7 +956,7 @@ export function Dashboard() {
                                   <div className="min-w-0">
                                     <p className="text-gray-700 dark:text-gray-300 truncate">{item.description}</p>
                                     <p className="text-xs text-gray-500 dark:text-slate-400">
-                                      {new Date(item.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                      {civilDateShort(item.transaction_date)}
                                     </p>
                                   </div>
                                   <span className="font-medium text-gray-600 dark:text-gray-400 shrink-0">{formatCurrency(item.amount)}</span>
@@ -1115,7 +1116,7 @@ export function Dashboard() {
                                         </span>
                                       )}
                                       <span className="text-xs text-gray-400">
-                                        {parseDateLocal(t.transaction_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                        {civilDateShort(t.transaction_date)}
                                       </span>
                                     </div>
                                 </div>
@@ -1208,7 +1209,7 @@ export function Dashboard() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                             <p className="text-xs text-gray-500 dark:text-slate-400">
-                              {parseDateLocal(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                              {civilDateShort(item.transaction_date || item.next_due_date || '')}
                             </p>
                           </div>
                           <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(item.amount)}</span>
@@ -1238,7 +1239,7 @@ export function Dashboard() {
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <div className="flex items-center gap-2">
                                 <p className="text-xs text-gray-500 dark:text-slate-400">
-                                  {parseDateLocal(item.transaction_date || item.next_due_date || '').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                                  {civilDateShort(item.transaction_date || item.next_due_date || '')}
                                 </p>
                                 {item.installment_number && (
                                   <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 px-1.5 py-0.5 rounded">
@@ -1308,7 +1309,7 @@ export function Dashboard() {
                                 <div className="min-w-0">
                                   <p className="text-gray-700 dark:text-gray-300 truncate">{item.description}</p>
                                   <p className="text-[10px] text-gray-500">
-                                    {parseDateLocal(item.transaction_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                                    {civilDateShort(item.transaction_date)}
                                     {item.is_projected && <span className="ml-2 text-orange-500 font-medium">(Previsto)</span>}
                                   </p>
                                 </div>

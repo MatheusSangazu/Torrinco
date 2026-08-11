@@ -27,6 +27,10 @@ model accounts {
   name                   String?                 @default("Minha Conta") @db.VarChar(100)
   plan_id                Int
   status                 accounts_status?        @default(trial)
+  access_status          account_access_status   @default(enabled)
+  access_suspended_at    DateTime?               @db.DateTime(3)
+  access_suspension_reason String?                @db.VarChar(500)
+  access_suspended_by_user_id Int?
   trial_ends_at          DateTime?               @db.DateTime(0)
   current_period_ends_at DateTime?               @db.DateTime(0)
   grace_period_ends_at   DateTime?               @db.DateTime(0)
@@ -58,7 +62,7 @@ model subscription_history {
   new_status      accounts_status
   reason          String           @db.VarChar(100)
   metadata        Json?
-  created_at      DateTime         @default(now()) @db.DateTime(0)
+  created_at      DateTime         @default(now()) @db.DateTime(3)
   accounts        accounts         @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   plans           plans            @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -75,8 +79,8 @@ model billing_webhook_events {
   status            String    @default("received") @db.VarChar(20)
   attempts          Int       @default(0)
   error_message     String?   @db.Text
-  received_at       DateTime  @default(now()) @db.DateTime(0)
-  processed_at      DateTime? @db.DateTime(0)
+  received_at       DateTime  @default(now()) @db.DateTime(3)
+  processed_at      DateTime? @db.DateTime(3)
 
   @@unique([provider, provider_event_id])
 }
@@ -388,9 +392,11 @@ model transactions {
   category                 String?                 @db.VarChar(50)
   description              String?                 @db.VarChar(255)
   transaction_date         DateTime                @db.DateTime(0)
-  created_at               DateTime?               @default(now()) @db.DateTime(0)
+  /// Data civil canônica. Campo paralelo durante a migração segura do legado DATETIME.
+  transaction_date_civil   DateTime?               @db.Date
+  created_at               DateTime?               @default(now()) @db.DateTime(3)
   is_recurring             Boolean?                @default(false)
-  deleted_at               DateTime?               @db.DateTime(0)
+  deleted_at               DateTime?               @db.DateTime(3)
   payment_method           String?                 @default("cash") @db.VarChar(20)
   category_id              Int?
   income_source_id         Int?
@@ -398,6 +404,8 @@ model transactions {
   installment_number       Int?
   recurring_transaction_id Int?
   recurring_occurrence_at  DateTime?               @db.DateTime(0)
+  /// Identidade civil da ocorrência recorrente durante a migração do legado DATETIME.
+  recurring_occurrence_date DateTime?              @db.Date
   financial_entities       financial_entities?     @relation(fields: [entity_id], references: [id], onUpdate: NoAction, map: "fk_transaction_entity")
   accounts                 accounts                @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_1")
   users                    users                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transactions_ibfk_2")
@@ -409,6 +417,7 @@ model transactions {
   financial_import_item    financial_import_items?
 
   @@unique([recurring_transaction_id, recurring_occurrence_at], map: "transactions_recurring_occurrence_uq")
+  @@unique([recurring_transaction_id, recurring_occurrence_date], map: "transactions_recurring_civil_uq")
   @@index([account_id], map: "account_id")
   @@index([entity_id], map: "fk_transaction_entity")
   @@index([user_id], map: "user_id")
@@ -518,9 +527,9 @@ model pending_actions {
   status          String    @default("pending") @db.VarChar(20)
   /// Data de expiração (confirmação deve ocorrer antes).
   expires_at      DateTime  @db.DateTime(0)
-  created_at      DateTime  @default(now()) @db.DateTime(0)
-  confirmed_at    DateTime? @db.DateTime(0)
-  executed_at     DateTime? @db.DateTime(0)
+  created_at      DateTime  @default(now()) @db.DateTime(3)
+  confirmed_at    DateTime? @db.DateTime(3)
+  executed_at     DateTime? @db.DateTime(3)
 
   users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pending_actions_user_fk")
 
@@ -542,7 +551,7 @@ model action_audit {
   before_state String?  @db.Text
   /// Estado posterior (JSON).
   after_state  String?  @db.Text
-  created_at   DateTime @default(now()) @db.DateTime(0)
+  created_at   DateTime @default(now()) @db.DateTime(3)
 
   users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "action_audit_user_fk")
 
@@ -625,6 +634,11 @@ enum accounts_status {
   expired
   past_due
   cancelled
+  suspended
+}
+
+enum account_access_status {
+  enabled
   suspended
 }
 

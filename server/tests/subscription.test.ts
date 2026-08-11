@@ -22,6 +22,8 @@ beforeEach(()=>{state.account={id:10,plan_id:1,status:'active',trial_ends_at:nul
 describe('regras comerciais de assinatura',()=>{
  it('permite trial valido',()=>expect(evaluateAccountAccess({status:'trial',trial_ends_at:future},now).allowed).toBe(true));
  it('bloqueia trial expirado e o classifica como vencido',()=>expect(evaluateAccountAccess({status:'trial',trial_ends_at:past},now)).toMatchObject({allowed:false,status:'expired',reason:'TRIAL_EXPIRED'}));
+ it('suspensão administrativa bloqueia sem alterar o estado comercial',()=>expect(evaluateAccountAccess({status:'trial',access_status:'suspended',trial_ends_at:future},now)).toMatchObject({allowed:false,status:'trial',accessStatus:'suspended',reason:'ADMINISTRATIVELY_SUSPENDED'}));
+ it('trata status suspenso legado como bloqueio e não como assinatura ativa',()=>expect(evaluateAccountAccess({status:'suspended'},now)).toMatchObject({allowed:false,status:'expired',accessStatus:'suspended',reason:'ADMINISTRATIVELY_SUSPENDED'}));
  it('bloqueia ao atingir limite de cartoes',async()=>{state.cards=2;await expect(assertWithinLimit(10,'cards')).rejects.toMatchObject({code:'PLAN_LIMIT_REACHED',resource:'cards',maximum:2});});
  it('bloqueia ao atingir limite de usuarios',async()=>{await expect(assertWithinLimit(10,'users')).rejects.toMatchObject({code:'PLAN_LIMIT_REACHED',resource:'users',maximum:1});});
  it('bloqueia feature ausente no plano',async()=>{await expect(assertFeature(10,'advanced_reports')).rejects.toMatchObject({code:'FEATURE_NOT_INCLUDED',feature:'advanced_reports'});});

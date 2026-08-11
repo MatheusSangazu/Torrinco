@@ -37,8 +37,9 @@ interface ValidationSchemas {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  entity_id: 'Conta ou cartão', category_id: 'Categoria', income_source_id: 'Fonte de renda',
-  amount: 'Valor', start_date: 'Data inicial', frequency: 'Frequência', description: 'Descrição', type: 'Tipo',
+  entity_id: 'Conta ou cartão', category_id: 'Categoria', category: 'Categoria', income_source_id: 'Fonte de renda',
+  amount: 'Valor', start_date: 'Data inicial', transaction_date: 'Data', frequency: 'Frequência',
+  description: 'Descrição', type: 'Tipo', status: 'Situação', payment_method: 'Forma de pagamento',
 };
 
 function issueMessage(issue: z.core.$ZodIssue, field: string): string {

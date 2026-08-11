@@ -4,6 +4,16 @@ import { api } from '../services/api';
 import { clsx } from 'clsx';
 import { Input } from '../components/Input';
 import toast from 'react-hot-toast';
+import {
+  formatLocalDate,
+  formatLocalDateLong,
+  formatYearMonthLong,
+  fromLocalDateParts,
+  fromYearMonthParts,
+  getLocalDateDayOfWeek,
+  getMonthDateRange,
+  localDateFromApi,
+} from '../lib/local-date';
 
 interface Transaction {
   id: number;
@@ -36,7 +46,7 @@ export function Calendar() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    date: new Date().toISOString().split('T')[0],
+    date: formatLocalDate(new Date()),
     description: ''
   });
 
@@ -69,14 +79,13 @@ export function Calendar() {
       setLoading(true);
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      const range = getMonthDateRange(fromYearMonthParts(year, month + 1));
       
       const [transactionsRes, eventsRes] = await Promise.all([
         api.get('/finance/transactions', {
           params: {
-            start_date: startDate.toISOString().split('T')[0],
-            end_date: endDate.toISOString().split('T')[0]
+            start_date: range.startDate,
+            end_date: range.endDate
           }
         }),
         api.get('/calendar')
@@ -103,7 +112,7 @@ export function Calendar() {
       setIsModalOpen(false);
       setFormData({
         title: '',
-        date: new Date().toISOString().split('T')[0],
+        date: formatLocalDate(new Date()),
         description: ''
       });
       fetchData();
@@ -118,7 +127,7 @@ export function Calendar() {
     if (selectedDate) {
       setFormData(prev => ({
         ...prev,
-        date: selectedDate.toISOString().split('T')[0]
+        date: formatLocalDate(selectedDate)
       }));
     }
     setIsModalOpen(true);
@@ -127,7 +136,7 @@ export function Calendar() {
   const openModalForDate = (date: Date) => {
     setFormData({
       title: '',
-      date: date.toISOString().split('T')[0],
+      date: formatLocalDate(date),
       description: ''
     });
     setIsModalOpen(true);
@@ -160,19 +169,15 @@ export function Calendar() {
 
     const dayTransactions = transactions
       .filter(t => {
-        const tDate = new Date(t.transaction_date);
-        return tDate.getDate() === day && 
-               tDate.getMonth() === currentMonth && 
-               tDate.getFullYear() === currentYear;
+        const cellDate = fromLocalDateParts(currentYear, currentMonth + 1, day);
+        return localDateFromApi(t.transaction_date) === cellDate;
       })
       .map(t => ({ ...t, itemType: 'transaction' } as const));
 
     const dayEvents = events
       .filter(e => {
-        const eDate = new Date(e.event_date);
-        return eDate.getDate() === day && 
-               eDate.getMonth() === currentMonth && 
-               eDate.getFullYear() === currentYear;
+        const cellDate = fromLocalDateParts(currentYear, currentMonth + 1, day);
+        return localDateFromApi(e.event_date) === cellDate;
       })
       .map(e => ({ ...e, itemType: 'event' } as const));
 
@@ -180,22 +185,13 @@ export function Calendar() {
   };
 
   const getDayItems = (date: Date): CalendarItem[] => {
+    const selectedLocalDate = formatLocalDate(date);
     const dayTransactions = transactions
-      .filter(t => {
-        const tDate = new Date(t.transaction_date);
-        return tDate.getDate() === date.getDate() && 
-               tDate.getMonth() === date.getMonth() && 
-               tDate.getFullYear() === date.getFullYear();
-      })
+      .filter(t => localDateFromApi(t.transaction_date) === selectedLocalDate)
       .map(t => ({ ...t, itemType: 'transaction' } as const));
 
     const dayEvents = events
-      .filter(e => {
-        const eDate = new Date(e.event_date);
-        return eDate.getDate() === date.getDate() && 
-               eDate.getMonth() === date.getMonth() && 
-               eDate.getFullYear() === date.getFullYear();
-      })
+      .filter(e => localDateFromApi(e.event_date) === selectedLocalDate)
       .map(e => ({ ...e, itemType: 'event' } as const));
 
     return [...dayTransactions, ...dayEvents];
@@ -308,11 +304,6 @@ export function Calendar() {
     }).format(value);
   };
 
-  const monthNames = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-  ];
-
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
   const selectedDayItems = selectedDate ? getDayItems(selectedDate) : [];
@@ -354,7 +345,7 @@ export function Calendar() {
               <ChevronLeft size={20} />
             </button>
             <span className="px-4 font-bold text-gray-800 dark:text-white min-w-[140px] text-center capitalize">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              {formatYearMonthLong(fromYearMonthParts(currentDate.getFullYear(), currentDate.getMonth() + 1))}
             </span>
             <button 
               onClick={nextMonth}
@@ -396,10 +387,10 @@ export function Calendar() {
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between items-center rounded-t-2xl">
             <div>
               <h3 className="font-bold text-gray-900 dark:text-white">
-                {selectedDate?.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                 {selectedDate ? formatLocalDateLong(formatLocalDate(selectedDate)) : ''}
               </h3>
               <p className="text-xs text-gray-500 dark:text-slate-400">
-                {weekDays[selectedDate?.getDay() || 0]}
+                 {selectedDate ? weekDays[getLocalDateDayOfWeek(formatLocalDate(selectedDate))] : ''}
               </p>
             </div>
             <div className="flex items-center gap-2">

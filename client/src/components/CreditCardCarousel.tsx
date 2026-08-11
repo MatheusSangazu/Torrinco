@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { ConfirmModal } from './ConfirmModal';
-import { formatLocalDate } from '../lib/local-date';
+import { formatLocalDate, formatLocalDateShort } from '../lib/local-date';
 
 interface CreditCardCarouselProps {
   className?: string;
@@ -120,7 +120,7 @@ export function CreditCardCarousel({ className, onPaymentSuccess }: CreditCardCa
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    return formatLocalDateShort(formatLocalDate(new Date(date)));
   };
 
   const nextCard = () => {

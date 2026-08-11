@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LogOut, Home, PieChart, Calendar, ChevronLeft, ChevronRight, Moon, Sun, Menu, Tag, CreditCard, ArrowRightLeft, Bell, BadgeDollarSign, Shield } from 'lucide-react';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function AppLayout() {
   const { isAuthenticated, isLoading, logout, user, platformRole } = useAuth();
@@ -11,6 +11,17 @@ export function AppLayout() {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileTriggerRef=useRef<HTMLButtonElement>(null);
+  const drawerRef=useRef<HTMLDivElement>(null);
+
+  const closeMobileMenu=(restoreFocus=true)=>{setIsMobileMenuOpen(false);if(restoreFocus)requestAnimationFrame(()=>mobileTriggerRef.current?.focus())};
+  useEffect(()=>{
+    if(!isMobileMenuOpen)return;
+    const drawer=drawerRef.current;const focusable=()=>Array.from(drawer?.querySelectorAll<HTMLElement>('a[href],button:not([disabled])')??[]);
+    focusable()[0]?.focus();
+    const keydown=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();closeMobileMenu()}else if(event.key==='Tab'){const items=focusable();if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}};
+    document.addEventListener('keydown',keydown);return()=>document.removeEventListener('keydown',keydown);
+  },[isMobileMenuOpen]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-dark-text">Carregando...</div>;
@@ -22,17 +33,9 @@ export function AppLayout() {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const navItems = [
-    { path: '/', label: 'INÍCIO', icon: Home },
-    { path: '/transactions', label: 'TRANSAÇÕES', icon: ArrowRightLeft },
-    { path: '/categories', label: 'CATEGORIAS', icon: Tag },
-    { path: '/cards', label: 'CARTÕES', icon: CreditCard },
-    { path: '/reports', label: 'RELATÓRIOS', icon: PieChart },
-    { path: '/reminders', label: 'LEMBRETES', icon: Bell },
-    { path: '/calendar', label: 'AGENDA', icon: Calendar },
-    { path: '/subscription', label: 'PLANO', icon: BadgeDollarSign },
-    ...(platformRole === 'platform_owner' ? [{ path: '/admin', label: 'BACKOFFICE', icon: Shield }] : []),
-  ];
+  const financialItems=[{path:'/',label:'INÍCIO',icon:Home},{path:'/transactions',label:'TRANSAÇÕES',icon:ArrowRightLeft},{path:'/categories',label:'CATEGORIAS',icon:Tag},{path:'/cards',label:'CARTÕES',icon:CreditCard},{path:'/reports',label:'RELATÓRIOS',icon:PieChart},{path:'/reminders',label:'LEMBRETES',icon:Bell},{path:'/calendar',label:'AGENDA',icon:Calendar},{path:'/subscription',label:'PLANO',icon:BadgeDollarSign}];
+  const platformItems=platformRole==='platform_owner'?[{path:'/admin',label:'ADMINISTRAÇÃO',icon:Shield}]:[];
+  const navGroups=[{label:'Finanças pessoais',items:financialItems},...(platformItems.length?[{label:'Ferramentas da plataforma',items:platformItems}]:[])];
 
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-dark-bg transition-colors duration-200">
@@ -43,7 +46,7 @@ export function AppLayout() {
             <img src="/torrinco.png" alt="Torrinco" className="w-8 h-8 rounded-lg bg-white p-0.5" />
             <span className="text-xl font-bold">Torrinco</span>
          </div>
-         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="Abrir menu de navegação" aria-expanded={isMobileMenuOpen}>
+         <button ref={mobileTriggerRef} onClick={() => isMobileMenuOpen?closeMobileMenu(false):setIsMobileMenuOpen(true)} className="p-2 focus-visible:outline-2 focus-visible:outline-offset-2" aria-label={isMobileMenuOpen?'Fechar menu de navegação':'Abrir menu de navegação'} aria-expanded={isMobileMenuOpen} aria-controls="mobile-navigation-drawer">
            <Menu className="w-6 h-6" />
          </button>
       </div>
@@ -64,8 +67,8 @@ export function AppLayout() {
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 py-6 space-y-2 px-3">
-          {navItems.map((item) => (
+        <nav aria-label="Navegação principal" className="flex-1 space-y-5 overflow-y-auto px-3 py-6">
+          {navGroups.map(group=><div key={group.label} className="border-t border-torrinco-500/70 pt-3 first:border-0 first:pt-0">{!isSidebarCollapsed&&<p className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-torrinco-200">{group.label}</p>}<div className="space-y-1">{group.items.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -81,7 +84,7 @@ export function AppLayout() {
                 <span className="ml-3 text-sm font-bold tracking-wide">{item.label}</span>
               )}
             </Link>
-          ))}
+          ))}</div></div>)}
         </nav>
 
         {/* User & Theme Toggle */}
@@ -124,8 +127,8 @@ export function AppLayout() {
       {/* Mobile Drawer (Overlay) */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-64 bg-torrinco-600 text-white p-4 animate-in slide-in-from-right duration-200">
+          <div className="absolute inset-0 bg-black/50" onClick={() => closeMobileMenu()} />
+          <div ref={drawerRef} id="mobile-navigation-drawer" role="dialog" aria-modal="true" aria-label="Menu de navegação" className="absolute bottom-0 right-0 top-0 flex w-72 max-w-[88vw] flex-col bg-torrinco-600 p-4 text-white animate-in slide-in-from-right duration-200">
              <div className="flex justify-between items-center mb-6">
                <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-torrinco-800 flex items-center justify-center">
@@ -135,14 +138,14 @@ export function AppLayout() {
                     <p className="text-sm font-medium truncate max-w-[120px]">{user?.name || 'Usuário'}</p>
                   </div>
                </div>
-               <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Fechar menu de navegação" className="focus-visible:outline-2 focus-visible:outline-offset-2"><ChevronRight /></button>
+               <button onClick={() => closeMobileMenu()} aria-label="Fechar menu de navegação" className="rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-offset-2"><ChevronRight /></button>
              </div>
-             <nav className="space-y-2">
-              {navItems.map((item) => (
+             <nav aria-label="Navegação principal" className="flex-1 space-y-5 overflow-y-auto">
+              {navGroups.map(group=><div key={group.label} className="border-t border-torrinco-500/70 pt-3 first:border-0 first:pt-0"><p className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-wider text-torrinco-200">{group.label}</p><div className="space-y-1">{group.items.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={() => closeMobileMenu()}
                   className={clsx(
                     "flex items-center px-4 py-3 rounded-xl",
                     isActive(item.path) ? "bg-beak-400 text-torrinco-900 font-bold" : "text-white"
@@ -151,7 +154,7 @@ export function AppLayout() {
                   <item.icon className="w-5 h-5 mr-3" />
                   {item.label}
                 </Link>
-              ))}
+              ))}</div></div>)}
              </nav>
              <div className="mt-8 border-t border-torrinco-500 pt-4">
                 <button onClick={toggleTheme} className="flex items-center w-full px-4 py-2 hover:bg-torrinco-500 rounded-lg">

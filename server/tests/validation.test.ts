@@ -185,6 +185,15 @@ describe('2. Finance — validações', () => {
   });
 
   describe('update', () => {
+    it('ignora category legado vazio quando category_id foi informado', () => {
+      expect(accepts(financeSchemas.update, { category: '', category_id: 12, payment_method: 'other' })).toBe(true);
+    });
+
+    it('aceita os identificadores de pagamento usados pelo cliente atual', () => {
+      expect(accepts(financeSchemas.update, { payment_method: 'credit' })).toBe(true);
+      expect(accepts(financeSchemas.update, { payment_method: 'debit' })).toBe(true);
+    });
+
     it('aceita category_id null (limpar)', () => {
       expect(accepts(financeSchemas.update, { category_id: null })).toBe(true);
     });
@@ -388,18 +397,24 @@ describe('9. Installments — validações', () => {
 describe('10. Reminders — validações', () => {
   it('aceita payload válido', () => {
     expect(accepts(reminderSchemas.create, {
-      content: 'Pagar conta', trigger_time: '2025-01-15T10:00:00',
+      content: 'Pagar conta', trigger_time: '10:00', specific_date: '2025-01-15',
     })).toBe(true);
   });
 
   it('rejeita frequency inválido', () => {
     expect(accepts(reminderSchemas.create, {
-      content: 'X', trigger_time: '2025-01-15', frequency: 'hourly',
+      content: 'X', trigger_time: '10:00', frequency: 'hourly',
     })).toBe(false);
   });
 
   it('rejeita content vazio', () => {
-    expect(accepts(reminderSchemas.create, { content: '', trigger_time: '2025-01-15' })).toBe(false);
+    expect(accepts(reminderSchemas.create, { content: '', trigger_time: '10:00' })).toBe(false);
+  });
+
+  it('rejeita timestamp no lugar de horário local', () => {
+    expect(accepts(reminderSchemas.create, {
+      content: 'X', trigger_time: '2025-01-15T10:00:00', specific_date: '2025-01-15',
+    })).toBe(false);
   });
 });
 

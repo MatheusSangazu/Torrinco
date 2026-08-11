@@ -7,6 +7,7 @@ import { CustomSelect } from '../components/CustomSelect';
 import { DatePicker } from '../components/DatePicker';
 import { TimePicker } from '../components/TimePicker';
 import toast from 'react-hot-toast';
+import { formatLocalDate, formatLocalDateShort, localDateFromApi } from '../lib/local-date';
 
 const WEEKDAYS = [
   { value: 'Monday', label: 'Segunda-feira' },
@@ -80,22 +81,13 @@ export function Reminders() {
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     try {
-      const buildTriggerTime = () => {
-        if (formData.frequency === 'once' && formData.specific_date) {
-          return `${formData.specific_date}T${formData.trigger_time}:00`;
-        }
-        const today = new Date();
-        const [hours, minutes] = formData.trigger_time.split(':');
-        return new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(hours), parseInt(minutes)).toISOString();
-      };
-
       const dataToSend: any = {
         content: formData.content,
-        trigger_time: buildTriggerTime(),
+        trigger_time: formData.trigger_time,
         frequency: formData.frequency
       };
 
-      if (formData.frequency === 'once') {
+      if (formData.frequency === 'once' || formData.frequency === 'monthly') {
         dataToSend.specific_date = formData.specific_date;
       } else if (formData.frequency === 'weekly') {
         dataToSend.weekday = formData.weekday || undefined;
@@ -123,9 +115,9 @@ export function Reminders() {
     setEditingReminder(reminder);
     setFormData({
       content: reminder.content,
-      trigger_time: reminder.trigger_time.split('T')[1].substring(0, 5),
+      trigger_time: reminder.trigger_time,
       frequency: reminder.frequency,
-      specific_date: reminder.specific_date ? reminder.specific_date.split('T')[0] : '',
+      specific_date: reminder.specific_date ? localDateFromApi(reminder.specific_date) : '',
       weekday: reminder.weekday || ''
     });
     setIsModalOpen(true);
@@ -162,7 +154,7 @@ export function Reminders() {
   };
 
   const resetForm = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate(new Date());
     setFormData({
       content: '',
       trigger_time: '09:00',
@@ -181,23 +173,23 @@ export function Reminders() {
   const getFrequencyLabel = (frequency: ReminderFrequency, weekday?: ReminderWeekday | null, specificDate?: string | null) => {
     switch (frequency) {
       case 'once':
-        return specificDate ? `Único - ${new Date(specificDate).toLocaleDateString('pt-BR')}` : 'Único';
+        return specificDate ? `Único - ${formatLocalDateShort(localDateFromApi(specificDate))}` : 'Único';
       case 'daily':
         return 'Diário';
       case 'weekly':
         const wd = WEEKDAYS.find(w => w.value === weekday);
         return wd ? `Semanal - ${wd.label}` : 'Semanal';
       case 'monthly':
-        return 'Mensal';
+        return specificDate ? `Mensal - dia ${Number(localDateFromApi(specificDate).slice(8, 10))}` : 'Mensal';
       default:
         return frequency;
     }
   };
 
-  const filteredReminders = reminders.sort((a, b) => {
+  const filteredReminders = [...reminders].sort((a, b) => {
     if (a.status === 'active' && b.status === 'completed') return -1;
     if (a.status === 'completed' && b.status === 'active') return 1;
-    return new Date(a.trigger_time).getTime() - new Date(b.trigger_time).getTime();
+    return a.trigger_time.localeCompare(b.trigger_time);
   });
 
   return (
@@ -285,7 +277,7 @@ export function Reminders() {
                       <div className="flex items-center gap-2 sm:gap-3 mt-1.5 flex-wrap">
                         <span className="flex items-center gap-1 text-xs sm:text-sm text-gray-500 dark:text-slate-400">
                           <Clock size={12} />
-                          {new Date(reminder.trigger_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          {reminder.trigger_time}
                         </span>
                         <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
                           {getFrequencyLabel(reminder.frequency, reminder.weekday, reminder.specific_date)}
@@ -367,9 +359,9 @@ export function Reminders() {
                 options={FREQUENCIES}
               />
 
-              {formData.frequency === 'once' && (
+              {(formData.frequency === 'once' || formData.frequency === 'monthly') && (
                 <DatePicker
-                  label="Data Específica"
+                  label={formData.frequency === 'once' ? 'Data específica' : 'Data de referência mensal'}
                   value={formData.specific_date}
                   onChange={(date) => setFormData({ ...formData, specific_date: date })}
                 />

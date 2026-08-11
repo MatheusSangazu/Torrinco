@@ -39,9 +39,15 @@ const signedMonetary = z.coerce.number().finite();
 /** String com limite razoável. */
 const boundedString = (max = 500) => z.string().trim().min(1).max(max);
 const optionalString = (max = 500) => z.string().trim().min(1).max(max).optional();
+const optionalLegacyString = (max = 500) => z.preprocess(
+  value => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  optionalString(max),
+);
 
 /** Data: string não-vazia (frontend envia formatos variados). */
 const dateString = z.string().trim().min(1).max(50);
+const localDateString = z.iso.date();
+const localTimeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário deve usar HH:mm');
 
 /** Frequência de recorrência. */
 const frequencyEnum = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
@@ -62,7 +68,7 @@ const dayOfMonth = z.coerce.number().int().min(1).max(31);
 const transactionStatusEnum = z.enum(['paid', 'pending']);
 
 /** Método de pagamento. */
-const paymentMethodEnum = z.enum(['cash', 'credit_card', 'debit_card', 'pix', 'bank_slip', 'transfer']);
+const paymentMethodEnum = z.enum(['cash', 'credit', 'credit_card', 'debit', 'debit_card', 'pix', 'bank_slip', 'transfer', 'other']);
 
 // ── Common: params / query ───────────────────────────────────────
 
@@ -173,7 +179,7 @@ export const financeSchemas = {
     amount: monetary,
     type: transactionTypeEnum,
     transaction_date: dateString,
-    category: optionalString(100),
+    category: optionalLegacyString(100),
     category_id: positiveInt.optional(),
     income_source_id: positiveInt.optional(),
     description: optionalString(1000),
@@ -187,7 +193,7 @@ export const financeSchemas = {
   update: z.object({
     amount: monetary.optional(),
     type: transactionTypeEnum.optional(),
-    category: optionalString(100),
+    category: optionalLegacyString(100),
     category_id: optionalNullableId,
     income_source_id: optionalNullableId,
     description: optionalString(1000),
@@ -389,17 +395,17 @@ export const installmentSchemas = {
 export const reminderSchemas = {
   create: z.object({
     content: boundedString(1000),
-    trigger_time: dateString,
+    trigger_time: localTimeString,
     frequency: z.enum(['once', 'daily', 'weekly', 'monthly']).optional(),
-    specific_date: dateString.optional(),
+    specific_date: localDateString.optional(),
     weekday: optionalString(20),
   }),
 
   update: z.object({
     content: optionalString(1000),
-    trigger_time: dateString.optional(),
+    trigger_time: localTimeString.optional(),
     frequency: z.enum(['once', 'daily', 'weekly', 'monthly']).optional(),
-    specific_date: z.union([dateString, z.null()]).optional(),
+    specific_date: z.union([localDateString, z.null()]).optional(),
     weekday: optionalString(20),
     status: z.string().max(20).optional(),
   }),

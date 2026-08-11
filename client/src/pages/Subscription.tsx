@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { CreditCard, Users, WalletCards, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { formatInstantDateLong } from '../lib/local-date';
 type Overview = { status:string; access:{allowed:boolean;inGracePeriod:boolean}; plan:{name:string;price_monthly:string|number|null;price_yearly:string|number|null;features:Record<string,boolean>}; usage:{users:{current:number;maximum:number};cards:{current:number;maximum:number}}; dates:{trialEndsAt:string|null;currentPeriodEndsAt:string|null;gracePeriodEndsAt:string|null}; availablePlans:Array<{id:number;name:string;price_monthly:string|number|null;price_yearly:string|number|null}> };
 const labels:Record<string,string>={trial:'Período de teste',active:'Ativo',expired:'Vencido',past_due:'Inadimplente',cancelled:'Cancelado',suspended:'Suspenso'};
 const featureLabels:Record<string,string>={calendar:'Agenda',ai:'Assistente inteligente',import:'Importação e exportação',installments:'Parcelamentos',shared_cards:'Cartões compartilhados',advanced_reports:'Relatórios avançados',api_access:'Acesso à API'};
-const formatDate=(d:string|null)=>d?new Intl.DateTimeFormat('pt-BR',{dateStyle:'long'}).format(new Date(d)):'Não definido';
+const formatDate=(d:string|null)=>d?formatInstantDateLong(d):'Não definido';
 const money=(v:string|number|null)=>v==null?'Pendente':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v));
 export function Subscription(){
  const [data,setData]=useState<Overview|null>(null); const [error,setError]=useState('');

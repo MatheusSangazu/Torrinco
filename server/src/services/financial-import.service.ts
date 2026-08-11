@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { parseDate, startOfDay } from '../lib/date-utils.js';
 import { ImportFileError, itemFingerprint, parseFinancialDocument, type ParsedImportItem } from './financial-import-parser.service.js';
 
 export class FinancialImportError extends Error {
@@ -6,7 +7,9 @@ export class FinancialImportError extends Error {
 }
 
 type Scope = { accountId: number; userId: number };
-type UploadInput = Scope & { buffer: Buffer; fileName: string; mimeType: string; fileSize: number };
+type UploadInput = Scope & { buffer: Buffer; fileName: string; mimeType: string; fileSize: number; allowReimport?: boolean };
+type BulkItemInput = { item_ids: number[]; changes: { category_id?: number | null; entity_id?: number | null; included?: boolean; transaction_status?: 'paid' | 'pending' } };
+type ListInput = { cursor?: number; limit: number; search?: string; status?: string; from?: string; to?: string };
 
 function money(value: unknown): number { return Math.round(Number(value || 0) * 100) / 100; }
 function dayBounds(date: Date) { const from = new Date(date); from.setUTCHours(0, 0, 0, 0); const to = new Date(from); to.setUTCDate(to.getUTCDate() + 1); return { from, to }; }
@@ -23,6 +26,29 @@ function reconciliation(items: Array<any>, documentTotal?: unknown) {
     feesAndInterest: money(selected.filter(i => ['fee', 'interest', 'fine'].includes(i.item_kind)).reduce((s, i) => s + money(i.amount), 0)),
     expenseTotal: money(expenses), incomeTotal: money(incomes), selectedTotal: net,
     documentTotal: total, difference: total == null ? null : money(net - total)
+  };
+}
+
+const duplicateLabels: Record<string, string> = {
+  within_document: 'Repetido neste arquivo.',
+  existing_transaction: 'Já existe no Torrinco.',
+  previous_import: 'Importado anteriormente.',
+};
+function encodedDuplicateEvidence(kind: string, evidence: Record<string, unknown>) {
+  const compact = { kind, ...evidence, description: String(evidence.description ?? '').slice(0, 48) };
+  const encoded = JSON.stringify(compact);
+  if (encoded.length <= 255) return encoded;
+  return JSON.stringify({ ...compact, description: String(evidence.description ?? '').slice(0, 12) });
+}
+function presentBatch(batch: any) {
+  return {
+    ...batch,
+    items: batch.items.map((item: any) => {
+      if (!item.duplicate_kind || !item.duplicate_reason?.startsWith('{')) return item;
+      try { return { ...item, duplicate_reason: duplicateLabels[item.duplicate_kind] ?? 'Possível duplicidade.', duplicate_evidence: JSON.parse(item.duplicate_reason) }; }
+      catch { return item; }
+    }),
+    reconciliation: reconciliation(batch.items, batch.document_total),
   };
 }
 
@@ -43,20 +69,12 @@ async function assertCategory(tx: any, id: number | null | undefined, accountId:
   return category;
 }
 
-async function markDuplicates(scope: Scope, items: ParsedImportItem[]) {
-  const fingerprints = items.map(i => itemFingerprint(i.date, i.amount, i.description, i.type));
-  const previous = await prisma.financial_import_items.findMany({ where: { fingerprint: { in: fingerprints }, financial_imports: { account_id: scope.accountId, status: { in: ['completed', 'completed_with_warnings'] } } }, select: { fingerprint: true } });
-  const previousSet = new Set(previous.map(p => p.fingerprint));
-  const minDate = new Date(Math.min(...items.map(i => i.date.getTime()))); const maxDate = new Date(Math.max(...items.map(i => i.date.getTime()))); maxDate.setUTCDate(maxDate.getUTCDate() + 1);
-  const existing = await prisma.transactions.findMany({ where: { account_id: scope.accountId, deleted_at: null, transaction_date: { gte: minDate, lt: maxDate } }, select: { transaction_date: true, amount: true, description: true, type: true } });
-  const existingSet = new Set(existing.map(t => itemFingerprint(t.transaction_date, Number(t.amount), t.description ?? '', t.type)));
+function markWithinDocumentDuplicates(items: ParsedImportItem[]) {
   const seen = new Set<string>();
   return items.map(item => {
     const fingerprint = itemFingerprint(item.date, item.amount, item.description, item.type);
     let duplicateKind: string | undefined; let duplicateReason: string | undefined;
     if (seen.has(fingerprint)) { duplicateKind = 'within_document'; duplicateReason = 'Lançamento repetido dentro deste documento.'; }
-    else if (existingSet.has(fingerprint)) { duplicateKind = 'existing_transaction'; duplicateReason = 'Possível lançamento já existente no Torrinco.'; }
-    else if (previousSet.has(fingerprint)) { duplicateKind = 'previous_import'; duplicateReason = 'Possível lançamento presente em uma importação anterior.'; }
     seen.add(fingerprint);
     return { item, fingerprint, duplicateKind, duplicateReason, included: duplicateKind ? false : item.included };
   });
@@ -78,27 +96,30 @@ export class FinancialImportService {
       select: { id: true },
     });
     if (activeDraft) {
-      await prisma.financial_imports.update({
-        where: { id: activeDraft.id },
-        data: { warning_message: 'Este arquivo já possui um rascunho em revisão.' },
-      });
       await audit(input, 'financial_import.upload_reused', activeDraft.id, 'success', { fileHash: hash });
-      return this.get(input, activeDraft.id);
+      return { ...await this.get(input, activeDraft.id), resumed: true };
     }
-    const prior = await prisma.financial_imports.findFirst({ where: { account_id: input.accountId, file_hash: hash, status: { in: ['completed', 'completed_with_warnings'] } }, select: { id: true } });
-    const candidates = await markDuplicates(input, parsed.items);
+    const prior = await prisma.financial_imports.findFirst({
+      where: { account_id: input.accountId, user_id: input.userId, file_hash: hash, status: { in: ['completed', 'completed_with_warnings'] } },
+      orderBy: { completed_at: 'desc' },
+      select: { id: true, completed_at: true, target_entity: { select: { id: true, name: true, type: true } } },
+    });
+    if (prior && !input.allowReimport) {
+      return { reimport_blocked: true, previous_import: prior };
+    }
+    const candidates = markWithinDocumentDuplicates(parsed.items);
     const created = await prisma.$transaction(async tx => {
       const batch = await tx.financial_imports.create({ data: {
         account_id: input.accountId, user_id: input.userId, file_name: input.fileName.slice(0, 255), file_hash: hash,
         mime_type: input.mimeType, file_size: input.fileSize, document_type: parsed.documentType, status: 'processing', issuer: parsed.issuer,
         card_last_four: parsed.cardLastFour, holder_name: parsed.holderName, due_date: parsed.dueDate, closing_date: parsed.closingDate,
-        document_total: parsed.documentTotal, warning_message: prior ? 'Este arquivo parece já ter sido importado anteriormente.' : undefined
+        document_total: parsed.documentTotal
       } });
       await tx.financial_import_items.createMany({ data: candidates.map(({ item, fingerprint, duplicateKind, duplicateReason, included }) => ({
         import_id: batch.id, row_index: item.rowIndex, included, transaction_date: item.date, original_description: item.originalDescription.slice(0, 500),
         description: item.description.slice(0, 255), original_excerpt: item.excerpt?.slice(0, 1000), amount: item.amount, type: item.type,
         item_kind: item.kind, confidence: item.confidence, requires_review: item.requiresReview, duplicate_kind: duplicateKind,
-        duplicate_reason: duplicateReason, exclusion_reason: item.exclusionReason, fingerprint
+        duplicate_reason: duplicateReason, exclusion_reason: duplicateKind ? 'automatic_duplicate' : item.exclusionReason, fingerprint
       })) });
       const totals = reconciliation(candidates.map(c => ({ ...c.item, item_kind: c.item.kind, included: c.included, duplicate_kind: c.duplicateKind })), parsed.documentTotal);
       await tx.financial_imports.update({ where: { id: batch.id }, data: { status: 'review', selected_expense_total: totals.expenseTotal, selected_income_total: totals.incomeTotal, selected_total: totals.selectedTotal, reconciliation_difference: totals.difference } });
@@ -110,15 +131,26 @@ export class FinancialImportService {
     return created;
   }
 
-  static async list(scope: Scope) {
-    const rows = await prisma.financial_imports.findMany({ where: { account_id: scope.accountId, user_id: scope.userId }, orderBy: { created_at: 'desc' }, take: 100, include: { target_entity: { select: { id: true, name: true, type: true } }, _count: { select: { items: true } } } });
-    return rows;
+  static async list(scope: Scope, input: ListInput = { limit: 20 }) {
+    const where: any = { account_id: scope.accountId, user_id: scope.userId };
+    if (input.cursor) where.id = { lt: input.cursor };
+    if (input.status) where.status = input.status;
+    if (input.search) where.OR = [{ file_name: { contains: input.search } }, { target_entity: { is: { name: { contains: input.search } } } }];
+    if (input.from || input.to) {
+      where.created_at = {};
+      if (input.from) where.created_at.gte = startOfDay(parseDate(input.from));
+      if (input.to) { const end = startOfDay(parseDate(input.to)); end.setUTCDate(end.getUTCDate() + 1); where.created_at.lt = end; }
+    }
+    const rows = await prisma.financial_imports.findMany({ where, orderBy: { id: 'desc' }, take: input.limit + 1, include: { target_entity: { select: { id: true, name: true, type: true } }, _count: { select: { items: true } } } });
+    const hasMore = rows.length > input.limit;
+    const imports = hasMore ? rows.slice(0, input.limit) : rows;
+    return { imports, next_cursor: hasMore ? imports.at(-1)?.id ?? null : null, has_more: hasMore };
   }
 
   static async get(scope: Scope, id: number) {
     const batch = await prisma.financial_imports.findFirst({ where: { id, account_id: scope.accountId, user_id: scope.userId }, include: detailInclude });
     if (!batch) throw new FinancialImportError('IMPORT_NOT_FOUND', 'Importação não encontrada.', 404);
-    return { ...batch, reconciliation: reconciliation(batch.items, batch.document_total) };
+    return presentBatch(batch);
   }
 
   static async update(scope: Scope, id: number, input: { target_entity_id?: number | null; document_type?: any }) {
@@ -126,55 +158,98 @@ export class FinancialImportService {
     if (!['review', 'uploaded'].includes(batch.status)) throw new FinancialImportError('IMPORT_LOCKED', 'Esta importação não pode mais ser alterada.', 409);
     await assertEntity(prisma, input.target_entity_id, scope.accountId);
     await prisma.$transaction(async tx => {
+      if (input.target_entity_id !== undefined && batch.target_entity_id != null) {
+        // Compatibilidade: versões antigas copiavam o destino principal para itens herdados.
+        await tx.financial_import_items.updateMany({ where: { import_id: id, entity_id: batch.target_entity_id }, data: { entity_id: null } });
+      }
       await tx.financial_imports.update({ where: { id }, data: { target_entity_id: input.target_entity_id, document_type: input.document_type } });
-      if (input.target_entity_id !== undefined) await tx.financial_import_items.updateMany({ where: { import_id: id, entity_id: null }, data: { entity_id: input.target_entity_id } });
     });
-    if (input.target_entity_id) await this.recheckDestinationDuplicates(scope, id, input.target_entity_id);
+    if (input.target_entity_id !== undefined) await this.recheckDestinationDuplicates(scope, id, input.target_entity_id);
     return this.recalculate(scope, id);
   }
 
-  private static async recheckDestinationDuplicates(scope: Scope, importId: number, entityId: number) {
+  private static async recheckDestinationDuplicates(scope: Scope, importId: number, entityId?: number | null) {
     const batch = await prisma.financial_imports.findFirst({ where: { id: importId, account_id: scope.accountId, user_id: scope.userId }, include: { items: true } });
     if (!batch?.items.length) return;
+    const targetEntityId = entityId === undefined ? batch.target_entity_id : entityId;
+    const destinationIds = [...new Set(batch.items.map(i => i.entity_id ?? targetEntityId).filter((id): id is number => id != null))];
     const min = new Date(Math.min(...batch.items.map(i => i.transaction_date.getTime()))); const max = new Date(Math.max(...batch.items.map(i => i.transaction_date.getTime()))); max.setUTCDate(max.getUTCDate() + 1);
     const [transactions, previous] = await Promise.all([
-      prisma.transactions.findMany({ where: { account_id: scope.accountId, entity_id: entityId, deleted_at: null, transaction_date: { gte: min, lt: max } }, select: { transaction_date: true, amount: true, description: true, type: true } }),
-      prisma.financial_import_items.findMany({ where: { import_id: { not: importId }, fingerprint: { in: batch.items.map(i => i.fingerprint) }, financial_imports: { account_id: scope.accountId, target_entity_id: entityId, status: { in: ['completed', 'completed_with_warnings'] } } }, select: { fingerprint: true } })
+      destinationIds.length ? prisma.transactions.findMany({ where: { account_id: scope.accountId, user_id: scope.userId, entity_id: { in: destinationIds }, deleted_at: null, transaction_date: { gte: min, lt: max } }, select: { id: true, entity_id: true, transaction_date: true, amount: true, description: true, type: true } }) : [],
+      destinationIds.length ? prisma.financial_import_items.findMany({ where: { import_id: { not: importId }, fingerprint: { in: batch.items.map(i => i.fingerprint) }, financial_imports: { account_id: scope.accountId, user_id: scope.userId, status: { in: ['completed', 'completed_with_warnings'] } } }, select: { id: true, entity_id: true, fingerprint: true, transaction_date: true, amount: true, description: true, financial_imports: { select: { id: true, target_entity_id: true } } } }) : []
     ]);
-    const existing = new Set(transactions.map(t => itemFingerprint(t.transaction_date, Number(t.amount), t.description ?? '', t.type)));
-    const imported = new Set(previous.map(i => i.fingerprint)); const seen = new Set<string>();
+    const seen = new Map<string, any>();
     await prisma.$transaction(batch.items.map(item => {
       let kind: string | null = null; let reason: string | null = null;
-      if (seen.has(item.fingerprint)) { kind = 'within_document'; reason = 'Lançamento repetido dentro deste documento.'; }
-      else if (existing.has(item.fingerprint)) { kind = 'existing_transaction'; reason = 'Possível lançamento já existente neste cartão ou conta.'; }
-      else if (imported.has(item.fingerprint)) { kind = 'previous_import'; reason = 'Possível lançamento presente em importação anterior deste destino.'; }
-      seen.add(item.fingerprint);
-      return prisma.financial_import_items.update({ where: { id: item.id }, data: { duplicate_kind: kind, duplicate_reason: reason, included: kind ? false : item.included } });
+      const effectiveEntityId = item.entity_id ?? targetEntityId;
+      const within = seen.get(item.fingerprint);
+      const transaction = transactions.find(t => effectiveEntityId != null && t.entity_id === effectiveEntityId && itemFingerprint(t.transaction_date, Number(t.amount), t.description ?? '', t.type) === item.fingerprint);
+      const imported = previous.find(p => effectiveEntityId != null && (p.entity_id ?? p.financial_imports.target_entity_id) === effectiveEntityId && p.fingerprint === item.fingerprint);
+      if (within) { kind = 'within_document'; reason = encodedDuplicateEvidence(kind, { destination_id: effectiveEntityId, date: within.transaction_date, description: within.description, amount: Number(within.amount), source_item_id: within.id }); }
+      else if (transaction) { kind = 'existing_transaction'; reason = encodedDuplicateEvidence(kind, { destination_id: effectiveEntityId, date: transaction.transaction_date, description: transaction.description, amount: Number(transaction.amount), transaction_id: transaction.id }); }
+      else if (imported) { kind = 'previous_import'; reason = encodedDuplicateEvidence(kind, { destination_id: effectiveEntityId, date: imported.transaction_date, description: imported.description, amount: Number(imported.amount), import_id: imported.financial_imports.id, source_item_id: imported.id }); }
+      seen.set(item.fingerprint, item);
+      const newlyAutomatic = Boolean(kind && !item.duplicate_kind);
+      const duplicateRemoved = Boolean(!kind && item.duplicate_kind);
+      const included = newlyAutomatic ? false : duplicateRemoved && item.exclusion_reason === 'automatic_duplicate' ? true : item.included;
+      const exclusionReason = newlyAutomatic ? 'automatic_duplicate' : duplicateRemoved && item.exclusion_reason === 'automatic_duplicate' ? null : item.exclusion_reason;
+      return prisma.financial_import_items.update({ where: { id: item.id }, data: { duplicate_kind: kind, duplicate_reason: reason, included, exclusion_reason: exclusionReason } });
     }));
   }
 
   static async updateItem(scope: Scope, importId: number, itemId: number, input: any) {
     const batch = await this.get(scope, importId);
     if (batch.status !== 'review') throw new FinancialImportError('IMPORT_LOCKED', 'Esta importação não pode mais ser alterada.', 409);
-    const current = batch.items.find(i => i.id === itemId);
+    const current = batch.items.find((i: any) => i.id === itemId);
     if (!current) throw new FinancialImportError('ITEM_NOT_FOUND', 'Lançamento não encontrado.', 404);
     await assertEntity(prisma, input.entity_id, scope.accountId); await assertCategory(prisma, input.category_id, scope.accountId);
-    const date = input.transaction_date ? new Date(`${input.transaction_date}T00:00:00.000Z`) : current.transaction_date;
+    const date = input.transaction_date ? parseDate(input.transaction_date) : current.transaction_date;
     const amount = input.amount ?? Number(current.amount); const description = input.description ?? current.description; const type = input.type ?? current.type;
+    const duplicateFieldsChanged = ['transaction_date', 'amount', 'description', 'type', 'entity_id'].some(field => input[field] !== undefined);
     await prisma.financial_import_items.update({ where: { id: itemId }, data: {
       included: input.included, transaction_date: input.transaction_date ? date : undefined, description: input.description?.slice(0, 255), amount: input.amount,
       type: input.type, category_id: input.category_id, entity_id: input.entity_id, payment_method: input.payment_method,
       transaction_status: input.transaction_status, edited_by_user_id: scope.userId, requires_review: input.requires_review,
-      fingerprint: itemFingerprint(date, Number(amount), description, type)
+      exclusion_reason: input.included === false ? 'manual' : input.included === true && current.exclusion_reason === 'manual' ? null : undefined,
+      fingerprint: itemFingerprint(date, Number(amount), description, type),
+      duplicate_kind: duplicateFieldsChanged ? null : undefined, duplicate_reason: duplicateFieldsChanged ? null : undefined,
     } });
+    if (duplicateFieldsChanged) await this.recheckDestinationDuplicates(scope, importId);
     return this.recalculate(scope, importId);
+  }
+
+  static async updateItemsBulk(scope: Scope, importId: number, input: BulkItemInput) {
+    const result = await prisma.$transaction(async tx => {
+      const batch = await tx.financial_imports.findFirst({ where: { id: importId, account_id: scope.accountId, user_id: scope.userId }, select: { id: true, status: true } });
+      if (!batch) throw new FinancialImportError('IMPORT_NOT_FOUND', 'Importação não encontrada.', 404);
+      if (batch.status !== 'review') throw new FinancialImportError('IMPORT_LOCKED', 'Esta importação não pode mais ser alterada.', 409);
+      const items = await tx.financial_import_items.findMany({ where: { import_id: importId, id: { in: input.item_ids } }, select: { id: true } });
+      if (items.length !== input.item_ids.length) throw new FinancialImportError('ITEM_NOT_FOUND', 'Um ou mais lançamentos não pertencem a esta importação.', 404);
+
+      await assertEntity(tx, input.changes.entity_id, scope.accountId);
+      await assertCategory(tx, input.changes.category_id, scope.accountId);
+      await tx.financial_import_items.updateMany({ where: { import_id: importId, id: { in: input.item_ids } }, data: { ...input.changes, exclusion_reason: input.changes.included === false ? 'manual' : input.changes.included === true ? null : undefined, edited_by_user_id: scope.userId } });
+
+      const updated = await tx.financial_imports.findFirst({ where: { id: importId, account_id: scope.accountId, user_id: scope.userId }, include: detailInclude });
+      if (!updated) throw new FinancialImportError('IMPORT_NOT_FOUND', 'Importação não encontrada.', 404);
+      const totals = reconciliation(updated.items, updated.document_total);
+      await tx.financial_imports.update({ where: { id: importId }, data: { selected_expense_total: totals.expenseTotal, selected_income_total: totals.incomeTotal, selected_total: totals.selectedTotal, reconciliation_difference: totals.difference } });
+      await audit(scope, 'financial_import.items_bulk_updated', importId, 'success', { itemCount: input.item_ids.length, fields: Object.keys(input.changes) }, tx);
+      return { ...updated, selected_expense_total: totals.expenseTotal, selected_income_total: totals.incomeTotal, selected_total: totals.selectedTotal, reconciliation_difference: totals.difference, reconciliation: totals };
+    });
+    if (input.changes.entity_id !== undefined) {
+      await this.recheckDestinationDuplicates(scope, importId);
+      return this.recalculate(scope, importId);
+    }
+    return result;
   }
 
   static async addItem(scope: Scope, importId: number, input: any) {
     const batch = await this.get(scope, importId); if (batch.status !== 'review') throw new FinancialImportError('IMPORT_LOCKED', 'Esta importação não pode mais ser alterada.', 409);
     await assertEntity(prisma, input.entity_id, scope.accountId); await assertCategory(prisma, input.category_id, scope.accountId);
-    const max = Math.max(0, ...batch.items.map(i => i.row_index)); const date = new Date(`${input.transaction_date}T00:00:00.000Z`);
-    await prisma.financial_import_items.create({ data: { import_id: importId, edited_by_user_id: scope.userId, row_index: max + 1, included: true, transaction_date: date, original_description: input.description, description: input.description, amount: input.amount, type: input.type, category_id: input.category_id, entity_id: input.entity_id ?? batch.target_entity_id, payment_method: input.payment_method, item_kind: 'unknown', confidence: 1, requires_review: false, fingerprint: itemFingerprint(date, input.amount, input.description, input.type) } });
+    const max = Math.max(0, ...batch.items.map((i: any) => i.row_index)); const date = parseDate(input.transaction_date);
+    await prisma.financial_import_items.create({ data: { import_id: importId, edited_by_user_id: scope.userId, row_index: max + 1, included: true, transaction_date: date, original_description: input.description, description: input.description, amount: input.amount, type: input.type, category_id: input.category_id, entity_id: input.entity_id ?? null, payment_method: input.payment_method, item_kind: 'unknown', confidence: 1, requires_review: false, fingerprint: itemFingerprint(date, input.amount, input.description, input.type) } });
+    await this.recheckDestinationDuplicates(scope, importId);
     return this.recalculate(scope, importId);
   }
 
@@ -184,7 +259,7 @@ export class FinancialImportService {
     return this.get(scope, id);
   }
 
-  static async confirm(scope: Scope, id: number, input: { allow_difference?: boolean; difference_reason?: string }) {
+  static async confirm(scope: Scope, id: number, input: { allow_difference?: boolean; allow_duplicates?: boolean; difference_reason?: string }) {
     try {
       return await prisma.$transaction(async tx => {
         const batch = await tx.financial_imports.findFirst({ where: { id, account_id: scope.accountId, user_id: scope.userId }, include: { items: true } });
@@ -197,6 +272,7 @@ export class FinancialImportService {
         if (!totals.selected) throw new FinancialImportError('NO_SELECTED_ITEMS', 'Selecione ao menos um lançamento para importar.');
         if (totals.difference != null && Math.abs(totals.difference) >= 0.01 && (!input.allow_difference || !input.difference_reason?.trim())) throw new FinancialImportError('RECONCILIATION_CONFIRMATION_REQUIRED', `A soma dos lançamentos selecionados não corresponde ao total identificado no documento. Diferença: R$ ${Math.abs(totals.difference).toFixed(2).replace('.', ',')}. Informe um motivo para continuar.`);
         const selected = batch.items.filter(i => i.included);
+        if (selected.some(i => i.duplicate_kind) && !input.allow_duplicates) throw new FinancialImportError('DUPLICATE_CONFIRMATION_REQUIRED', 'Há possíveis duplicidades selecionadas. Confirme explicitamente para importá-las.');
         for (const item of selected) {
           if (item.entity_id == null && batch.target_entity_id == null) throw new FinancialImportError('TARGET_REQUIRED', 'Selecione a conta ou o cartão que receberá os lançamentos.');
           await assertEntity(tx, item.entity_id ?? batch.target_entity_id, scope.accountId); await assertCategory(tx, item.category_id, scope.accountId);

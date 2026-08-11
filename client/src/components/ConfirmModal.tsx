@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { AlertCircle, X, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -12,6 +12,8 @@ interface ConfirmModalProps {
   cancelLabel?: string;
   isLoading?: boolean;
   type?: 'danger' | 'warning' | 'info';
+  children?: React.ReactNode;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmModal({
@@ -23,8 +25,37 @@ export function ConfirmModal({
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
   isLoading = false,
-  type = 'warning'
+  type = 'warning',
+  children,
+  confirmDisabled = false
 }: ConfirmModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
+    requestAnimationFrame(() => focusable()[0]?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isLoading) {
+        event.preventDefault();
+        onCloseRef.current();
+      } else if (event.key === 'Tab') {
+        const items = focusable();
+        if (!items.length) return;
+        const first = items[0]; const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); requestAnimationFrame(() => previousFocus?.focus()); };
+  }, [isOpen, isLoading]);
+
   if (!isOpen) return null;
 
   const typeStyles = {
@@ -49,7 +80,11 @@ export function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -58,10 +93,12 @@ export function ConfirmModal({
             <div className={clsx("p-2 rounded-lg", style.iconBg, style.iconColor)}>
               <AlertCircle size={20} />
             </div>
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white">{title}</h3>
+            <h3 id={titleId} className="text-lg font-bold text-gray-800 dark:text-white">{title}</h3>
           </div>
           <button 
             onClick={onClose}
+            disabled={isLoading}
+            aria-label="Fechar diálogo"
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 rounded-lg transition-colors"
           >
             <X size={20} />
@@ -72,6 +109,7 @@ export function ConfirmModal({
           <p className="text-gray-600 dark:text-slate-400">
             {message}
           </p>
+          {children ? <div className="mt-4">{children}</div> : null}
         </div>
 
         <div className="flex gap-3 p-4 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-slate-700">
@@ -84,7 +122,7 @@ export function ConfirmModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
             className={clsx(
               "flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 flex items-center justify-center gap-2",
               style.buttonBg
