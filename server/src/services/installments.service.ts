@@ -53,7 +53,7 @@ function closingDateForPurchase(purchaseDate: Date, closingDay: number): Date {
  * caia no ciclo de fatura correto. A data usada é um dia dentro do período da
  * fatura alvo, preservando (quando possível) o dia da compra original.
  */
-function dueDateForInstallment(
+export function installmentCycleDate(
   purchaseDate: Date,
   closingDay: number,
   installmentIndex: number
@@ -125,7 +125,7 @@ export async function createInstallmentPurchase(userId: number, input: CreateIns
     const transactions = [];
     for (let i = 0; i < installment_count; i++) {
       const installmentNumber = startInstallment + i;
-      const txDate = dueDateForInstallment(startDate, closingDay, i);
+      const txDate = installmentCycleDate(startDate, closingDay, i);
       // Parcela só é "paid" quando seu ciclo de fatura já passou; futuras ficam pendentes.
       const status = txDate.getTime() <= now.getTime() ? 'paid' : 'pending';
 

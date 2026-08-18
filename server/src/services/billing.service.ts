@@ -205,7 +205,7 @@ export async function getBillByOffset(cardId: number, userId: number, offset: nu
  * Retorna os itens de uma fatura: transações reais no período + recorrências
  * projetadas (ainda não materializadas). Centraliza a composição da fatura.
  */
-async function getBillItems(cardId: number, userId: number, period: BillPeriod) {
+export async function getBillItems(cardId: number, userId: number, period: BillPeriod) {
   const periodEndForQuery = endOfDayUTC(period.periodEnd);
   const transactions = await prisma.transactions.findMany({
     where: {

@@ -461,6 +461,12 @@ describe('12. Agent — validações', () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe('13. Edge cases transversais', () => {
+  it('aceita ID real ou virtual na exclusão de transações', () => {
+    expect(accepts(financeSchemas.deleteParams, { id: '42' })).toBe(true);
+    expect(accepts(financeSchemas.deleteParams, { id: 'rec-42-1786939200000' })).toBe(true);
+    expect(accepts(financeSchemas.deleteParams, { id: 'rec-invalido' })).toBe(false);
+  });
+
   it('payload vazio é rejeitado em todos os schemas de create', () => {
     expect(accepts(authSchemas.login, {})).toBe(false);
     expect(accepts(financeSchemas.create, {})).toBe(false);

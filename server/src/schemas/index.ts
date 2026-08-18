@@ -175,6 +175,14 @@ export const authSchemas = {
 // ── Finance / Transactions ───────────────────────────────────────
 
 export const financeSchemas = {
+  /** A exclusão também aceita IDs virtuais gerados para ocorrências recorrentes. */
+  deleteParams: z.object({
+    id: z.union([
+      positiveInt,
+      z.string().regex(/^rec-\d+-\d+$/),
+    ]),
+  }),
+
   create: z.object({
     amount: monetary,
     type: transactionTypeEnum,

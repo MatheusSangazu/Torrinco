@@ -565,8 +565,10 @@ export class FinanceController {
       const { cardId } = req.params;
       const userId = req.userId!;
       const result = await billing.getBillByOffset(Number(cardId), userId, 1);
-      if (!result.bill) return res.status(404).json({ error: 'Bill not found for this period' });
-      const details = await billing.getBillDetails(result.bill.id, userId);
+      const computed = await billing.getBillItems(Number(cardId), userId, result.period);
+      const details = result.bill
+        ? await billing.getBillDetails(result.bill.id, userId)
+        : null;
       res.json({
         card: {
           id: result.card.id,
@@ -581,9 +583,13 @@ export class FinanceController {
           endDate: result.period.periodEnd,
           closingDate: result.period.closingDate,
           dueDate: result.period.dueDate,
-          totalExpenses: details.bill.total_amount,
-          transactionCount: details.bill.items.length,
-          transactions: details.bill.items
+          totalExpenses: details?.bill.total_amount ?? computed.total,
+          transactionCount: details?.bill.items.length ?? computed.items.length,
+          transactions: details?.bill.items ?? computed.items,
+          status: result.bill?.status ?? 'open',
+          isPaid: result.bill?.status === 'paid',
+          paymentId: result.bill?.payment_transaction_id ?? undefined,
+          billId: result.bill?.id
         }
       });
     } catch (error: any) {

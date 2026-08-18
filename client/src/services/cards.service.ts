@@ -63,7 +63,7 @@ export const cardsService = {
   // --- Faturas (via billing.service no backend) ---
 
   getBill: async (cardId: number) => {
-    const response = await api.get(`/cards/${cardId}/bill`);
+    const response = await api.get(`/finance/cards/${cardId}/bill`);
     return response.data;
   },
 

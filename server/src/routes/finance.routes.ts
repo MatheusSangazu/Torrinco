@@ -17,7 +17,7 @@ router.post('/transactions', validate({ body: financeSchemas.create }), FinanceC
 router.get('/transactions', validate({ query: commonSchemas.transactionListQuery }), FinanceController.list);
 router.get('/transactions/:id', validate({ params: commonSchemas.idParams }), FinanceController.getById);
 router.put('/transactions/:id', validate({ params: commonSchemas.idParams, body: financeSchemas.update }), FinanceController.update);
-router.delete('/transactions/:id', validate({ params: commonSchemas.idParams, query: financeSchemas.deleteQuery }), FinanceController.delete);
+router.delete('/transactions/:id', validate({ params: financeSchemas.deleteParams, query: financeSchemas.deleteQuery }), FinanceController.delete);
 router.get('/cards/:cardId/bill', validate({ params: commonSchemas.cardIdParams }), FinanceController.getCardBill);
 router.get('/cards/:cardId/next-bill', validate({ params: commonSchemas.cardIdParams }), FinanceController.getCardNextBill);
 router.get('/cards/:cardId/previous-bill', validate({ params: commonSchemas.cardIdParams }), FinanceController.getCardPreviousBill);

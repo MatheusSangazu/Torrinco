@@ -14,7 +14,11 @@ import { getDashboardRequestParams, settleDashboardWidgets } from '../lib/dashbo
 type WidgetStatus = 'loading' | 'loaded' | 'empty' | 'error' | 'unavailable';
 type WidgetKey = 'summary' | 'transactions' | 'recurring' | 'calendar' | 'forecast' | 'currentForecast' | 'chart' | 'reminders';
 const initialWidgetStatus: Record<WidgetKey, WidgetStatus> = { summary: 'loading', transactions: 'loading', recurring: 'loading', calendar: 'loading', forecast: 'loading', currentForecast: 'loading', chart: 'loading', reminders: 'loading' };
-const civilDateShort=(value:string|Date)=>formatLocalDateShort(value instanceof Date?formatLocalDate(value):localDateFromApi(value));
+const civilDateShort=(value?:string|Date|null)=>{
+  if(!value)return 'Data não informada';
+  try{return formatLocalDateShort(value instanceof Date?formatLocalDate(value):localDateFromApi(value));}
+  catch{return 'Data não informada';}
+};
 
 function WidgetFeedback({ status, error, empty, unavailable, retry }: { status: WidgetStatus; error: string; empty?: string; unavailable?: string; retry: () => void }) {
   if (status === 'loading') return <div className="flex items-center gap-2 py-4 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Carregando…</div>;
@@ -41,13 +45,13 @@ interface Forecast {
       recurring_income: Array<{
         description: string;
         amount: number;
-        next_due_date: string;
+        next_due_date?: string;
         transaction_date?: string;
       }>;
       recurring_expenses: Array<{
         description: string;
         amount: number;
-        next_due_date: string;
+        next_due_date?: string;
         transaction_date?: string;
         installment_number?: number;
       }>;
@@ -798,7 +802,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                {civilDateShort(item.next_due_date)}
+                                {civilDateShort(item.next_due_date || item.transaction_date)}
                               </p>
                             </div>
                           </div>
@@ -852,7 +856,7 @@ export function Dashboard() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{item.description}</p>
                               <p className="text-xs text-gray-500 dark:text-slate-400">
-                                {civilDateShort(item.next_due_date)}
+                                {civilDateShort(item.next_due_date || item.transaction_date)}
                               </p>
                             </div>
                           </div>

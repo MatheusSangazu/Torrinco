@@ -332,6 +332,7 @@ export function Cards() {
     setBillModalType(type);
     setBillModalCard(card);
     setBillModalOpen(true);
+    setBillDetails(null);
     setLoadingBillDetails(true);
     
     try {
