@@ -5,6 +5,7 @@ import { cardsService, type CreditCard, type CreateCardDTO } from '../services/c
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { Input } from '../components/Input';
+import { Checkbox } from '../components/Checkbox';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { formatLocalDate, formatLocalDateLong, formatLocalDateShort, localDateFromApi } from '../lib/local-date';
 
@@ -718,18 +719,7 @@ export function Cards() {
               </div>
 
               <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.due_reminder_enabled ?? false}
-                    onChange={(e) => setFormData({ ...formData, due_reminder_enabled: e.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-torrinco-600 focus:ring-torrinco-500"
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-gray-700 dark:text-slate-200">Perguntar no vencimento pelo WhatsApp</span>
-                    <span className="block text-xs text-gray-500 dark:text-slate-400">O agente perguntará se a fatura foi paga. A resposta pode informar pagamento total, parcial ou pendente.</span>
-                  </span>
-                </label>
+                <Checkbox checked={formData.due_reminder_enabled ?? false} onCheckedChange={(checked) => setFormData({ ...formData, due_reminder_enabled: checked })} label="Perguntar no vencimento pelo WhatsApp" description="O agente perguntará se a fatura foi paga. A resposta pode informar pagamento total, parcial ou pendente." />
                 {formData.due_reminder_enabled && (
                   <Input
                     label="Horário do lembrete"

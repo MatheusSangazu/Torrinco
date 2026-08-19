@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, ArrowUpCircle, ArrowDownCircle, Calendar as 
 import { api } from '../services/api';
 import { clsx } from 'clsx';
 import { Input } from '../components/Input';
+import { DatePicker } from '../components/DatePicker';
 import toast from 'react-hot-toast';
 import {
   formatLocalDate,
@@ -499,12 +500,11 @@ export function Calendar() {
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
               />
 
-              <Input
+              <DatePicker
                 label="Data"
-                type="date"
                 required
                 value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                onChange={(date) => setFormData({...formData, date})}
               />
 
               <div>

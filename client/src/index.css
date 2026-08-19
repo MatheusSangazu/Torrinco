@@ -46,3 +46,24 @@
     @apply bg-dark-card border-slate-700 text-dark-text;
   }
 }
+
+/* O Safari no iOS amplia automaticamente a página ao focar controles com
+   fonte menor que 16px. Mantemos 1rem no mobile sem bloquear o zoom manual. */
+@media (max-width: 767px) {
+  :where(input, select, textarea) {
+    font-size: 1rem !important;
+  }
+}
+
+.torrinco-date-picker {
+  --rdp-day-width: 2rem;
+  --rdp-day-height: 2rem;
+  --rdp-day_button-width: 2rem;
+  --rdp-day_button-height: 2rem;
+  --rdp-nav_button-width: 2rem;
+  --rdp-nav_button-height: 2rem;
+  --rdp-month_caption-height: 2.25rem;
+  margin: 0 auto;
+  max-width: 100%;
+  font-size: 0.8125rem;
+}

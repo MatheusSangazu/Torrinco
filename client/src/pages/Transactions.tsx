@@ -9,6 +9,7 @@ import { CustomSelect } from '../components/CustomSelect';
 import { CategorySelect } from '../components/CategorySelect';
 import { Input } from '../components/Input';
 import { DatePicker } from '../components/DatePicker';
+import { Checkbox } from '../components/Checkbox';
 import { DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '../lib/api-error';
@@ -593,12 +594,12 @@ export function Transactions() {
                 selectedTransactions.has(transaction.id) && "bg-blue-50 dark:bg-blue-900/10"
               )}>
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <input
-                    type="checkbox"
+                  <Checkbox
+                    aria-label={`Selecionar ${transaction.description}`}
                     checked={selectedTransactions.has(transaction.id)}
-                    onChange={() => toggleTransactionSelection(transaction.id)}
+                    onCheckedChange={() => toggleTransactionSelection(transaction.id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-4 h-4 sm:w-5 sm:h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500 cursor-pointer shrink-0"
+                    containerClassName="shrink-0"
                   />
                   <div className={clsx(
                     "p-2 sm:p-3 rounded-xl shrink-0",
@@ -870,20 +871,14 @@ export function Transactions() {
                   )}
 
                   {!formData.isRecurring && (
-                    <div className="flex items-center gap-2 mt-3 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
-                      <input
-                        type="checkbox"
+                    <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-slate-700 dark:bg-slate-700/30">
+                      <Checkbox
                         id="isInstallment"
                         checked={formData.isInstallment}
-                        onChange={(e) => setFormData({...formData, isInstallment: e.target.checked, isRecurring: false})}
-                        className="w-5 h-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                        onCheckedChange={(checked) => setFormData({...formData, isInstallment: checked, isRecurring: false})}
+                        label="É uma compra parcelada?"
+                        description="Parcele suas compras no cartão de crédito"
                       />
-                      <label htmlFor="isInstallment" className="text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer select-none">
-                        É uma compra parcelada?
-                        <span className="block text-xs text-gray-500 font-normal">
-                          Parcele suas compras no cartão de crédito
-                        </span>
-                      </label>
                     </div>
                   )}
 
@@ -917,37 +912,27 @@ export function Transactions() {
               {/* Recurring Toggle - Show only if not installment */}
               {!formData.isInstallment && (
                 <div className="space-y-3 mb-4">
-                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-700/30 p-3 rounded-xl border border-gray-100 dark:border-slate-700">
-                    <input
-                      type="checkbox"
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-slate-700 dark:bg-slate-700/30">
+                    <Checkbox
                       id="isRecurring"
                       checked={formData.isRecurring}
-                      onChange={(e) => setFormData({...formData, isRecurring: e.target.checked})}
-                      className="w-5 h-5 text-torrinco-600 rounded border-gray-300 focus:ring-torrinco-500"
+                      onCheckedChange={(checked) => setFormData({...formData, isRecurring: checked})}
+                      label="Esta é uma transação recorrente?"
+                      description={formData.type === 'income' ? 'Ex: Salário, Aluguel recebido' : 'Ex: Assinatura, Aluguel, Conta de Luz'}
                     />
-                    <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer select-none">
-                      Esta é uma transação recorrente?
-                      <span className="block text-xs text-gray-500 font-normal">
-                        {formData.type === 'income' ? 'Ex: Salário, Aluguel recebido' : 'Ex: Assinatura, Aluguel, Conta de Luz'}
-                      </span>
-                    </label>
                   </div>
 
                   {(editingTransaction?.is_recurring || (typeof editingTransaction?.id === 'string' && editingTransaction?.id.startsWith('rec-'))) && (
-                    <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-100 dark:border-amber-800 animate-in slide-in-from-top-2 duration-300">
-                      <input
-                        type="checkbox"
+                    <div className="animate-in rounded-xl border border-amber-100 bg-amber-50 p-3 duration-300 slide-in-from-top-2 dark:border-amber-800 dark:bg-amber-900/20">
+                      <Checkbox
                         id="updateSeries"
                         checked={formData.updateSeries}
-                        onChange={(e) => setFormData({...formData, updateSeries: e.target.checked})}
-                        className="w-5 h-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                        onCheckedChange={(checked) => setFormData({...formData, updateSeries: checked})}
+                        containerClassName="text-amber-800 dark:text-amber-300"
+                        inputClassName="accent-amber-600 focus-visible:ring-amber-500"
+                        label="Atualizar toda a série futura?"
+                        description="Isso mudará todas as próximas ocorrências desta transação."
                       />
-                      <label htmlFor="updateSeries" className="text-sm font-medium text-amber-800 dark:text-amber-300 cursor-pointer select-none">
-                        Atualizar toda a série futura?
-                        <span className="block text-xs text-amber-600/70 dark:text-amber-400/70 font-normal">
-                          Isso mudará todas as próximas ocorrências desta transação.
-                        </span>
-                      </label>
                     </div>
                   )}
                 </div>

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { Phone, Lock, ArrowRight, Loader2, Eye, EyeOff, Key, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Checkbox } from '../components/Checkbox';
 
 type Step = 'phone' | 'code' | 'password';
 
@@ -215,7 +216,7 @@ export function FirstAccess() {
               </button>
             </div>
           </div>
-          <label className="flex items-start gap-3 rounded-xl border p-3 text-sm"><input type="checkbox" checked={acceptedLegal} onChange={e=>setAcceptedLegal(e.target.checked)} required className="mt-1"/><span>Li e aceito os <a href={`${legalBaseUrl}/legal/terms`} target="_blank" rel="noreferrer" className="font-semibold text-torrinco-700 underline">Termos de Serviço</a> e a <a href={`${legalBaseUrl}/legal/privacy`} target="_blank" rel="noreferrer" className="font-semibold text-torrinco-700 underline">Política de Privacidade</a>.</span></label>
+          <Checkbox checked={acceptedLegal} onCheckedChange={setAcceptedLegal} required containerClassName="w-full rounded-xl border border-gray-200 p-3 dark:border-slate-700" label={<span>Li e aceito os <a href={`${legalBaseUrl}/legal/terms`} target="_blank" rel="noreferrer" className="font-semibold text-torrinco-700 underline">Termos de Serviço</a> e a <a href={`${legalBaseUrl}/legal/privacy`} target="_blank" rel="noreferrer" className="font-semibold text-torrinco-700 underline">Política de Privacidade</a>.</span>} />
 
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
