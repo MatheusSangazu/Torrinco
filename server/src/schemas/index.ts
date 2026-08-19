@@ -280,6 +280,8 @@ export const cardSchemas = {
     limit: signedMonetary.optional(),
     closing_day: dayOfMonth,
     due_day: dayOfMonth,
+    due_reminder_enabled: z.boolean().optional(),
+    due_reminder_hour: z.number().int().min(0).max(23).optional(),
     color: optionalString(100),
   }),
 
@@ -288,6 +290,8 @@ export const cardSchemas = {
     limit: signedMonetary.optional(),
     closing_day: dayOfMonth.optional(),
     due_day: dayOfMonth.optional(),
+    due_reminder_enabled: z.boolean().optional(),
+    due_reminder_hour: z.number().int().min(0).max(23).optional(),
     color: optionalString(100),
   }),
 
@@ -298,6 +302,7 @@ export const cardSchemas = {
   payBill: z.object({
     payment_method: z.string().max(50).optional(),
     payment_date: dateString.optional(),
+    amount: monetary.optional(),
   }),
 };
 
@@ -504,6 +509,8 @@ export const agentSchemas = {
   payBill: z.object({
     card_name: boundedString(100),
     payment_method: z.string().max(50).optional(),
+    amount: monetary.optional(),
+    bill_id: positiveInt.optional(),
   }),
 
   undoBill: z.object({

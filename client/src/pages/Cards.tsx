@@ -31,7 +31,7 @@ interface Bill {
   due_date: Date;
   total_amount: number;
   item_count: number;
-  status: 'open' | 'closed' | 'paid';
+  status: 'open' | 'closed' | 'overdue' | 'partially_paid' | 'paid';
   bill_id: number | null;
   items: Transaction[];
 }
@@ -53,7 +53,9 @@ interface BillDetails {
     totalExpenses: number;
     transactionCount: number;
     transactions: Transaction[];
-    status: 'open' | 'closed' | 'paid';
+    status: 'open' | 'closed' | 'overdue' | 'partially_paid' | 'paid';
+    paidAmount?: number;
+    remainingAmount?: number;
     isPaid?: boolean;
     paymentId?: number;
     billId?: number;
@@ -94,10 +96,13 @@ export function Cards() {
     limit: 0,
     closing_day: undefined,
     due_day: undefined,
+    due_reminder_enabled: false,
+    due_reminder_hour: 9,
     color: 'from-purple-600 to-indigo-700'
   });
 
   const [paying, setPaying] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
 
   useEffect(() => {
@@ -114,7 +119,8 @@ export function Cards() {
     try {
       setPaying(true);
       await cardsService.payBill(billModalCard.id, billDetails.bill.billId, {
-        payment_method: 'pix'
+        payment_method: 'pix',
+        amount: paymentAmount ? Number(paymentAmount.replace(',', '.')) : undefined
       });
 
       toast.success('Pagamento da fatura registrado com sucesso!');
@@ -245,7 +251,7 @@ export function Cards() {
       }
       setIsModalOpen(false);
       setEditingCard(null);
-      setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined });
+      setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined, due_reminder_enabled: false, due_reminder_hour: 9 });
       fetchCards();
     } catch (error) {
       console.error('Erro ao salvar cartão:', error);
@@ -260,6 +266,8 @@ export function Cards() {
       limit: card.limit,
       closing_day: card.closingDay,
       due_day: card.dueDay,
+      due_reminder_enabled: card.dueReminderEnabled,
+      due_reminder_hour: card.dueReminderHour,
       color: card.color
     });
     setIsModalOpen(true);
@@ -345,6 +353,8 @@ export function Cards() {
         data = await cardsService.getPreviousBill(card.id) as BillDetails;
       }
       setBillDetails(data);
+      const remaining = data?.bill?.remainingAmount ?? data?.bill?.totalExpenses;
+      setPaymentAmount(remaining == null ? '' : String(remaining));
     } catch (error) {
       console.error('Erro ao carregar fatura:', error);
       toast.error('Erro ao carregar fatura');
@@ -357,6 +367,7 @@ export function Cards() {
     setBillModalOpen(false);
     setBillDetails(null);
     setBillModalCard(null);
+    setPaymentAmount('');
   };
 
   return (
@@ -369,7 +380,7 @@ export function Cards() {
         <div className="flex gap-2"><Link to="/imports" className="flex items-center gap-2 rounded-xl border border-torrinco-600 px-4 py-2 text-torrinco-600"><FileUp size={18}/><span className="hidden sm:inline">Importar fatura</span></Link><button
           onClick={() => {
             setEditingCard(null);
-            setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined, color: 'from-purple-600 to-indigo-700' });
+            setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined, due_reminder_enabled: false, due_reminder_hour: 9, color: 'from-purple-600 to-indigo-700' });
             setIsModalOpen(true);
           }}
           className="flex items-center gap-2 bg-torrinco-600 hover:bg-torrinco-700 text-white px-4 py-2 rounded-xl transition-colors"
@@ -391,7 +402,7 @@ export function Cards() {
           <button
             onClick={() => {
               setEditingCard(null);
-              setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined, color: 'from-purple-600 to-indigo-700' });
+              setFormData({ name: '', limit: 0, closing_day: undefined, due_day: undefined, due_reminder_enabled: false, due_reminder_hour: 9, color: 'from-purple-600 to-indigo-700' });
               setIsModalOpen(true);
             }}
             className="bg-torrinco-600 hover:bg-torrinco-700 text-white px-6 py-3 rounded-xl transition-colors inline-flex items-center gap-2"
@@ -649,7 +660,7 @@ export function Cards() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingCard ? 'Editar Cartão' : 'Novo Cartão'}
@@ -704,6 +715,35 @@ export function Cards() {
                   placeholder="1-31"
                   required
                 />
+              </div>
+
+              <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.due_reminder_enabled ?? false}
+                    onChange={(e) => setFormData({ ...formData, due_reminder_enabled: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-torrinco-600 focus:ring-torrinco-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-700 dark:text-slate-200">Perguntar no vencimento pelo WhatsApp</span>
+                    <span className="block text-xs text-gray-500 dark:text-slate-400">O agente perguntará se a fatura foi paga. A resposta pode informar pagamento total, parcial ou pendente.</span>
+                  </span>
+                </label>
+                {formData.due_reminder_enabled && (
+                  <Input
+                    label="Horário do lembrete"
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={formData.due_reminder_hour ?? 9}
+                    onChange={(e) => setFormData({ ...formData, due_reminder_hour: Number(e.target.value) })}
+                    required
+                  />
+                )}
+                {formData.due_reminder_enabled && (
+                  <p className="text-xs text-gray-500 dark:text-slate-400">Hora cheia, no horário de Fortaleza (0 a 23).</p>
+                )}
               </div>
 
               <div>
@@ -877,19 +917,25 @@ export function Cards() {
               >
                 Fechar
               </button>
-              {billModalType === 'current' && billDetails && billDetails.bill.totalExpenses > 0 && billDetails.bill.status !== 'paid' && (
-                <button
-                  onClick={handlePayBill}
-                  disabled={paying}
-                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {paying ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Check size={18} />
-                  )}
-                  Pagar Fatura
-                </button>
+              {billDetails?.bill.billId && billDetails.bill.totalExpenses > 0 && billDetails.bill.status !== 'paid' && (
+                <div className="flex-1 flex gap-2">
+                  <Input
+                    label="Valor pago"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={paymentAmount}
+                    onChange={(event) => setPaymentAmount(event.target.value)}
+                  />
+                  <button
+                    onClick={handlePayBill}
+                    disabled={paying || !paymentAmount || Number(paymentAmount) <= 0}
+                    className="self-end px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {paying ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                    Registrar pagamento
+                  </button>
+                </div>
               )}
               {billDetails?.bill.status === 'paid' && (
                 <div className="flex-1 flex gap-2">

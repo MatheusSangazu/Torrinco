@@ -83,7 +83,9 @@ Em produção, use `npm run test:schema`/`prisma migrate deploy`; não use `pris
 
 ### Variáveis de Ambiente
 
-Para desenvolvimento local, copie `server/.env.example` para `server/.env` e `client/.env.example` para `client/.env`. Esses arquivos são as listas oficiais de variáveis; não concentre segredos em um `.env` na raiz.
+Para desenvolvimento local, copie `server/.env.example` para `server/.env`. O cliente usa `/api` e o proxy do Vite por padrão; só crie `client/.env` quando precisar sobrescrever `VITE_API_URL`. Variáveis `VITE_*` pertencem ao cliente e não devem ficar em `server/.env`. Esses arquivos são as listas oficiais de variáveis; não concentre segredos em um `.env` na raiz.
+
+Ao reutilizar credenciais de produção localmente, mantenha `NODE_ENV=development` e inclua `http://localhost:5173` em `ALLOWED_ORIGINS`. O banco remoto também precisa aceitar conexões TCP vindas da máquina local.
 
 ## Deploy
 
@@ -230,6 +232,7 @@ Documentos operacionais principais:
 - [Backoffice da plataforma](./docs/platform-backoffice.md)
 - [Contrato temporal](./docs/TEMPORAL_CONTRACT.md)
 - [Contrato dos componentes de formulário](./docs/ui-component-contract.md)
+- [API de faturas e pagamentos de cartão](./docs/card-billing-api.md)
 
 ## Endpoints Principais
 

@@ -6,6 +6,7 @@ import { listEvents } from '../services/google/calendar.service.js';
 import { dayExecutionKey, markSchedulerStarted, minuteExecutionKey, runIdempotentJob } from '../services/job-runtime.service.js';
 import { enqueueReminder, processReminderQueue } from '../services/reminder-delivery.service.js';
 import { DEFAULT_ACCOUNT_TIMEZONE, isReminderDue, reminderOccurrenceKey } from '../lib/reminder-time.js';
+import { enqueueDueCardBillReminders } from '../services/card-bill-reminder.service.js';
 
 /**
  * Registro dos jobs agendados do servidor.
@@ -22,6 +23,7 @@ export function startScheduledJobs() {
     await runIdempotentJob('reminder_tick', key, async () => {
       await checkReminders();
       await checkCalendarEventReminders();
+      await enqueueDueCardBillReminders();
       return processReminderQueue();
     }).catch(() => undefined);
   });

@@ -58,6 +58,15 @@ O QUE VOCÊ PODE FAZER (use as ferramentas):
 - Criar, listar e excluir lembretes (disparados no WhatsApp no horário).
 - Gerenciar a agenda do Google: conectar, criar, listar e cancelar eventos.
 
+REGRAS PARA PAGAMENTOS DE FATURA:
+- Pagamento de fatura é quitação de dívida do cartão, não uma nova compra. Use pagar_fatura, nunca registrar_despesa, quando o usuário disser que pagou uma fatura.
+- Se o usuário informar um valor, envie exatamente esse valor no campo valor; nunca substitua pelo total da fatura.
+- Antes de pagar uma fatura ambígua, consulte a fatura/cartão. Se houver diferença entre o valor informado e o saldo, trate como pagamento parcial e informe o restante.
+- Se o usuário disser apenas que "pagou a fatura inteira", omita o campo valor para quitar o saldo pendente da fatura mais antiga.
+- Quando houver CONTEXTO DE LEMBRETE DE FATURA recente, respostas como "paguei tudo" ou "paguei R$ X" referem-se à fatura e ao bill_id desse contexto. Use esses dados ao chamar pagar_fatura.
+- Se a resposta ao lembrete for "ainda não", não registre pagamento; apenas confirme que a fatura continuará pendente.
+- Na virada do ciclo uma fatura fecha, mas nunca é marcada como paga automaticamente.
+
 REGRAS PARA EXCLUIR/EDITAR:
 - A EXCLUSÃO é gerenciada pelo backend: ao chamar excluir_transacao, o sistema cria uma ação pendente e retorna {pendente_confirmacao: true}. Você deve repassar o resumo e aguardar o usuário confirmar ("sim") ou cancelar ("não"). NÃO chame a ferramenta novamente ao confirmar.
 - Para editar, confirme o que será alterado antes de executar.
@@ -268,7 +277,25 @@ export async function processConversation(
   const now = new Date();
   const today = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-');
   const weekday = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long' });
-  const systemPrompt = SYSTEM_PROMPT.replace('{{TODAY}}', today).replace('{{WEEKDAY}}', weekday);
+  let systemPrompt = SYSTEM_PROMPT.replace('{{TODAY}}', today).replace('{{WEEKDAY}}', weekday);
+  const recentBillReminder = await prisma.reminder_deliveries?.findFirst?.({
+    where: {
+      user_id: userId,
+      source_type: 'card_bill_due',
+      status: 'sent',
+      sent_at: { gte: new Date(now.getTime() - 48 * 60 * 60_000) }
+    },
+    orderBy: { sent_at: 'desc' }
+  });
+  if (recentBillReminder) {
+    const remindedBill = await prisma.card_bills.findFirst({
+      where: { id: Number(recentBillReminder.source_id), user_id: userId },
+      include: { financial_entities: { select: { name: true } } }
+    });
+    if (remindedBill) {
+      systemPrompt += `\n\nCONTEXTO DE LEMBRETE DE FATURA RECENTE:\n- Cartão: ${remindedBill.financial_entities.name}\n- bill_id: ${remindedBill.id}\n- O agente perguntou hoje se esta fatura foi paga. Use este contexto somente se a mensagem atual parecer uma resposta a essa pergunta.`;
+    }
+  }
 
   try {
     // 1ª rodada: o modelo decide se precisa de tools.

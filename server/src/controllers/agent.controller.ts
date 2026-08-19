@@ -67,9 +67,15 @@ export class AgentController {
 
   static async payBill(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { card_name, payment_method } = req.body;
+      const { card_name, payment_method, amount, bill_id } = req.body;
       if (!card_name) return res.status(400).json({ error: 'card_name é obrigatório' });
-      const result = await agent.payCardBill(req.userId!, String(card_name), payment_method ?? 'pix');
+      const result = await agent.payCardBill(
+        req.userId!,
+        String(card_name),
+        payment_method ?? 'pix',
+        amount,
+        bill_id
+      );
       res.json(result);
     } catch (error: any) {
       res.status(error?.message?.startsWith('Cartão') ? 404 : 400).json({ error: error?.message });

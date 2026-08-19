@@ -265,7 +265,11 @@ export async function getBillItems(cardId: number, userId: number, period: BillP
 export async function getBillDetails(billId: number, userId: number) {
   const bill = await prisma.card_bills.findFirst({
     where: { id: billId, user_id: userId },
-    include: { financial_entities: true, transactions: true }
+    include: {
+      financial_entities: true,
+      transactions: true,
+      payments: { where: { reversed_at: null }, orderBy: { paid_at: 'asc' } }
+    }
   });
   if (!bill) throw new Error('BILL_NOT_FOUND');
 
@@ -277,6 +281,8 @@ export async function getBillDetails(billId: number, userId: number) {
   };
 
   const { items, total } = await getBillItems(bill.card_id, userId, period);
+  const paidAmount = bill.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const remainingAmount = Math.max(0, total - paidAmount);
 
   return {
     bill: {
@@ -290,6 +296,14 @@ export async function getBillDetails(billId: number, userId: number) {
       paid_at: bill.paid_at,
       closed_at: bill.closed_at,
       total_amount: total,
+      paid_amount: paidAmount,
+      remaining_amount: remainingAmount,
+      payments: bill.payments.map(payment => ({
+        id: payment.id,
+        amount: Number(payment.amount),
+        paid_at: payment.paid_at,
+        transaction_id: payment.transaction_id
+      })),
       items
     },
     card: bill.financial_entities
@@ -318,7 +332,8 @@ export async function registerPayment(
   billId: number,
   userId: number,
   paymentMethod: string = 'pix',
-  paymentDate?: Date
+  paymentDate?: Date,
+  requestedAmount?: number
 ) {
   const bill = await prisma.card_bills.findFirst({
     where: { id: billId, user_id: userId },
@@ -333,6 +348,15 @@ export async function registerPayment(
     closingDate: bill.closing_date,
     dueDate: bill.due_date
   });
+  const activePayments = await prisma.card_bill_payments.aggregate({
+    where: { bill_id: billId, user_id: userId, reversed_at: null },
+    _sum: { amount: true }
+  });
+  const alreadyPaid = Number(activePayments._sum.amount ?? 0);
+  const remainingBeforePayment = Math.max(0, total - alreadyPaid);
+  const amount = requestedAmount ?? remainingBeforePayment;
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('INVALID_PAYMENT_AMOUNT');
+  if (amount > remainingBeforePayment + 0.005) throw new Error('PAYMENT_EXCEEDS_REMAINING');
 
   const user = await prisma.users.findUnique({ where: { id: userId } });
   if (!user) throw new Error('USER_NOT_FOUND');
@@ -344,7 +368,7 @@ export async function registerPayment(
       data: {
         account_id: user.account_id,
         user_id: userId,
-        amount: total,
+        amount,
         type: 'expense',
         status: 'paid',
         category: 'Pagamento de Cartão',
@@ -356,14 +380,33 @@ export async function registerPayment(
       }
     });
 
-    return tx.card_bills.update({
-      where: { id: billId },
+    await tx.card_bill_payments.create({
       data: {
-        status: 'paid',
-        payment_transaction_id: payment.id,
+        bill_id: billId,
+        user_id: userId,
+        transaction_id: payment.id,
+        amount,
         paid_at: date
       }
     });
+
+    const paidAmount = alreadyPaid + amount;
+    const fullyPaid = paidAmount + 0.005 >= total;
+    const updatedBill = await tx.card_bills.update({
+      where: { id: billId },
+      data: {
+        status: fullyPaid ? 'paid' : 'partially_paid',
+        payment_transaction_id: fullyPaid ? payment.id : null,
+        paid_at: fullyPaid ? date : null
+      }
+    });
+    return {
+      ...updatedBill,
+      total_amount: total,
+      paid_amount: paidAmount,
+      remaining_amount: Math.max(0, total - paidAmount),
+      payment_id: payment.id
+    };
   });
 }
 
@@ -371,28 +414,47 @@ export async function registerPayment(
  * Desfaz o pagamento de uma fatura: soft-delete da transação vinculada e
  * restauração do status (via FK, não por string matching).
  */
-export async function undoPayment(billId: number, userId: number) {
+export async function undoPayment(billId: number, userId: number, paymentId?: number) {
   const bill = await prisma.card_bills.findFirst({
     where: { id: billId, user_id: userId },
-    include: { transactions: true }
+    include: {
+      payments: {
+        where: { reversed_at: null, ...(paymentId ? { id: paymentId } : {}) },
+        orderBy: { paid_at: 'desc' },
+        take: 1
+      }
+    }
   });
   if (!bill) throw new Error('BILL_NOT_FOUND');
-  if (bill.status !== 'paid' || !bill.payment_transaction_id) throw new Error('BILL_NOT_PAID');
+  const payment = bill.payments[0];
+  if (!payment) throw new Error('BILL_NOT_PAID');
 
   const now = new Date();
-  // status restaurado: se a fatura já fechou → closed, senão → open
-  const restoredStatus = asDateOnlyUTC(now).getTime() > bill.period_end.getTime() ? 'closed' : 'open';
-
   return prisma.$transaction(async (tx) => {
     await tx.transactions.update({
-      where: { id: bill.payment_transaction_id! },
+      where: { id: payment.transaction_id },
       data: { deleted_at: now }
     });
+
+    await tx.card_bill_payments.update({
+      where: { id: payment.id },
+      data: { reversed_at: now }
+    });
+
+    const remainingPayments = await tx.card_bill_payments.aggregate({
+      where: { bill_id: billId, reversed_at: null },
+      _sum: { amount: true }
+    });
+    const stillPaid = Number(remainingPayments._sum.amount ?? 0);
+    const baseStatus = stillPaid > 0
+      ? 'partially_paid'
+      : (asDateOnlyUTC(now).getTime() > bill.due_date.getTime() ? 'overdue'
+        : asDateOnlyUTC(now).getTime() > bill.period_end.getTime() ? 'closed' : 'open');
 
     return tx.card_bills.update({
       where: { id: billId },
       data: {
-        status: restoredStatus,
+        status: baseStatus,
         payment_transaction_id: null,
         paid_at: null
       }
@@ -465,6 +527,16 @@ export async function syncBillCycle(cardId: number, userId: number) {
       period_end: { lt: today }
     },
     data: { status: 'closed', closed_at: new Date() }
+  });
+
+  await prisma.card_bills.updateMany({
+    where: {
+      card_id: cardId,
+      user_id: userId,
+      status: { in: ['closed', 'partially_paid'] },
+      due_date: { lt: today }
+    },
+    data: { status: 'overdue' }
   });
 
   return bill;

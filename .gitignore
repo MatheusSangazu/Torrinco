@@ -38,6 +38,9 @@ pnpm-debug.log*
 
 # Docs (Local only)
 docs/
+!docs/
+docs/*
+!docs/card-billing-api.md
 
 # Ferramentas / binários de terceiros (não devem ser versionados)
 ngrok.exe

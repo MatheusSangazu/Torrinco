@@ -48,6 +48,8 @@ export class CardsController {
           availableLimit: Number(card.credit_limit || 0) - total,
           closingDay: card.closing_day,
           dueDay: card.due_day,
+          dueReminderEnabled: card.due_reminder_enabled,
+          dueReminderHour: card.due_reminder_hour,
           periodStart: bill.period_start,
           periodEnd: bill.period_end,
           closingDate: bill.closing_date,
@@ -74,7 +76,7 @@ export class CardsController {
    */
   static async create(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { name, limit, closing_day, due_day, color } = req.body;
+      const { name, limit, closing_day, due_day, due_reminder_enabled, due_reminder_hour, color } = req.body;
       const userId = req.userId!;
       const accountId = req.accountId!;
 
@@ -104,6 +106,8 @@ export class CardsController {
           credit_limit: limit ? parseFloat(limit) : 0,
           closing_day: cd,
           due_day: dd,
+          due_reminder_enabled: due_reminder_enabled ?? false,
+          due_reminder_hour: due_reminder_hour ?? 9,
           color: color || 'from-purple-600 to-indigo-700',
           // balance é usado para saldo inicial ou acumulado, vamos iniciar com 0
           balance: 0
@@ -122,7 +126,7 @@ export class CardsController {
   static async update(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { name, limit, closing_day, due_day, color } = req.body;
+      const { name, limit, closing_day, due_day, due_reminder_enabled, due_reminder_hour, color } = req.body;
       const accountId = req.accountId!;
 
       // Validar se vieram no update — não pode limpar pra null nem inventar.
@@ -146,6 +150,8 @@ export class CardsController {
           credit_limit: limit !== undefined ? (limit ? parseFloat(limit) : 0) : undefined,
           closing_day: closing_day !== undefined ? Number(closing_day) : undefined,
           due_day: due_day !== undefined ? Number(due_day) : undefined,
+          due_reminder_enabled,
+          due_reminder_hour,
           color: color !== undefined ? color : undefined
         }
       });
@@ -246,10 +252,10 @@ export class CardsController {
   static async payBill(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { billId } = req.params;
-      const { payment_method, payment_date } = req.body;
+      const { payment_method, payment_date, amount } = req.body;
       const userId = req.userId!;
       const paidAt = payment_date ? new Date(payment_date) : undefined;
-      const bill = await billing.registerPayment(Number(billId), userId, payment_method ?? 'pix', paidAt);
+      const bill = await billing.registerPayment(Number(billId), userId, payment_method ?? 'pix', paidAt, amount);
       res.json({ bill });
     } catch (error: any) {
       res.status(billingErrorStatus(error?.message)).json({ error: error?.message });

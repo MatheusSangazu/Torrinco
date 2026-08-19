@@ -234,6 +234,8 @@ model financial_entities {
   credit_limit           Decimal?                 @default(0.00) @db.Decimal(10, 2)
   closing_day            Int?
   due_day                Int?
+  due_reminder_enabled   Boolean                  @default(false)
+  due_reminder_hour      Int                      @default(9)
   color                  String?                  @default("from-purple-600 to-indigo-700") @db.VarChar(50)
   created_at             DateTime?                @default(now()) @db.Timestamp(0)
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "financial_entities_account_fk")
@@ -279,10 +281,30 @@ model card_bills {
   financial_entities     financial_entities @relation(fields: [card_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_card_fk")
   users                  users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "card_bills_user_fk")
   transactions           transactions?      @relation("card_bill_payment", fields: [payment_transaction_id], references: [id], onUpdate: NoAction, map: "card_bills_payment_fk")
+  payments               card_bill_payments[]
 
   @@unique([card_id, period_start], map: "unique_card_period")
   @@index([card_id], map: "card_bills_card_idx")
   @@index([user_id], map: "card_bills_user_idx")
+}
+
+/// Pagamentos reais conciliados com uma fatura. Uma fatura pode receber vários
+/// pagamentos e só é quitada quando a soma ativa alcança o total calculado.
+model card_bill_payments {
+  id             Int          @id @default(autoincrement())
+  bill_id        Int
+  user_id        Int
+  transaction_id Int          @unique
+  amount         Decimal      @db.Decimal(10, 2)
+  paid_at        DateTime     @db.DateTime(3)
+  created_at     DateTime     @default(now()) @db.DateTime(3)
+  reversed_at    DateTime?    @db.DateTime(3)
+  card_bills     card_bills   @relation(fields: [bill_id], references: [id], onDelete: Cascade, map: "card_bill_payments_bill_fk")
+  users          users        @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "card_bill_payments_user_fk")
+  transactions   transactions @relation(fields: [transaction_id], references: [id], onDelete: Restrict, map: "card_bill_payments_transaction_fk")
+
+  @@index([bill_id, reversed_at], map: "card_bill_payments_bill_idx")
+  @@index([user_id, paid_at], map: "card_bill_payments_user_idx")
 }
 
 model recurring_events {
@@ -414,6 +436,7 @@ model transactions {
   purchase_installments    purchase_installments?  @relation(fields: [installment_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "transactions_installment_fk")
   recurring_transactions   recurring_transactions? @relation("transactions_recurring_fk", fields: [recurring_transaction_id], references: [id])
   card_bill_paid           card_bills?             @relation("card_bill_payment")
+  card_bill_payment        card_bill_payments?
   financial_import_item    financial_import_items?
 
   @@unique([recurring_transaction_id, recurring_occurrence_at], map: "transactions_recurring_occurrence_uq")
@@ -601,6 +624,7 @@ model users {
   purchase_installments  purchase_installments[]
   transactions           transactions[]
   card_bills             card_bills[]
+  card_bill_payments     card_bill_payments[]
   legal_consents         legal_consents[]
   data_subject_requests  data_subject_requests[]
   accounts               accounts                 @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_ibfk_1")
@@ -775,6 +799,8 @@ model financial_import_items {
 enum card_bills_status {
   open
   closed
+  overdue
+  partially_paid
   paid
 }
 

@@ -136,17 +136,25 @@ export const TOOLS: ToolDefinition[] = [
       type: 'function',
       function: {
         name: 'pagar_fatura',
-        description: 'Registra o pagamento da fatura atual de um cartão de crédito. Use quando o usuário disser que pagou a fatura de um cartão.',
+        description: 'Registra pagamento total ou parcial de uma fatura pendente. Use o valor exato dito pelo usuário; se ausente, quita o saldo da fatura pendente mais antiga.',
         parameters: {
           type: 'object',
           properties: {
-            cartao: { type: 'string', description: 'Nome do cartão. Ex: "Nubank".' }
+            cartao: { type: 'string', description: 'Nome do cartão. Ex: "Nubank".' },
+            valor: { type: 'number', description: 'Valor efetivamente pago. Omitir somente quando o usuário disser que quitou/pagou a fatura inteira.' },
+            fatura_id: { type: 'number', description: 'ID da fatura, quando obtido por uma consulta anterior.' }
           },
           required: ['cartao']
         }
       }
     },
-    execute: (userId, args) => agent.payCardBill(userId, String(args.cartao))
+    execute: (userId, args) => agent.payCardBill(
+      userId,
+      String(args.cartao),
+      'pix',
+      args.valor === undefined ? undefined : Number(args.valor),
+      args.fatura_id === undefined ? undefined : Number(args.fatura_id)
+    )
   },
 
   {

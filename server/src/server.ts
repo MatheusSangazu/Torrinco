@@ -39,22 +39,31 @@ const trustProxyHops = configureTrustProxy(app);
 const PORT = process.env.PORT || 3001;
 
 // --- Middlewares Globais ---
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+const defaultAllowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
   'https://torrinco.forjacorp.com',
   'http://torrinco.forjacorp.com',
   'https://apitorrinco.forjacorp.com',
   'http://apitorrinco.forjacorp.com'
 ];
+const configuredOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map(origin => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+const allowedOrigins = new Set(configuredOrigins.length > 0 ? configuredOrigins : defaultAllowedOrigins);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.has(normalizedOrigin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`[cors] Origin recusada: ${normalizedOrigin}`);
+      callback(new Error(`Origin não permitida pelo CORS: ${normalizedOrigin}`));
     }
   },
   credentials: true

@@ -9,9 +9,11 @@ export interface CreditCard {
   availableLimit: number;
   closingDay: number;
   dueDay: number;
+  dueReminderEnabled: boolean;
+  dueReminderHour: number;
   closingDate: Date;
   dueDate: Date;
-  status: 'open' | 'closed' | 'paid';
+  status: 'open' | 'closed' | 'overdue' | 'partially_paid' | 'paid';
   isPaid?: boolean;
   paymentId?: number;
   billId?: number;
@@ -24,6 +26,8 @@ export interface CreateCardDTO {
   limit?: number;
   closing_day?: number;
   due_day?: number;
+  due_reminder_enabled?: boolean;
+  due_reminder_hour?: number;
   color?: string;
 }
 
@@ -32,12 +36,15 @@ export interface UpdateCardDTO {
   limit?: number;
   closing_day?: number;
   due_day?: number;
+  due_reminder_enabled?: boolean;
+  due_reminder_hour?: number;
   color?: string;
 }
 
 export interface PayBillDTO {
   payment_method?: string;
   payment_date?: string;
+  amount?: number;
 }
 
 export const cardsService = {

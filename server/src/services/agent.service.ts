@@ -366,17 +366,30 @@ export async function getCardBill(userId: number, cardName: string) {
 }
 
 /** Paga a fatura atual de um cartão (por nome). */
-export async function payCardBill(userId: number, cardName: string, paymentMethod: string = 'pix') {
+export async function payCardBill(
+  userId: number,
+  cardName: string,
+  paymentMethod: string = 'pix',
+  amount?: number,
+  billId?: number
+) {
   const r = await resolveCardOrAmbiguity(userId, cardName);
   if ('erro' in r) return r;
   if ('ambiguo' in r) return r;
-  const { bill } = await getOrCreateCurrentBill(r.id, userId);
-  const result = await registerPayment(bill.id, userId, paymentMethod);
+  await getOrCreateCurrentBill(r.id, userId);
+  const bill = billId
+    ? await prisma.card_bills.findFirst({ where: { id: billId, card_id: r.id, user_id: userId } })
+    : await prisma.card_bills.findFirst({
+        where: { card_id: r.id, user_id: userId, status: { not: 'paid' } },
+        orderBy: { due_date: 'asc' }
+      });
+  if (!bill) return { erro: `Não encontrei fatura pendente para o cartão "${cardName}".` };
+  const result = await registerPayment(bill.id, userId, paymentMethod, undefined, amount);
   auditLog({
     actor: { kind: 'user', id: userId },
     action: 'bill.pay',
     target: { type: 'card_bill', id: bill.id },
-    meta: { card: cardName, payment_method: paymentMethod }
+    meta: { card: cardName, payment_method: paymentMethod, amount, bill_id: bill.id }
   });
   return result;
 }

@@ -34,7 +34,8 @@ Bem-vindo à documentação do backend do projeto **Torrinco**. Esta é uma API 
    JWT_SECRET="sua_chave_secreta_jwt"
    JWT_EXPIRES_IN="7d"
    PORT=3001
-   ALLOWED_ORIGINS="https://torrinco.forjacorp.com"
+   NODE_ENV="development"
+   ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173,https://torrinco.forjacorp.com"
    
    # Evolution API (opcional)
    EVOLUTION_API_URL="https://your-evolution-api.com/"
@@ -102,6 +103,9 @@ Todas as rotas (exceto as indicadas como públicas) são protegidas e requerem u
 |--------|----------|-----------|
 | GET | `/` | Lista todos os cartões |
 | GET | `/:id/bills` | Histórico de faturas de um cartão |
+| GET | `/:id/bills/:billId` | Detalhe, pagamentos e saldo restante da fatura |
+| POST | `/:id/bills/:billId/pay` | Registra pagamento total ou parcial |
+| POST | `/:id/bills/:billId/undo` | Desfaz o pagamento ativo mais recente |
 | POST | `/` | Cria novo cartão |
 | PUT | `/:id` | Atualiza cartão |
 | DELETE | `/:id` | Remove cartão |
@@ -254,5 +258,8 @@ O servidor disponibiliza um endpoint de health check em `GET /health` que verifi
 - **Datas**: O sistema utiliza datas UTC para consistência.
 - **Soft Delete**: Transações deletadas são marcadas com `deleted_at` ao invés de serem removidas do banco.
 - **Recorrência**: Transações recorrentes criam uma relação direta via `recurring_transaction_id` na tabela `transactions`.
-- **Inteligência de Faturas**: O sistema identifica automaticamente se uma fatura de cartão já foi paga buscando transações na categoria "Pagamento de Cartão" vinculadas ao nome do cartão no período da fatura.
-- **Estorno de Pagamento**: Ao deletar uma transação de "Pagamento de Cartão", o sistema restaura automaticamente o status da fatura para "aberta" ou "fechada" conforme a data.
+- **Inteligência de Faturas**: pagamentos são conciliados por vínculo explícito com a fatura, aceitam valores parciais e nunca são inferidos por descrição.
+- **Estados de Fatura**: `open`, `closed`, `overdue`, `partially_paid` e `paid`; a virada do ciclo nunca implica pagamento automático.
+- **Lembrete de Vencimento**: cada cartão pode aderir à pergunta automática por WhatsApp em uma hora cheia configurável; a fila garante uma única ocorrência por fatura.
+- **Estorno de Pagamento**: desfaz o pagamento vinculado mais recente, preserva auditoria e recalcula o saldo e o estado da fatura.
+- **Contrato detalhado**: consulte [`../docs/card-billing-api.md`](../docs/card-billing-api.md).
