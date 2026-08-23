@@ -88,9 +88,20 @@ export function Transactions() {
   const [selectedTransactions, setSelectedTransactions] = useState<Set<number | string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const transactionDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, () => setIsModalOpen(false));
+  const transactionDialogBodyRef = useRef<HTMLDivElement>(null);
+  const closeTransactionModal = () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setIsModalOpen(false);
+  };
+  const transactionDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, closeTransactionModal);
   const recurringDialogRef = useDialogFocus<HTMLDivElement>(recurringConfirmationOpen, () => setRecurringConfirmationOpen(false));
   const deleteDialogRef = useDialogFocus<HTMLDivElement>(deleteDialog.open, () => setDeleteDialog({ open: false, transaction: null }));
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const frame = requestAnimationFrame(() => transactionDialogBodyRef.current?.scrollTo({ top: 0 }));
+    return () => cancelAnimationFrame(frame);
+  }, [isModalOpen, editingTransaction?.id]);
 
   const formatDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -273,7 +284,7 @@ export function Transactions() {
 
         await api.post('/recurring', payload);
 
-        setIsModalOpen(false);
+        closeTransactionModal();
         resetForm();
         fetchTransactions();
         toast.success('Transação recorrente criada com sucesso!');
@@ -361,7 +372,7 @@ export function Transactions() {
         }
       }
 
-      setIsModalOpen(false);
+      closeTransactionModal();
       resetForm();
       fetchTransactions();
       toast.success('Transação salva com sucesso!');
@@ -829,22 +840,24 @@ export function Transactions() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div ref={transactionDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editingTransaction ? 'Editar transação' : 'Nova transação'} className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 rounded-t-2xl">
+        <div className="app-scroll-lock app-dialog-overlay app-dialog-overlay--fullscreen-mobile fixed inset-0 z-50 flex items-stretch justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4">
+          <div ref={transactionDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editingTransaction ? 'Editar transação' : 'Nova transação'} className="app-dialog-surface app-transaction-dialog flex w-full max-w-md flex-col overflow-hidden bg-white shadow-xl animate-in fade-in duration-200 dark:bg-slate-800 sm:rounded-2xl sm:zoom-in">
+            <div className="app-transaction-dialog__header flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50 sm:rounded-t-2xl sm:px-6 sm:py-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                 {editingTransaction ? 'Editar Transação' : 'Nova Transação'}
               </h3>
               <button 
-                onClick={() => setIsModalOpen(false)}
+                type="button"
+                onClick={closeTransactionModal}
                 aria-label="Fechar formulário da transação"
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-gray-300"
               >
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+              <div ref={transactionDialogBodyRef} className="app-transaction-dialog__body min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:p-6">
               {/* Type Selection */}
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <button
@@ -932,7 +945,7 @@ export function Transactions() {
               {formData.type === 'expense' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Forma de Pagamento</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <button
                       type="button"
                       onClick={() => setFormData({...formData, payment_method: 'pix', entity_id: ''})}
@@ -1144,10 +1157,12 @@ export function Transactions() {
                 </div>
               )}
 
-              <div className="pt-4">
+              </div>
+
+              <div className="app-transaction-dialog__footer shrink-0 border-t border-gray-100 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800 sm:px-6 sm:py-4">
                 <button 
                   type="submit"
-                  className="w-full py-3 bg-torrinco-600 hover:bg-torrinco-700 text-white font-bold rounded-xl shadow-lg shadow-torrinco-600/20 transition-all active:scale-[0.98]"
+                  className="w-full rounded-xl bg-torrinco-600 py-3 font-bold text-white shadow-lg shadow-torrinco-600/20 transition-all hover:bg-torrinco-700 active:scale-[0.98]"
                 >
                   {editingTransaction ? 'Salvar Alterações' : 'Adicionar Transação'}
                 </button>

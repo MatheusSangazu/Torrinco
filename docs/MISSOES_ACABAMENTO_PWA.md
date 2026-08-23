@@ -123,9 +123,13 @@ definidos, sem regressão funcional ou de acessibilidade.
   sólido. O manifest de produção foi conferido em modo `standalone` e o service
   worker preserva navegação por rotas internas sem criar cache de respostas da
   API financeira.
-- 2026-08-23: validação automatizada aprovada com 23 testes do client, incluindo
-  6 testes do contrato PWA, 345 testes do servidor, TypeScript, lint e build de
+- 2026-08-23: validação automatizada aprovada com 24 testes do client, incluindo
+  7 testes do contrato PWA, 345 testes do servidor, TypeScript, lint e build de
   produção. O build gerou 56 itens de precache e os arquivos `sw.js` e Workbox.
+- 2026-08-23: o cadastro de Transações foi convertido em uma tela cheia no
+  mobile, usando a altura dinâmica real do aparelho. Cabeçalho e ação de salvar
+  permanecem visíveis, apenas os campos rolam, as áreas seguras são respeitadas
+  e as formas de pagamento passam a usar duas colunas em telefones.
 - Pendente: validação visual e tátil em Android e iOS instalados, nas larguras e
   orientações previstas na Missão 9. Não havia navegador ou aparelho conectado
   à sessão para executar essa etapa com evidência real.

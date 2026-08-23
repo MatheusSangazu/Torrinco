@@ -139,6 +139,45 @@
   overscroll-behavior: contain;
 }
 
+.app-transaction-dialog__body {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 639px) {
+  .app-dialog-overlay.app-dialog-overlay--fullscreen-mobile {
+    padding: 0;
+  }
+
+  .app-transaction-dialog {
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+    overflow: hidden;
+  }
+
+  .app-transaction-dialog__header {
+    padding-top: max(0.75rem, var(--app-safe-top));
+    padding-right: max(1rem, var(--app-safe-right));
+    padding-left: max(1rem, var(--app-safe-left));
+  }
+
+  .app-transaction-dialog__body {
+    padding-right: max(1rem, var(--app-safe-right));
+    padding-left: max(1rem, var(--app-safe-left));
+  }
+
+  .app-transaction-dialog__footer {
+    padding-right: max(1rem, var(--app-safe-right));
+    padding-bottom: max(0.75rem, var(--app-safe-bottom));
+    padding-left: max(1rem, var(--app-safe-left));
+  }
+}
+
 body:has(.app-scroll-lock) {
   overflow: hidden;
 }

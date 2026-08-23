@@ -55,6 +55,18 @@ test('sobreposições fixas bloqueiam a rolagem de fundo', () => {
   assert.deepEqual(uncovered.map(entry => `${path.relative(clientRoot, entry.file)}:${entry.index + 1}`), []);
 });
 
+test('cadastro de transação ocupa o viewport móvel sem perder ações', () => {
+  const transactions = read('src/pages/Transactions.tsx');
+  const css = read('src/index.css');
+  assert.match(transactions, /app-dialog-overlay--fullscreen-mobile/);
+  assert.match(transactions, /app-transaction-dialog__body/);
+  assert.match(transactions, /app-transaction-dialog__footer/);
+  assert.match(transactions, /grid-cols-2 gap-2 sm:grid-cols-4/);
+  assert.match(css, /\.app-transaction-dialog\s*\{[^}]*height:\s*100dvh/s);
+  assert.match(css, /\.app-dialog-overlay\.app-dialog-overlay--fullscreen-mobile\s*\{[^}]*padding:\s*0/s);
+  assert.match(css, /\.app-transaction-dialog__footer\s*\{[^}]*safe-bottom/s);
+});
+
 test('interface não usa confirmação nativa nem classes de tela estática', () => {
   const entries = sourceFiles(sourceRoot).map(file => ({ file, content: readFileSync(file, 'utf8') }));
   const nativeConfirm = entries.filter(entry => /(^|[^.\w])confirm\s*\(/m.test(entry.content));
