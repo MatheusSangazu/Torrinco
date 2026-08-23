@@ -50,6 +50,32 @@ export function advanceDate(frequency: Frequency, date: Date): Date {
   return next;
 }
 
+/** Retorna uma ocorrência sempre ancorada na data inicial da série. */
+export function occurrenceAt(start: Date, frequency: Frequency, index: number): Date {
+  if (!Number.isInteger(index) || index < 0) throw new Error('INVALID_OCCURRENCE_INDEX');
+  const result = new Date(start);
+
+  if (frequency === FREQ_DAILY || frequency === FREQ_WEEKLY) {
+    result.setUTCDate(result.getUTCDate() + index * (frequency === FREQ_WEEKLY ? 7 : 1));
+    return result;
+  }
+
+  const startDay = start.getUTCDate();
+  if (frequency === FREQ_MONTHLY) {
+    const absoluteMonth = start.getUTCMonth() + index;
+    const year = start.getUTCFullYear() + Math.floor(absoluteMonth / 12);
+    const month = ((absoluteMonth % 12) + 12) % 12;
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    result.setUTCFullYear(year, month, Math.min(startDay, lastDay));
+    return result;
+  }
+
+  const year = start.getUTCFullYear() + index;
+  const lastDay = new Date(Date.UTC(year, start.getUTCMonth() + 1, 0)).getUTCDate();
+  result.setUTCFullYear(year, start.getUTCMonth(), Math.min(startDay, lastDay));
+  return result;
+}
+
 /**
  * Faz parse de uma string "YYYY-MM-DD" para um Date em UTC ao meio-dia.
  * O offset de 12h evita que o dia "vire" por drift de fuso horário ao serializar.

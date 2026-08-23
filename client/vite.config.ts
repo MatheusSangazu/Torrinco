@@ -10,14 +10,14 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
-      includeAssets: ['favicon-32x32.png', 'apple-touch-icon.png'],
+      includeAssets: ['favicon-32x32.png', 'pwa-maskable-512x512.png'],
       manifest: {
         id: '/',
         name: 'Torrinco - Assistente Financeiro',
         short_name: 'Torrinco',
         description: 'Seu assistente pessoal financeiro e organizacional.',
         theme_color: '#16a34a',
-        background_color: '#ffffff',
+        background_color: '#16a34a',
         display: 'standalone',
         start_url: '/',
         scope: '/',

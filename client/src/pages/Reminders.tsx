@@ -8,6 +8,7 @@ import { DatePicker } from '../components/DatePicker';
 import { TimePicker } from '../components/TimePicker';
 import toast from 'react-hot-toast';
 import { formatLocalDate, formatLocalDateShort, localDateFromApi } from '../lib/local-date';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 const WEEKDAYS = [
   { value: 'Monday', label: 'Segunda-feira' },
@@ -48,6 +49,8 @@ export function Reminders() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [frequencyFilter, setFrequencyFilter] = useState<'all' | ReminderFrequency>('all');
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; reminder: Reminder | null }>({ open: false, reminder: null });
+  const reminderDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, () => setIsModalOpen(false));
+  const deleteDialogRef = useDialogFocus<HTMLDivElement>(deleteDialog.open, () => setDeleteDialog({ open: false, reminder: null }));
 
   const [formData, setFormData] = useState({
     content: '',
@@ -317,8 +320,8 @@ export function Reminders() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200 my-8">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div ref={reminderDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editingReminder ? 'Editar lembrete' : 'Novo lembrete'} className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
             <div className="sticky top-0 px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 rounded-t-2xl z-10">
               <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                 {editingReminder ? 'Editar Lembrete' : 'Novo Lembrete'}
@@ -329,6 +332,7 @@ export function Reminders() {
                   setEditingReminder(null);
                   resetForm();
                 }}
+                aria-label="Fechar formulário do lembrete"
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
               >
                 <X size={20} />
@@ -401,8 +405,8 @@ export function Reminders() {
       )}
 
       {deleteDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm animate-in fade-in zoom-in duration-200">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div ref={deleteDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Excluir lembrete" className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm animate-in fade-in zoom-in duration-200">
             <div className="p-4 sm:p-6 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
                 <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />

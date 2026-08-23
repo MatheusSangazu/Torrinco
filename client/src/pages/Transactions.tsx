@@ -14,6 +14,7 @@ import { DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getApiErrorMessage } from '../lib/api-error';
 import { formatLocalDate, formatYearMonthLong } from '../lib/local-date';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface Category {
   id: number;
@@ -53,7 +54,18 @@ interface Transaction {
   payment_method?: string;
   is_recurring?: boolean;
   recurring_transaction_id?: number;
+  recurring_transactions?: {
+    start_date?: string | Date;
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    end_type?: 'occurrence_count' | 'end_date' | 'never';
+    occurrence_count?: number | null;
+    end_date?: string | Date | null;
+  };
   is_projected?: boolean;
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  end_type?: 'occurrence_count' | 'end_date' | 'never';
+  occurrence_count?: number | null;
+  end_date?: string | Date | null;
   installment_number?: number;
   purchase_installments?: {
     installment_count: number;
@@ -72,9 +84,13 @@ export function Transactions() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; transaction: Transaction | null }>({ open: false, transaction: null });
+  const [recurringConfirmationOpen, setRecurringConfirmationOpen] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState<Set<number | string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const transactionDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, () => setIsModalOpen(false));
+  const recurringDialogRef = useDialogFocus<HTMLDivElement>(recurringConfirmationOpen, () => setRecurringConfirmationOpen(false));
+  const deleteDialogRef = useDialogFocus<HTMLDivElement>(deleteDialog.open, () => setDeleteDialog({ open: false, transaction: null }));
 
   const formatDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -106,7 +122,11 @@ export function Transactions() {
     isInstallment: false,
     installmentCount: '',
     isRecurring: false,
-    updateSeries: false
+    updateSeries: false,
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+    recurrenceEndType: '' as '' | 'occurrence_count' | 'end_date' | 'never',
+    occurrenceCount: '',
+    recurrenceEndDate: ''
   });
 
   useEffect(() => {
@@ -177,14 +197,52 @@ export function Transactions() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const recurrenceStartDate = (() => {
+    const value = editingTransaction?.recurring_transactions?.start_date;
+    if (!value) return formData.date;
+    const date = new Date(value);
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  })();
+
+  const validateRecurrence = () => {
+    if (!formData.recurrenceEndType) {
+      toast.error('Escolha como a recorrência termina.');
+      return false;
+    }
+    if (formData.recurrenceEndType === 'occurrence_count') {
+      const count = Number(formData.occurrenceCount);
+      if (!Number.isInteger(count) || count <= 0) {
+        toast.error('Informe um total de ocorrências maior que zero.');
+        return false;
+      }
+    }
+    if (formData.recurrenceEndType === 'end_date') {
+      if (!formData.recurrenceEndDate) {
+        toast.error('Informe a data final da recorrência.');
+        return false;
+      }
+      if (formData.recurrenceEndDate < recurrenceStartDate) {
+        toast.error('A data final deve ser igual ou posterior à primeira ocorrência.');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const saveTransaction = async (recurrenceConfirmed = false) => {
     try {
       // Check if we should create a NEW recurring series
       // This happens if:
       // 1. We are creating a new transaction AND it is marked as recurring
       // 2. We are editing a transaction that was NOT recurring, and now it is marked as recurring
       const shouldCreateRecurringSeries = formData.isRecurring && (!editingTransaction || !editingTransaction.is_recurring);
+      const changesRecurringSeries = shouldCreateRecurringSeries || Boolean(formData.isRecurring && formData.updateSeries);
+
+      if (formData.isRecurring && !validateRecurrence()) return;
+      if (changesRecurringSeries && !recurrenceConfirmed) {
+        setRecurringConfirmationOpen(true);
+        return;
+      }
 
       if (shouldCreateRecurringSeries) {
         // Prepare the base amount
@@ -206,8 +264,10 @@ export function Transactions() {
           entity_id: formData.entity_id ? Number(formData.entity_id) : undefined,
           idempotency_key: recurringRequestKey.current,
           start_date: formData.date,
-          status: 'active',
-          frequency: 'monthly',
+          frequency: formData.frequency,
+          end_type: formData.recurrenceEndType,
+          occurrence_count: formData.recurrenceEndType === 'occurrence_count' ? Number(formData.occurrenceCount) : undefined,
+          end_date: formData.recurrenceEndType === 'end_date' ? formData.recurrenceEndDate : undefined,
           payment_method: formData.payment_method
         };
 
@@ -234,6 +294,19 @@ export function Transactions() {
         status: formData.status,
         payment_method: formData.payment_method,
         is_recurring: formData.isRecurring
+      };
+      const recurringPayload = {
+        description: formData.description,
+        amount: finalAmount,
+        category: formData.category || undefined,
+        category_id: formData.category_id ? Number(formData.category_id) : null,
+        income_source_id: formData.income_source_id ? Number(formData.income_source_id) : null,
+        entity_id: formData.entity_id ? Number(formData.entity_id) : null,
+        payment_method: formData.payment_method,
+        frequency: formData.frequency,
+        end_type: formData.recurrenceEndType,
+        occurrence_count: formData.recurrenceEndType === 'occurrence_count' ? Number(formData.occurrenceCount) : undefined,
+        end_date: formData.recurrenceEndType === 'end_date' ? formData.recurrenceEndDate : undefined,
       };
 
       if (formData.isInstallment && formData.type === 'expense' && formData.payment_method === 'credit') {
@@ -266,17 +339,20 @@ export function Transactions() {
             
             // If user wants to update the entire series
             if (formData.updateSeries) {
-              await api.put(`/recurring/${recurringId}`, payload);
+              await api.put(`/recurring/${recurringId}`, recurringPayload);
               toast.success('Série recorrente atualizada!');
             } else {
-              await api.post('/finance/transactions', payload);
+              const materialized = await api.post(`/recurring/${recurringId}/generate`, {
+                transaction_date: editingTransaction.transaction_date,
+              });
+              await api.put(`/finance/transactions/${materialized.data.transaction.id}`, payload);
             }
           } else {
             await api.put(`/finance/transactions/${editingTransaction.id}`, payload);
             
             // If it's a recurring transaction and user wants to update the series too
             if (editingTransaction.is_recurring && formData.updateSeries && editingTransaction.recurring_transaction_id) {
-              await api.put(`/recurring/${editingTransaction.recurring_transaction_id}`, payload);
+              await api.put(`/recurring/${editingTransaction.recurring_transaction_id}`, recurringPayload);
               toast.success('Transação e série atualizadas!');
             }
           }
@@ -296,7 +372,12 @@ export function Transactions() {
     }
   };
 
-  const handleDelete = async (deleteType: 'single' | 'all' = 'single') => {
+  const handleSave = (event: React.FormEvent) => {
+    event.preventDefault();
+    void saveTransaction(false);
+  };
+
+  const handleDelete = async (deleteType: 'single' | 'future' | 'all' = 'single') => {
     if (!deleteDialog.transaction) return;
     
     try {
@@ -368,6 +449,11 @@ export function Transactions() {
     setEditingTransaction(transaction);
     const date = new Date(transaction.transaction_date);
     const dateStr = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+    const series = transaction.recurring_transactions ?? transaction;
+    const endDate = series.end_date ? new Date(series.end_date) : null;
+    const endDateStr = endDate
+      ? `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, '0')}-${String(endDate.getUTCDate()).padStart(2, '0')}`
+      : '';
     
     setFormData({
       description: transaction.description || '',
@@ -383,7 +469,11 @@ export function Transactions() {
       isInstallment: false,
       installmentCount: '',
       isRecurring: transaction.is_recurring || false,
-      updateSeries: false
+      updateSeries: false,
+      frequency: series.frequency || 'monthly',
+      recurrenceEndType: transaction.is_recurring ? (series.end_type || 'never') : '',
+      occurrenceCount: series.occurrence_count ? String(series.occurrence_count) : '',
+      recurrenceEndDate: endDateStr
     });
     setIsModalOpen(true);
   };
@@ -412,9 +502,43 @@ export function Transactions() {
       isInstallment: false,
       installmentCount: '',
       isRecurring: false,
-      updateSeries: false
+      updateSeries: false,
+      frequency: 'monthly',
+      recurrenceEndType: '',
+      occurrenceCount: '',
+      recurrenceEndDate: ''
     });
   };
+
+  const recurrencePreview = (() => {
+    if (!formData.isRecurring || !formData.recurrenceEndType) return '';
+    if (formData.recurrenceEndType === 'never') {
+      return 'O lançamento continuará sendo projetado enquanto a recorrência estiver ativa.';
+    }
+    if (formData.recurrenceEndType === 'end_date') {
+      return formData.recurrenceEndDate
+        ? `A última ocorrência válida será a programada até ${formatDisplayDate(formData.recurrenceEndDate)}.`
+        : 'Escolha a data limite da recorrência.';
+    }
+
+    const count = Number(formData.occurrenceCount);
+    if (!Number.isInteger(count) || count <= 0) return 'Informe o total de ocorrências, incluindo a primeira.';
+    if (!recurrenceStartDate) return 'Informe a primeira ocorrência.';
+    const start = new Date(`${recurrenceStartDate}T12:00:00Z`);
+    const anchorDay = start.getUTCDate();
+    const last = new Date(start);
+    if (formData.frequency === 'daily') last.setUTCDate(last.getUTCDate() + count - 1);
+    if (formData.frequency === 'weekly') last.setUTCDate(last.getUTCDate() + (count - 1) * 7);
+    if (formData.frequency === 'monthly' || formData.frequency === 'yearly') {
+      const monthOffset = formData.frequency === 'monthly' ? count - 1 : (count - 1) * 12;
+      const targetMonth = start.getUTCMonth() + monthOffset;
+      const year = start.getUTCFullYear() + Math.floor(targetMonth / 12);
+      const month = ((targetMonth % 12) + 12) % 12;
+      const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      last.setUTCFullYear(year, month, Math.min(anchorDay, lastDay));
+    }
+    return `Serão criadas/projetadas ${count} cobranças, incluindo a primeira, de ${formatDisplayDate(start)} a ${formatDisplayDate(last)}.`;
+  })();
 
   const filteredTransactions = transactions.filter(t => {
     const categoryName = t.categories?.name || t.category || '';
@@ -549,7 +673,7 @@ export function Transactions() {
 
       {/* Bulk Actions Bar */}
       {showBulkActions && (
-        <div className="fixed bottom-4 sm:bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-slate-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-lg">
+        <div className="app-floating-action fixed bottom-4 sm:bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-slate-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-lg">
           <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start">
             <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
             <span className="font-medium text-xs sm:text-sm">
@@ -705,14 +829,15 @@ export function Transactions() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200 my-8">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div ref={transactionDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editingTransaction ? 'Editar transação' : 'Nova transação'} className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50 rounded-t-2xl">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                 {editingTransaction ? 'Editar Transação' : 'Nova Transação'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar formulário da transação"
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X size={20} />
@@ -775,6 +900,16 @@ export function Transactions() {
                 placeholder="Selecione..."
                 required
               />
+
+              {formData.type === 'income' && (
+                <CategorySelect
+                  label="Fonte da receita"
+                  value={formData.income_source_id}
+                  options={incomeSources}
+                  onChange={(selectedId) => setFormData({ ...formData, income_source_id: selectedId })}
+                  placeholder="Selecione uma fonte (opcional)"
+                />
+              )}
 
               <div className="space-y-4">
                 <Input
@@ -916,11 +1051,82 @@ export function Transactions() {
                     <Checkbox
                       id="isRecurring"
                       checked={formData.isRecurring}
-                      onCheckedChange={(checked) => setFormData({...formData, isRecurring: checked})}
-                      label="Esta é uma transação recorrente?"
+                      onCheckedChange={(checked) => setFormData({
+                        ...formData,
+                        isRecurring: checked,
+                        recurrenceEndType: checked ? formData.recurrenceEndType : '',
+                        occurrenceCount: checked ? formData.occurrenceCount : '',
+                        recurrenceEndDate: checked ? formData.recurrenceEndDate : '',
+                      })}
+                      label="Repetir lançamento"
                       description={formData.type === 'income' ? 'Ex: Salário, Aluguel recebido' : 'Ex: Assinatura, Aluguel, Conta de Luz'}
                     />
                   </div>
+
+                  {formData.isRecurring && (
+                    <div className="animate-in space-y-4 rounded-xl border border-torrinco-100 bg-torrinco-50/50 p-4 duration-300 slide-in-from-top-2 dark:border-torrinco-900 dark:bg-torrinco-950/20">
+                      <CustomSelect
+                        label="Frequência"
+                        value={formData.frequency}
+                        onChange={(value) => setFormData({...formData, frequency: value as typeof formData.frequency})}
+                        options={[
+                          { value: 'daily', label: 'Diária' },
+                          { value: 'weekly', label: 'Semanal' },
+                          { value: 'monthly', label: 'Mensal' },
+                          { value: 'yearly', label: 'Anual' },
+                        ]}
+                        required
+                      />
+
+                      <CustomSelect
+                        label="Término da recorrência"
+                        value={formData.recurrenceEndType}
+                        onChange={(value) => setFormData({
+                          ...formData,
+                          recurrenceEndType: value as typeof formData.recurrenceEndType,
+                          occurrenceCount: value === 'occurrence_count' ? formData.occurrenceCount : '',
+                          recurrenceEndDate: value === 'end_date' ? formData.recurrenceEndDate : '',
+                        })}
+                        options={[
+                          { value: 'occurrence_count', label: 'Após uma quantidade' },
+                          { value: 'end_date', label: 'Em uma data' },
+                          { value: 'never', label: 'Sem data final' },
+                        ]}
+                        placeholder="Escolha como termina"
+                        required
+                      />
+
+                      {formData.recurrenceEndType === 'occurrence_count' && (
+                        <div>
+                          <Input
+                            label="Total de ocorrências"
+                            type="number"
+                            min="1"
+                            step="1"
+                            required
+                            value={formData.occurrenceCount}
+                            onChange={(event) => setFormData({...formData, occurrenceCount: event.target.value})}
+                          />
+                          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">A primeira ocorrência está incluída no total.</p>
+                        </div>
+                      )}
+
+                      {formData.recurrenceEndType === 'end_date' && (
+                        <DatePicker
+                          label="Data final"
+                          required
+                          value={formData.recurrenceEndDate}
+                          onChange={(date) => setFormData({...formData, recurrenceEndDate: date})}
+                        />
+                      )}
+
+                      {recurrencePreview && (
+                        <p className="rounded-lg bg-white p-3 text-sm text-gray-600 shadow-sm dark:bg-slate-900 dark:text-slate-300">
+                          {recurrencePreview}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {(editingTransaction?.is_recurring || (typeof editingTransaction?.id === 'string' && editingTransaction?.id.startsWith('rec-'))) && (
                     <div className="animate-in rounded-xl border border-amber-100 bg-amber-50 p-3 duration-300 slide-in-from-top-2 dark:border-amber-800 dark:bg-amber-900/20">
@@ -951,10 +1157,46 @@ export function Transactions() {
         </div>
       )}
 
+      {/* Recurring series confirmation */}
+      {recurringConfirmationOpen && (
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div ref={recurringDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="recurring-confirmation-title" className="app-dialog-surface w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+            <h3 id="recurring-confirmation-title" className="text-lg font-bold text-gray-900 dark:text-white">
+              Confirmar série recorrente?
+            </h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
+              {formData.description} · {formData.amount ? formatCurrency(Number(formData.amount.replace(',', '.'))) : 'R$ 0,00'}
+            </p>
+            <p className="mt-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-600 dark:bg-slate-900 dark:text-slate-300">
+              {recurrencePreview}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setRecurringConfirmationOpen(false)}
+                className="flex-1 rounded-xl bg-gray-100 px-4 py-3 font-bold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRecurringConfirmationOpen(false);
+                  void saveTransaction(true);
+                }}
+                className="flex-1 rounded-xl bg-torrinco-600 px-4 py-3 font-bold text-white transition-colors hover:bg-torrinco-700"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Dialog */}
       {deleteDialog.open && deleteDialog.transaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div ref={deleteDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Excluir transação" className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div className="p-6 text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
                 <Trash2 size={32} className="text-red-600 dark:text-red-400" />
@@ -982,10 +1224,16 @@ export function Transactions() {
                     Apenas esta ocorrência
                   </button>
                   <button
+                    onClick={() => handleDelete('future')}
+                    className="w-full px-4 py-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold rounded-xl transition-colors"
+                  >
+                    Esta e as próximas
+                  </button>
+                  <button
                     onClick={() => handleDelete('all')}
                     className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/20 transition-all active:scale-[0.98]"
                   >
-                    Todas as futuras
+                    Toda a série
                   </button>
                   <button
                     onClick={() => setDeleteDialog({ open: false, transaction: null })}

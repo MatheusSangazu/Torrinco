@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { Input } from '../components/Input';
 import { DatePicker } from '../components/DatePicker';
 import toast from 'react-hot-toast';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import {
   formatLocalDate,
   formatLocalDateLong,
@@ -45,7 +46,8 @@ export function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const eventDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, () => setIsModalOpen(false));
+  const [formData, setFormData] = useState<{ title: string; date: string; description: string }>({
     title: '',
     date: formatLocalDate(new Date()),
     description: ''
@@ -319,7 +321,7 @@ export function Calendar() {
     .reduce((acc, i) => acc + (i as Transaction).amount, 0);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)]">
+    <div className="flex min-h-[calc(100dvh-8rem-var(--app-safe-top)-var(--app-safe-bottom))] flex-col lg:h-[calc(100dvh-4rem)]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <div>
@@ -476,14 +478,15 @@ export function Calendar() {
 
       {/* Modal Nova Evento */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div ref={eventDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="new-event-title" className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              <h3 id="new-event-title" className="text-lg font-bold text-gray-900 dark:text-white">
                 Novo Evento
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar novo evento"
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X size={20} />

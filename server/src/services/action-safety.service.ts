@@ -152,7 +152,13 @@ function buildRecurringSummary(tool: string, args: Record<string, any>): string 
   const valor = formatBRL(Number(args.valor) || 0);
   const freq = args.recorrente?.frequencia ?? 'mensal';
   const freqMap: Record<string, string> = { daily: 'diária', weekly: 'semanal', monthly: 'mensal', yearly: 'anual' };
-  return `${tipo}: ${desc} ${valor} (${freqMap[freq] ?? freq})`;
+  const termination = args.recorrente?.termino;
+  const endDescription = termination?.tipo === 'occurrence_count'
+    ? `${termination.total_ocorrencias} ocorrências, incluindo a primeira`
+    : termination?.tipo === 'end_date'
+      ? `até ${termination.data_final}`
+      : 'sem data final';
+  return `${tipo}: ${desc} ${valor} (${freqMap[freq] ?? freq}; ${endDescription})`;
 }
 
 function buildInstallmentSummary(args: Record<string, any>): string {

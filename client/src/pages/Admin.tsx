@@ -184,7 +184,7 @@ function AccountDetailPanel({
     value ? formatInstantDateTime(value) : "Não informado";
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-slate-950/45"
+      className="app-scroll-lock fixed inset-0 z-50 flex justify-end bg-slate-950/45"
       role="dialog"
       aria-modal="true"
       aria-labelledby="account-detail-title"
@@ -192,7 +192,7 @@ function AccountDetailPanel({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <aside className="h-full w-full max-w-2xl overflow-y-auto bg-white p-5 shadow-2xl dark:bg-slate-900">
+      <aside className="app-mobile-drawer h-full w-full max-w-2xl overflow-y-auto bg-white p-5 shadow-2xl dark:bg-slate-900">
         <header className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-torrinco-600">

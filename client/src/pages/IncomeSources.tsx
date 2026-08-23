@@ -4,6 +4,8 @@ import { Plus, Trash2, Edit2, X, Wallet } from 'lucide-react';
 import clsx from 'clsx';
 import { Input } from '../components/Input';
 import toast from 'react-hot-toast';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface IncomeSource {
   id: number;
@@ -17,6 +19,9 @@ export function IncomeSources() {
   const [saving, setSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIncomeSource, setEditingIncomeSource] = useState<IncomeSource | null>(null);
+  const [sourceToDelete, setSourceToDelete] = useState<IncomeSource | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const sourceDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, () => setIsModalOpen(false));
 
   // Form State
   const [name, setName] = useState('');
@@ -78,15 +83,19 @@ export function IncomeSources() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir esta fonte de receita?')) return;
+  const confirmDelete = async () => {
+    if (!sourceToDelete) return;
     try {
-      await api.delete(`/income-sources/${id}`);
-      fetchIncomeSources();
+      setDeleting(true);
+      await api.delete(`/income-sources/${sourceToDelete.id}`);
+      setSourceToDelete(null);
+      await fetchIncomeSources();
       toast.success('Fonte de receita excluída!');
     } catch (error) {
       console.error('Failed to delete income source:', error);
       toast.error('Erro ao excluir fonte de receita.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -123,10 +132,10 @@ export function IncomeSources() {
                 <span className="font-medium text-gray-700 dark:text-gray-200">{source.name}</span>
               </div>
               <div className="flex space-x-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <button onClick={() => handleOpenModal(source)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
+                <button aria-label={`Editar fonte ${source.name}`} onClick={() => handleOpenModal(source)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
                   <Edit2 className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(source.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                <button aria-label={`Excluir fonte ${source.name}`} onClick={() => setSourceToDelete(source)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -137,13 +146,13 @@ export function IncomeSources() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl animate-in zoom-in-95 duration-200">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div ref={sourceDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editingIncomeSource ? 'Editar fonte de receita' : 'Nova fonte de receita'} className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 {editingIncomeSource ? 'Editar Fonte de Receita' : 'Nova Fonte de Receita'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+              <button aria-label="Fechar formulário da fonte de receita" onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -165,6 +174,7 @@ export function IncomeSources() {
                     <button
                       key={c}
                       type="button"
+                      aria-label={`Selecionar cor ${c}`}
                       onClick={() => setColor(c)}
                       className={clsx(
                         "w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none ring-2 ring-offset-2 dark:ring-offset-slate-800",
@@ -189,6 +199,16 @@ export function IncomeSources() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        isOpen={sourceToDelete !== null}
+        onClose={() => setSourceToDelete(null)}
+        onConfirm={() => void confirmDelete()}
+        title="Excluir fonte de receita"
+        message={`Deseja realmente excluir a fonte ${sourceToDelete?.name ?? ''}?`}
+        confirmLabel="Excluir"
+        isLoading={deleting}
+        type="danger"
+      />
     </div>
   );
 }

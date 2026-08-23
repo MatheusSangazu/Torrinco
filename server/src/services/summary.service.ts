@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma.js';
-import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 import { getBillByOffset, getBillDetails, type BillPeriod } from './billing.service.js';
+import { centsToLegacyNumber, toCents } from '../lib/money.js';
+import { getAllTimeFinancialTotals, getFinancialPeriod } from './monthly-finance.service.js';
+import type { MonthlyFinancialItem } from '../lib/monthly-finance-engine.js';
 
 /**
  * Fonte única do resumo financeiro (dashboard) e da previsão (forecast).
@@ -19,54 +21,25 @@ export interface SummaryResult {
   };
 }
 
-/**
- * Resumo financeiro do mês atual (ou "all" para todo o histórico).
- * income/expense incluem projeção de recorrências ainda não materializadas.
- * cash_balance = receitas - despesas em dinheiro/pix/débito até hoje.
- */
+/** Adaptador do dashboard atual sobre o motor financeiro mensal único. */
 export async function getSummary(userId: number, period: 'month' | 'all' = 'month'): Promise<SummaryResult> {
   const now = new Date();
-  let dateFilter: { gte?: Date; lte?: Date } | undefined = undefined;
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
-  if (period !== 'all') {
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    lastDayOfMonth.setHours(23, 59, 59, 999);
-    dateFilter = { gte: firstDayOfMonth, lte: lastDayOfMonth };
-  }
-
-  const [
-    income,
-    expense,
-    totalIncomeUntilNow,
-    totalExpenseCashUntilNow,
-    realTransactionsForPeriod,
-    recurringTransactions
-  ] = await Promise.all([
-    prisma.transactions.aggregate({
-      where: { user_id: userId, type: 'income', transaction_date: dateFilter, deleted_at: null },
-      _sum: { amount: true }
-    }),
-    // Despesas do mês EXCETO pagamento de cartão (evita dupla contagem com a fatura).
-    prisma.transactions.aggregate({
-      where: {
-        user_id: userId,
-        type: 'expense',
-        transaction_date: dateFilter,
-        deleted_at: null,
-        category: { not: 'Pagamento de Cartão' }
-      },
-      _sum: { amount: true }
-    }),
+  const [financial, cashIncome, cashExpense] = await Promise.all([
+    period === 'all'
+      ? getAllTimeFinancialTotals(userId)
+      : getFinancialPeriod(userId, periodStart, periodEnd),
     prisma.transactions.aggregate({
       where: {
         user_id: userId,
         type: 'income',
         payment_method: { in: ['cash', 'pix', 'debit'] },
         transaction_date: { lte: now },
-        deleted_at: null
+        deleted_at: null,
       },
-      _sum: { amount: true }
+      _sum: { amount: true },
     }),
     prisma.transactions.aggregate({
       where: {
@@ -74,49 +47,21 @@ export async function getSummary(userId: number, period: 'month' | 'all' = 'mont
         type: 'expense',
         payment_method: { in: ['cash', 'pix', 'debit'] },
         transaction_date: { lte: now },
-        deleted_at: null
+        deleted_at: null,
       },
-      _sum: { amount: true }
+      _sum: { amount: true },
     }),
-    prisma.transactions.findMany({
-      where: { user_id: userId, transaction_date: dateFilter, deleted_at: null }
-    }),
-    prisma.recurring_transactions.findMany({
-      where: { user_id: userId, status: 'active' }
-    })
   ]);
 
-  let recurringIncomeTotal = 0;
-  let recurringExpenseTotal = 0;
-
-  if (dateFilter?.gte && dateFilter?.lte) {
-    const projections = projectRecurringTransactions(
-      recurringTransactions,
-      dateFilter.gte,
-      dateFilter.lte,
-      realTransactionsForPeriod
-    );
-    recurringIncomeTotal = projections
-      .filter(p => p.type === 'income')
-      .reduce((sum, p) => sum + Number(p.amount), 0);
-    recurringExpenseTotal = projections
-      .filter(p => p.type === 'expense')
-      .reduce((sum, p) => sum + Number(p.amount), 0);
-  }
-
-  const totalIncomePeriod = (Number(income._sum.amount) || 0) + recurringIncomeTotal;
-  const totalExpensePeriod = (Number(expense._sum.amount) || 0) + recurringExpenseTotal;
-  const cashBalance =
-    (Number(totalIncomeUntilNow._sum.amount) || 0) -
-    (Number(totalExpenseCashUntilNow._sum.amount) || 0);
-
+  const { totals } = financial;
+  const cashBalance = toCents(cashIncome._sum.amount ?? 0) - toCents(cashExpense._sum.amount ?? 0);
   return {
     month_summary: {
-      income: totalIncomePeriod,
-      expense: totalExpensePeriod,
-      balance: totalIncomePeriod - totalExpensePeriod,
-      cash_balance: cashBalance
-    }
+      income: centsToLegacyNumber(totals.income.total),
+      expense: centsToLegacyNumber(totals.expense.total),
+      balance: centsToLegacyNumber(totals.balance.total),
+      cash_balance: centsToLegacyNumber(cashBalance),
+    },
   };
 }
 
@@ -148,7 +93,7 @@ async function getCardBillsInPeriod(userId: number, start: Date, end: Date) {
     where: { id: userId },
     select: { account_id: true }
   });
-  if (!userRow) return { cards: [], pendingTotal: 0, paidTotal: 0, bills: [] };
+  if (!userRow) return { bills: [] };
 
   const cards = await prisma.financial_entities.findMany({
     where: { account_id: userRow.account_id, type: 'credit_card' },
@@ -156,7 +101,6 @@ async function getCardBillsInPeriod(userId: number, start: Date, end: Date) {
   });
 
   const bills: any[] = [];
-  let pendingTotal = 0;
 
   for (const card of cards) {
     // Varre alguns offsets até achar a(s) fatura(s) com due_date no período.
@@ -175,7 +119,6 @@ async function getCardBillsInPeriod(userId: number, start: Date, end: Date) {
 
       const details = await getBillDetails(bill.id, userId);
       const isPaid = bill.status === 'paid';
-      if (!isPaid) pendingTotal += details.bill.total_amount;
 
       for (const item of details.bill.items) {
         bills.push({
@@ -196,96 +139,39 @@ async function getCardBillsInPeriod(userId: number, start: Date, end: Date) {
     }
   }
 
-  return { bills, pendingTotal };
+  return { bills };
 }
 
-/**
- * Previsão financeira de um período (mês atual ou próximo mês).
- * Soma: receitas/despesas normais + recorrências projetadas (não crédito) +
- * parcelas + faturas de cartão pendentes que vencem no período.
- */
-export async function getForecast(userId: number, period: 'current_month' | 'next_month' = 'next_month'): Promise<ForecastResult> {
-  const today = new Date();
-  let forecastStart: Date;
-  let forecastEnd: Date;
-
-  if (period === 'next_month') {
-    forecastStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1, 0, 0, 0));
-    forecastEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 2, 0, 23, 59, 59, 999));
-  } else {
-    forecastStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0));
-    forecastEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-  }
-
-  // Faturas de cartão que vencem no período (via billing.service).
-  const { bills: creditCardBillTransactions, pendingTotal: creditCardBillExpenses } =
-    await getCardBillsInPeriod(userId, forecastStart, forecastEnd);
-
-  const [normalIncomeList, normalExpensesList, installmentsList, recurringTransactionsForForecast] = await Promise.all([
-    prisma.transactions.findMany({
-      where: {
-        user_id: userId,
-        type: 'income',
-        transaction_date: { gte: forecastStart, lte: forecastEnd },
-        deleted_at: null
-      },
-      select: { id: true, description: true, amount: true, transaction_date: true }
-    }),
-    prisma.transactions.findMany({
-      where: {
-        user_id: userId,
-        type: 'expense',
-        transaction_date: { gte: forecastStart, lte: forecastEnd },
-        deleted_at: null,
-        installment_id: null,
-        category: { not: 'Pagamento de Cartão' },
-        payment_method: { notIn: ['credit', 'credit_card'] }
-      },
-      select: { id: true, description: true, amount: true, transaction_date: true, installment_number: true }
-    }),
-    prisma.transactions.findMany({
-      where: {
-        user_id: userId,
-        type: 'expense',
-        transaction_date: { gte: forecastStart, lte: forecastEnd },
-        deleted_at: null,
-        installment_id: { not: null },
-        payment_method: { notIn: ['credit', 'credit_card'] }
-      },
-      select: { id: true, description: true, amount: true, transaction_date: true, installment_number: true }
-    }),
-    prisma.recurring_transactions.findMany({
-      where: { user_id: userId, status: 'active' },
-      include: { categories: true, financial_entities: true }
-    })
-  ]);
-
-  // Recorrências projetadas (exclui crédito — já contabilizadas na fatura).
-  const allProjected = projectRecurringTransactions(
-    recurringTransactionsForForecast.filter(rt => rt.payment_method !== 'credit'),
-    new Date(forecastStart),
-    new Date(forecastEnd),
-    [...normalIncomeList, ...normalExpensesList, ...installmentsList]
+function isCreditExpense(item: MonthlyFinancialItem): boolean {
+  const transaction = item.transaction;
+  return item.kind === 'expense' && (
+    transaction.financial_entities?.type === 'credit_card'
+    || transaction.payment_method === 'credit'
+    || transaction.payment_method === 'credit_card'
   );
-  const recurringIncomeList = allProjected.filter(p => p.type === 'income');
-  const recurringExpenseList = allProjected.filter(p => p.type === 'expense');
+}
 
-  const forecastIncomeTotal =
-    recurringIncomeList.reduce((s, i) => s + Number(i.amount), 0) +
-    normalIncomeList.reduce((s, i) => s + Number(i.amount), 0);
-  const forecastExpensesTotal =
-    recurringExpenseList.reduce((s, i) => s + Number(i.amount), 0) +
-    normalExpensesList.reduce((s, i) => s + Number(i.amount), 0) +
-    installmentsList.reduce((s, i) => s + Number(i.amount), 0) +
-    creditCardBillExpenses;
-  const forecastBalance = forecastIncomeTotal - forecastExpensesTotal;
+async function getForecastBreakdown(
+  userId: number,
+  period: 'current_month' | 'next_month',
+  start: Date,
+  end: Date,
+  items: MonthlyFinancialItem[],
+): Promise<ForecastResult> {
+  const { bills: creditCardBillTransactions } = await getCardBillsInPeriod(userId, start, end);
+  const nonCardItems = items.filter(item => !isCreditExpense(item));
+  const recurringIncomeList = nonCardItems.filter(item => item.source === 'projected' && item.kind === 'income').map(item => item.transaction);
+  const recurringExpenseList = nonCardItems.filter(item => item.source === 'projected' && item.kind === 'expense').map(item => item.transaction);
+  const normalIncomeList = nonCardItems.filter(item => item.source === 'registered' && item.kind === 'income').map(item => item.transaction);
+  const normalExpensesList = nonCardItems.filter(item => item.source === 'registered' && item.kind === 'expense' && !item.transaction.installment_id).map(item => item.transaction);
+  const installmentsList = nonCardItems.filter(item => item.source === 'registered' && item.kind === 'expense' && !!item.transaction.installment_id).map(item => item.transaction);
 
   return {
     period,
     forecast: {
-      income: forecastIncomeTotal,
-      expenses: forecastExpensesTotal,
-      balance: forecastBalance,
+      income: 0,
+      expenses: 0,
+      balance: 0,
       breakdown: {
         recurring_income: recurringIncomeList,
         recurring_expenses: recurringExpenseList,
@@ -295,5 +181,26 @@ export async function getForecast(userId: number, period: 'current_month' | 'nex
         credit_card_bills: creditCardBillTransactions
       }
     }
+  };
+}
+
+/** Adaptador legado da previsão; os totais vêm do mesmo motor usado no resumo. */
+export async function getForecast(userId: number, period: 'current_month' | 'next_month' = 'next_month'): Promise<ForecastResult> {
+  const today = new Date();
+  const monthOffset = period === 'next_month' ? 1 : 0;
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + monthOffset, 1));
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + monthOffset + 1, 0, 23, 59, 59, 999));
+  const financial = await getFinancialPeriod(userId, start, end);
+  const legacy = await getForecastBreakdown(userId, period, start, end, financial.items);
+  const { totals } = financial;
+
+  return {
+    ...legacy,
+    forecast: {
+      ...legacy.forecast,
+      income: centsToLegacyNumber(totals.income.total),
+      expenses: centsToLegacyNumber(totals.expense.total),
+      balance: centsToLegacyNumber(totals.balance.total),
+    },
   };
 }

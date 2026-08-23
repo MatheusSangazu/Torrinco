@@ -41,6 +41,9 @@ docs/
 !docs/
 docs/*
 !docs/card-billing-api.md
+!docs/refatoracaoMissoes.md
+!docs/monthlyOverviewApi.md
+!docs/MISSOES_ACABAMENTO_PWA.md
 
 # Ferramentas / binários de terceiros (não devem ser versionados)
 ngrok.exe

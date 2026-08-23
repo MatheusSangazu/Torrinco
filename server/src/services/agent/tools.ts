@@ -36,10 +36,21 @@ export const TOOLS: ToolDefinition[] = [
             parcelas: { type: 'number', description: 'Número de parcelas (opcional, só para cartão). Se >1, cria compra parcelada.' },
             recorrente: {
               type: 'object',
-              description: 'Use quando o usuário disser que é todo mês/semana/ano. Define a recorrência.',
+              description: 'Use quando o usuário disser que é todo mês/semana/ano. Só preencha depois que ele escolher como a recorrência termina.',
               properties: {
-                frequencia: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'yearly'], description: 'Frequência da recorrência.' }
-              }
+                frequencia: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'yearly'], description: 'Frequência da recorrência.' },
+                termino: {
+                  type: 'object',
+                  description: 'Regra de término escolhida conscientemente pelo usuário.',
+                  properties: {
+                    tipo: { type: 'string', enum: ['occurrence_count', 'end_date', 'never'] },
+                    total_ocorrencias: { type: 'number', description: 'Obrigatório quando tipo=occurrence_count. Inclui a primeira ocorrência.' },
+                    data_final: { type: 'string', description: 'Obrigatório quando tipo=end_date, no formato YYYY-MM-DD.' }
+                  },
+                  required: ['tipo']
+                }
+              },
+              required: ['frequencia', 'termino']
             },
             data: { type: 'string', description: 'Data no formato YYYY-MM-DD (opcional, default hoje).' }
           },
@@ -56,7 +67,12 @@ export const TOOLS: ToolDefinition[] = [
       date: args.data,
       installments: args.parcelas,
       recurring: args.recorrente
-        ? { frequency: args.recorrente.frequencia }
+        ? {
+            frequency: args.recorrente.frequencia,
+            end_type: args.recorrente.termino?.tipo,
+            occurrence_count: args.recorrente.termino?.total_ocorrencias,
+            end_date: args.recorrente.termino?.data_final,
+          }
         : undefined
     })
   },
@@ -75,10 +91,20 @@ export const TOOLS: ToolDefinition[] = [
             categoria: { type: 'string', description: 'Categoria opcional.' },
             recorrente: {
               type: 'object',
-              description: 'Use para receitas fixas mensais (ex: salário).',
+              description: 'Use para receitas recorrentes depois que o usuário escolher como a série termina.',
               properties: {
-                frequencia: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'yearly'] }
-              }
+                frequencia: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'yearly'] },
+                termino: {
+                  type: 'object',
+                  properties: {
+                    tipo: { type: 'string', enum: ['occurrence_count', 'end_date', 'never'] },
+                    total_ocorrencias: { type: 'number', description: 'Obrigatório quando tipo=occurrence_count. Inclui a primeira.' },
+                    data_final: { type: 'string', description: 'Obrigatório quando tipo=end_date, formato YYYY-MM-DD.' }
+                  },
+                  required: ['tipo']
+                }
+              },
+              required: ['frequencia', 'termino']
             },
             data: { type: 'string', description: 'Data YYYY-MM-DD (opcional).' }
           },
@@ -91,7 +117,12 @@ export const TOOLS: ToolDefinition[] = [
       amount: Number(args.valor),
       category: args.categoria,
       date: args.data,
-      recurring: args.recorrente ? { frequency: args.recorrente.frequencia } : undefined
+      recurring: args.recorrente ? {
+        frequency: args.recorrente.frequencia,
+        end_type: args.recorrente.termino?.tipo,
+        occurrence_count: args.recorrente.termino?.total_ocorrencias,
+        end_date: args.recorrente.termino?.data_final,
+      } : undefined
     })
   },
 

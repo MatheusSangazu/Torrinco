@@ -27,9 +27,48 @@
   --color-dark-muted: #94a3b8; /* Slate 400 */
 }
 
+:root {
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-mobile-header-height: 4rem;
+  --app-network-offset: 0px;
+}
+
+:root[data-network-offline='true'] {
+  --app-network-offset: 4.75rem;
+}
+
 @layer base {
+  html {
+    min-height: 100%;
+    overscroll-behavior: none;
+    background: #f9fafb;
+  }
+
+  html.dark {
+    background: var(--color-dark-bg);
+  }
+
   body {
     @apply bg-gray-50 text-gray-900 font-sans antialiased transition-colors duration-200;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  :where(button, a, input, select, textarea, [role='button']) {
+    touch-action: manipulation;
+  }
+
+  :where(button, a, [role='button']) {
+    -webkit-tap-highlight-color: transparent;
   }
 
   :where(button, a, input, select, textarea):focus-visible {
@@ -44,6 +83,120 @@
   
   :root.dark .dark-card {
     @apply bg-dark-card border-slate-700 text-dark-text;
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  [role='button'] {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+.app-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-mobile-header {
+  top: 0;
+  height: calc(var(--app-mobile-header-height) + var(--app-safe-top));
+  padding-top: var(--app-safe-top);
+  padding-left: max(1rem, var(--app-safe-left));
+  padding-right: max(1rem, var(--app-safe-right));
+}
+
+.app-main-content {
+  padding-right: max(1rem, var(--app-safe-right));
+  padding-bottom: max(1rem, var(--app-safe-bottom));
+  padding-left: max(1rem, var(--app-safe-left));
+}
+
+.app-mobile-drawer {
+  padding-top: max(1rem, var(--app-safe-top));
+  padding-right: max(1rem, var(--app-safe-right));
+  padding-bottom: max(1rem, var(--app-safe-bottom));
+}
+
+.app-dialog-overlay {
+  padding-top: max(1rem, var(--app-safe-top));
+  padding-right: max(1rem, var(--app-safe-right));
+  padding-bottom: max(1rem, var(--app-safe-bottom));
+  padding-left: max(1rem, var(--app-safe-left));
+  overscroll-behavior: contain;
+}
+
+.app-dialog-surface {
+  max-height: calc(100vh - 2rem - var(--app-safe-top) - var(--app-safe-bottom));
+  max-height: calc(100dvh - 2rem - var(--app-safe-top) - var(--app-safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body:has(.app-scroll-lock) {
+  overflow: hidden;
+}
+
+.app-install-badge {
+  right: max(1rem, var(--app-safe-right));
+  bottom: calc(1rem + var(--app-safe-bottom) + var(--app-network-offset));
+  left: max(1rem, var(--app-safe-left));
+}
+
+.app-floating-action {
+  bottom: calc(1rem + var(--app-safe-bottom) + var(--app-network-offset));
+}
+
+.app-network-status {
+  padding-right: max(1rem, var(--app-safe-right));
+  padding-bottom: max(0.5rem, var(--app-safe-bottom));
+  padding-left: max(1rem, var(--app-safe-left));
+}
+
+@media (min-width: 640px) {
+  .app-main-content {
+    padding-right: max(1.5rem, var(--app-safe-right));
+    padding-bottom: max(1.5rem, var(--app-safe-bottom));
+    padding-left: max(1.5rem, var(--app-safe-left));
+  }
+
+  .app-install-badge {
+    right: max(1.5rem, var(--app-safe-right));
+    bottom: calc(1.5rem + var(--app-safe-bottom) + var(--app-network-offset));
+    left: auto;
+  }
+}
+
+.app-update-badge {
+  right: max(1rem, var(--app-safe-right));
+  bottom: calc(5.75rem + var(--app-safe-bottom) + var(--app-network-offset));
+  left: max(1rem, var(--app-safe-left));
+}
+
+@media (min-width: 640px) {
+  .app-update-badge {
+    right: max(1.5rem, var(--app-safe-right));
+    left: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-main-content {
+    margin-top: calc(var(--app-mobile-header-height) + var(--app-safe-top));
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-main-content {
+    padding-right: max(2rem, var(--app-safe-right));
+    padding-bottom: max(2rem, var(--app-safe-bottom));
+    padding-left: max(2rem, var(--app-safe-left));
   }
 }
 

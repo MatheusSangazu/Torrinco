@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
   ChevronRight,
@@ -925,12 +924,12 @@ function ImportConfirmModal({
     (!duplicates || confirmDuplicates) &&
     (!difference || (confirmDifference && reason.trim()));
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/55 sm:items-center sm:p-4">
+    <div className="app-scroll-lock fixed inset-0 z-[100] flex items-end justify-center bg-black/55 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-confirm-title"
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl dark:bg-slate-800"
+        className="app-dialog-surface w-full overflow-y-auto rounded-t-3xl bg-white pb-[var(--app-safe-bottom)] shadow-2xl sm:max-w-lg sm:rounded-2xl sm:pb-0 dark:bg-slate-800"
       >
         <div className="flex items-center justify-between border-b border-gray-100 p-4 dark:border-slate-700">
           <div>

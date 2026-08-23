@@ -51,6 +51,31 @@ const localTimeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário 
 
 /** Frequência de recorrência. */
 const frequencyEnum = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
+const recurrenceEndTypeEnum = z.enum(['occurrence_count', 'end_date', 'never']);
+
+function validateRecurrenceEndShape(value: any, context: any, partial = false) {
+  const hasRuleField = value.end_type !== undefined || value.occurrence_count !== undefined || value.end_date !== undefined;
+  if (partial && !hasRuleField) return;
+  const endType = value.end_type ?? 'never';
+  if (endType === 'occurrence_count') {
+    if (!Number.isInteger(value.occurrence_count) || value.occurrence_count <= 0) {
+      context.addIssue({ code: 'custom', path: ['occurrence_count'], message: 'Total de ocorrências deve ser maior que zero.' });
+    }
+    if (value.end_date !== undefined) context.addIssue({ code: 'custom', path: ['end_date'], message: 'Data final não deve ser informada para término por quantidade.' });
+  } else if (endType === 'end_date') {
+    if (!value.end_date) context.addIssue({ code: 'custom', path: ['end_date'], message: 'Data final é obrigatória.' });
+    if (value.occurrence_count !== undefined) context.addIssue({ code: 'custom', path: ['occurrence_count'], message: 'Quantidade não deve ser informada para término por data.' });
+  } else if (value.occurrence_count !== undefined || value.end_date !== undefined) {
+    context.addIssue({ code: 'custom', path: ['end_type'], message: 'Recorrência sem data final não aceita quantidade ou data.' });
+  }
+}
+
+const agentRecurrenceSchema = z.object({
+  frequency: frequencyEnum,
+  end_type: recurrenceEndTypeEnum.optional(),
+  occurrence_count: positiveInt.optional(),
+  end_date: dateString.optional(),
+}).superRefine((value, context) => validateRecurrenceEndShape(value, context));
 
 /** Tipo de transação. */
 const transactionTypeEnum = z.enum(['income', 'expense']);
@@ -213,7 +238,7 @@ export const financeSchemas = {
   }),
 
   deleteQuery: z.object({
-    delete_type: z.string().max(20).optional(),
+    delete_type: z.enum(['single', 'future', 'all']).optional(),
     is_projected: z.string().max(10).optional(),
     date: z.string().max(50).optional(),
   }),
@@ -227,6 +252,19 @@ export const financeSchemas = {
     period: z.enum(['current_month', 'next_month']).default('next_month'),
     target_user_id: positiveInt.optional(),
   }),
+
+  monthlyOverviewQuery: z.object({
+    year: z.coerce.number().int().min(1900).max(2200),
+    target_user_id: positiveInt.optional(),
+  }).strict(),
+
+  monthlyOverviewParams: z.object({
+    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mês deve usar o formato AAAA-MM.'),
+  }).strict(),
+
+  monthlyOverviewDetailQuery: z.object({
+    target_user_id: positiveInt.optional(),
+  }).strict(),
 };
 
 // ── Recurring ────────────────────────────────────────────────────
@@ -244,6 +282,14 @@ export const recurringSchemas = {
     entity_id: optionalId,
     idempotency_key: z.string().uuid().optional(),
     payment_method: paymentMethodEnum.optional(),
+    end_type: recurrenceEndTypeEnum.default('never'),
+    occurrence_count: positiveInt.optional(),
+    end_date: dateString.optional(),
+  }).superRefine((value, context) => {
+    validateRecurrenceEndShape(value, context);
+    if (value.end_type === 'end_date' && value.end_date && value.end_date < value.start_date) {
+      context.addIssue({ code: 'custom', path: ['end_date'], message: 'Data final deve ser igual ou posterior à primeira ocorrência.' });
+    }
   }),
 
   update: z.object({
@@ -256,7 +302,11 @@ export const recurringSchemas = {
     status: z.enum(['active', 'inactive', 'cancelled', 'pending', 'paid']).optional(),
     entity_id: optionalNullableId,
     payment_method: paymentMethodEnum.optional(),
-  }),
+    end_type: recurrenceEndTypeEnum.optional(),
+    occurrence_count: positiveInt.optional(),
+    end_date: dateString.optional(),
+    scope: z.enum(['occurrence', 'future', 'series']).optional(),
+  }).superRefine((value, context) => validateRecurrenceEndShape(value, context, true)),
 
   generate: z.object({
     transaction_date: dateString.optional(),
@@ -487,7 +537,7 @@ export const agentSchemas = {
     category: optionalString(100),
     date: dateString.optional(),
     installments: positiveInt.max(120).optional(),
-    recurring: z.object({ frequency: frequencyEnum }).optional(),
+    recurring: agentRecurrenceSchema.optional(),
     payment_method: z.string().max(50).optional(),
   }),
 
@@ -497,7 +547,7 @@ export const agentSchemas = {
     category: optionalString(100),
     date: dateString.optional(),
     source_name: optionalString(100),
-    recurring: z.object({ frequency: frequencyEnum }).optional(),
+    recurring: agentRecurrenceSchema.optional(),
     payment_method: z.string().max(50).optional(),
   }),
 

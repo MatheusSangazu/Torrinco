@@ -5,8 +5,20 @@ import { parseDate } from '../lib/date-utils.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
 import * as billing from '../services/billing.service.js';
 import * as summary from '../services/summary.service.js';
+import * as monthlyFinance from '../services/monthly-finance.service.js';
+import * as recurringService from '../services/recurring.service.js';
 import { requireUserInAccount, getCategoryForAccount, getEntityForAccount, OwnershipError } from '../services/ownership.service.js';
-import { getValidatedQuery } from '../middleware/validate.js';
+import { getValidatedParams, getValidatedQuery } from '../middleware/validate.js';
+
+async function resolveFinancialTargetUser(req: JwtRequest, targetUserId?: number): Promise<number> {
+  const authenticatedUserId = req.userId!;
+  if (!targetUserId || targetUserId === authenticatedUserId) return authenticatedUserId;
+  if (req.userRole !== 'owner' && req.userRole !== 'admin') {
+    throw new OwnershipError('Usuário sem permissão para consultar outro membro da conta', 403);
+  }
+  await requireUserInAccount(targetUserId, req.accountId!);
+  return targetUserId;
+}
 
 export class FinanceController {
   /**
@@ -180,7 +192,8 @@ export class FinanceController {
            categories: true,
            income_sources: true,
            accounts: true,
-           purchase_installments: true
+           purchase_installments: true,
+           recurring_transactions: true
          },
          orderBy: {
            transaction_date: 'desc'
@@ -394,12 +407,11 @@ export class FinanceController {
         const projectionDate = new Date(timestamp);
 
         if (delete_type === 'all') {
-          
-          await prisma.recurring_transactions.update({
-            where: { id: recurringId, user_id: userId },
-            data: { status: 'cancelled' } 
-          });
+          await recurringService.cancelRecurring(userId, recurringId);
           return res.json({ message: 'Recurring transaction cancelled successfully' });
+        } else if (delete_type === 'future') {
+          await recurringService.truncateRecurringFrom(userId, recurringId, projectionDate);
+          return res.json({ message: 'Recurring transaction truncated successfully' });
         } else {
           
           const recurring = await prisma.recurring_transactions.findFirst({
@@ -412,22 +424,33 @@ export class FinanceController {
           const user = await prisma.users.findUnique({ where: { id: userId } });
           if (!user) return res.status(404).json({ error: 'User not found' });
 
-          await prisma.transactions.create({
-            data: {
+          const existingOccurrence = await prisma.transactions.findFirst({
+            where: { user_id: userId, recurring_transaction_id: recurring.id, recurring_occurrence_date: projectionDate },
+          });
+          if (existingOccurrence) {
+            await prisma.transactions.update({ where: { id: existingOccurrence.id }, data: { deleted_at: new Date() } });
+          } else {
+            await prisma.transactions.create({ data: {
               user_id: userId,
               account_id: user.account_id,
+              entity_id: recurring.entity_id,
               description: recurring.description,
               amount: recurring.amount,
-              type: recurring.type === 'income' ? 'income' : 'expense', // Ajuste de tipo
+              type: recurring.type === 'income' ? 'income' : 'expense',
               category: recurring.category,
+              category_id: recurring.category_id,
+              income_source_id: recurring.income_source_id,
               transaction_date: projectionDate,
+              transaction_date_civil: projectionDate,
               is_recurring: true,
               recurring_transaction_id: recurring.id,
-              status: 'paid', // Status padrão, mas com deleted_at preenchido
+              recurring_occurrence_at: projectionDate,
+              recurring_occurrence_date: projectionDate,
+              status: 'paid',
               deleted_at: new Date(),
-              payment_method: 'pix' // Padrão
-            }
-          });
+              payment_method: recurring.payment_method,
+            } });
+          }
           return res.json({ message: 'Instance cancelled successfully' });
         }
       }
@@ -442,11 +465,13 @@ export class FinanceController {
       }
 
       if (delete_type === 'all' && existingTransaction.recurring_transaction_id) {
-        
-        await prisma.recurring_transactions.update({
-          where: { id: existingTransaction.recurring_transaction_id },
-          data: { status: 'cancelled' }
-        });
+        await recurringService.cancelRecurring(userId, existingTransaction.recurring_transaction_id);
+      } else if (delete_type === 'future' && existingTransaction.recurring_transaction_id) {
+        await recurringService.truncateRecurringFrom(
+          userId,
+          existingTransaction.recurring_transaction_id,
+          existingTransaction.recurring_occurrence_date ?? existingTransaction.recurring_occurrence_at ?? existingTransaction.transaction_date,
+        );
       }
 
       // Se for uma parcela e delete_type for 'all', excluir todas as parcelas da compra
@@ -474,6 +499,31 @@ export class FinanceController {
       }
 
       res.json({ message: 'Transaction deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** Resumo comparável dos 12 meses de um ano, em centavos. */
+  static async getMonthlyOverview(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { year, target_user_id } = getValidatedQuery(req);
+      const userId = await resolveFinancialTargetUser(req, target_user_id ? Number(target_user_id) : undefined);
+      const result = await monthlyFinance.getMonthlyOverview(userId, Number(year));
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** Detalhamento sob demanda de um mês, agrupado no backend. */
+  static async getMonthlyOverviewDetail(req: JwtRequest, res: Response, next: NextFunction) {
+    try {
+      const { target_user_id } = getValidatedQuery(req);
+      const { month } = getValidatedParams<{ month: string }>(req);
+      const userId = await resolveFinancialTargetUser(req, target_user_id ? Number(target_user_id) : undefined);
+      const result = await monthlyFinance.getMonthlyOverviewDetail(userId, month);
+      res.json(result);
     } catch (error) {
       next(error);
     }

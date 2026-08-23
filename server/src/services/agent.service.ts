@@ -8,6 +8,14 @@ import { getAuthUrl, isConnected } from './google/auth.service.js';
 import * as gcal from './google/calendar.service.js';
 import { auditLog } from '../lib/audit.js';
 import type { Frequency } from '../lib/date-utils.js';
+import type { RecurrenceEndType } from '../lib/recurrence-rules.js';
+
+export interface RecurringOptions {
+  frequency: Frequency;
+  end_type?: RecurrenceEndType;
+  occurrence_count?: number;
+  end_date?: string;
+}
 
 /**
  * Camada agent-friendly: expõe a lógica de domínio por INTENÇÃO, escondendo
@@ -31,7 +39,7 @@ export interface RegisterExpenseInput {
   category?: string;         // resolve/cria categoria
   date?: string;             // default hoje
   installments?: number;     // > 1 → compra parcelada no cartão
-  recurring?: { frequency: Frequency }; // presente → cria recorrência
+  recurring?: RecurringOptions; // presente → cria recorrência
   payment_method?: string;
 }
 
@@ -41,7 +49,7 @@ export interface RegisterIncomeInput {
   category?: string;
   date?: string;
   source_name?: string;      // nome da fonte de renda (income_sources)
-  recurring?: { frequency: Frequency };
+  recurring?: RecurringOptions;
   payment_method?: string;
 }
 
@@ -179,6 +187,9 @@ export async function registerExpense(userId: number, input: RegisterExpenseInpu
       type: 'expense',
       frequency: input.recurring.frequency,
       start_date: date,
+      end_type: input.recurring.end_type,
+      occurrence_count: input.recurring.occurrence_count,
+      end_date: input.recurring.end_date,
       category: input.category,
       entity_id: cardId ?? undefined,
       payment_method: cardId ? 'credit' : (input.payment_method ?? 'pix')
@@ -187,7 +198,13 @@ export async function registerExpense(userId: number, input: RegisterExpenseInpu
       actor: { kind: 'user', id: userId },
       action: 'recurring.create',
       target: { type: 'recurring_transaction', id: recurring.id },
-      meta: { description: input.description, amount: input.amount, frequency: input.recurring.frequency, entity_id: cardId }
+      meta: {
+        description: input.description,
+        amount: input.amount,
+        frequency: input.recurring.frequency,
+        end_type: input.recurring.end_type ?? 'never',
+        entity_id: cardId,
+      }
     });
     return { kind: 'recurring', recurring };
   }
@@ -256,6 +273,9 @@ export async function registerIncome(userId: number, input: RegisterIncomeInput)
       type: 'income',
       frequency: input.recurring.frequency,
       start_date: date,
+      end_type: input.recurring.end_type,
+      occurrence_count: input.recurring.occurrence_count,
+      end_date: input.recurring.end_date,
       category: input.category,
       payment_method: input.payment_method ?? 'pix'
     });

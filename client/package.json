@@ -9,6 +9,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "test:temporal": "node --test src/lib/local-date.test.ts",
+    "test:monthly-overview": "node --test src/lib/monthly-overview.test.ts",
+    "test:reports-monthly": "node --test src/lib/reports-monthly.test.ts",
+    "test:pwa": "node --test src/lib/pwa-contract.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

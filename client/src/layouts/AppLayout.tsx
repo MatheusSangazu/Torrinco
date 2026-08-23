@@ -24,7 +24,7 @@ export function AppLayout() {
   },[isMobileMenuOpen]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-dark-text">Carregando...</div>;
+    return <div className="app-screen flex items-center justify-center bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-dark-text">Carregando...</div>;
   }
 
   if (!isAuthenticated) {
@@ -38,10 +38,10 @@ export function AppLayout() {
   const navGroups=[{label:'Finanças pessoais',items:financialItems},...(platformItems.length?[{label:'Ferramentas da plataforma',items:platformItems}]:[])];
 
   return (
-    <div className="min-h-screen flex bg-gray-50 dark:bg-dark-bg transition-colors duration-200">
+    <div className="app-shell flex bg-gray-50 dark:bg-dark-bg transition-colors duration-200">
       
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 w-full bg-torrinco-600 text-white z-20 flex items-center justify-between px-4 h-16 shadow-md">
+      <div className="app-mobile-header lg:hidden fixed w-full bg-torrinco-600 text-white z-20 flex items-center justify-between shadow-md">
          <div className="flex items-center space-x-2">
             <img src="/torrinco.png" alt="Torrinco" className="w-8 h-8 rounded-lg bg-white p-0.5" />
             <span className="text-xl font-bold">Torrinco</span>
@@ -126,9 +126,9 @@ export function AppLayout() {
 
       {/* Mobile Drawer (Overlay) */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="app-scroll-lock fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => closeMobileMenu()} />
-          <div ref={drawerRef} id="mobile-navigation-drawer" role="dialog" aria-modal="true" aria-label="Menu de navegação" className="absolute bottom-0 right-0 top-0 flex w-72 max-w-[88vw] flex-col bg-torrinco-600 p-4 text-white animate-in slide-in-from-right duration-200">
+          <div ref={drawerRef} id="mobile-navigation-drawer" role="dialog" aria-modal="true" aria-label="Menu de navegação" className="app-mobile-drawer absolute bottom-0 right-0 top-0 flex w-72 max-w-[88vw] flex-col bg-torrinco-600 p-4 text-white animate-in slide-in-from-right duration-200">
              <div className="flex justify-between items-center mb-6">
                <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-torrinco-800 flex items-center justify-center">
@@ -171,7 +171,7 @@ export function AppLayout() {
 
       {/* Main Content Area */}
       <main className={clsx(
-        "flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-300 mt-16 lg:mt-0",
+        "app-main-content flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-300",
         isSidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
       )}>
         <Outlet />

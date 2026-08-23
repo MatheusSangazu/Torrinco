@@ -7,27 +7,22 @@ import toast from 'react-hot-toast';
 import { CustomSelect } from '../components/CustomSelect';
 import { EmptyState, PageError, PageLoading } from '../components/PageState';
 import {
+  monthlyOverviewService,
+  type MonthlySummary,
+} from '../services/monthly-overview.service';
+import {
+  monthlyDetailToReportTransactions,
+  monthlySummariesToTrend,
+  type ReportTransaction,
+} from '../lib/reports-monthly';
+import {
   addMonthsToYearMonth,
   formatMonthLong,
-  formatYearMonthShort,
   fromYearMonthParts,
   getLocalDateDayOfWeek,
   getMonthDateRange,
   localDateFromApi,
 } from '../lib/local-date';
-
-interface Transaction {
-  id: number;
-  amount: number;
-  type: 'income' | 'expense';
-  category: string;
-  transaction_date: string;
-  status?: 'paid' | 'pending';
-  categories?: {
-    name: string;
-    color: string;
-  };
-}
 
 interface CategorySummary {
   category: string;
@@ -56,8 +51,8 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function Reports() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [trendTransactions, setTrendTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
+  const [trendMonths, setTrendMonths] = useState<MonthlySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -71,8 +66,7 @@ export function Reports() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
 
   useEffect(() => {
-    console.log('useEffect em Reports - Buscando transações...');
-    fetchTransactions();
+    void fetchTransactions();
   }, [selectedMonth, selectedYear]);
 
   const fetchTransactions = async () => {
@@ -80,27 +74,15 @@ export function Reports() {
       setLoading(true);
       setLoadError('');
       const selectedPeriod = fromYearMonthParts(selectedYear, selectedMonth + 1);
-      const selectedRange = getMonthDateRange(selectedPeriod);
-      const trendStart = getMonthDateRange(addMonthsToYearMonth(selectedPeriod, -5)).startDate;
-      
-      const [response, trendResponse] = await Promise.all([
-        api.get('/finance/transactions', {
-          params: { start_date: selectedRange.startDate, end_date: selectedRange.endDate }
-        }),
-        api.get('/finance/transactions', {
-          params: { start_date: trendStart, end_date: selectedRange.endDate }
-        })
+      const periods = Array.from({ length: 6 }, (_, index) => addMonthsToYearMonth(selectedPeriod, index - 5));
+      const years = [...new Set(periods.map(period => Number(period.slice(0, 4))))];
+      const [detail, ...overviews] = await Promise.all([
+        monthlyOverviewService.getMonth(selectedPeriod),
+        ...years.map(year => monthlyOverviewService.getYear(year)),
       ]);
-      console.log('Transações recebidas do backend:', response.data.transactions);
-      // Garantir que amount seja número (vem como string do backend se for Decimal)
-      const transactionsData = response.data.transactions.map((t: any) => ({
-        ...t,
-        amount: Number(t.amount)
-      }));
-      console.log('Transações processadas:', transactionsData);
-      setTransactions(transactionsData);
-      setTrendTransactions(trendResponse.data.transactions.map((t: any) => ({ ...t, amount: Number(t.amount) })));
-      console.log('Transações definidas no estado:', transactionsData.length);
+
+      setTransactions(monthlyDetailToReportTransactions(detail));
+      setTrendMonths(overviews.flatMap(overview => overview.months));
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
       setLoadError('Não foi possível carregar os relatórios. Verifique sua conexão e tente novamente.');
@@ -109,14 +91,9 @@ export function Reports() {
     }
   };
 
-  useEffect(() => {
-    console.log('Transações no estado mudou:', transactions.length);
-  }, [transactions]);
-
   const getFilteredTransactions = () => {
-    console.log('Filtrando transações - Total:', transactions.length, 'Mês:', selectedMonth, 'Ano:', selectedYear);
     const filtered = transactions.filter(t => {
-      const matchesDate = localDateFromApi(t.transaction_date).startsWith(fromYearMonthParts(selectedYear, selectedMonth + 1));
+      const matchesDate = t.competence_date.startsWith(fromYearMonthParts(selectedYear, selectedMonth + 1));
       const matchesType = filterType === 'all' || t.type === filterType;
       const matchesCategory = filterCategory === 'all' || t.category === filterCategory || t.categories?.name === filterCategory;
       const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
@@ -124,7 +101,6 @@ export function Reports() {
       
       return matchesDate && matchesType && matchesCategory && matchesStatus;
     });
-    console.log('Filtrado:', filtered.length);
     return filtered;
   };
 
@@ -305,24 +281,9 @@ export function Reports() {
   
   // Simple Bar Chart Data (Last 6 months)
   const getLast6MonthsData = () => {
-    const data = [];
     const selectedPeriod = fromYearMonthParts(selectedYear, selectedMonth + 1);
-    
-    for (let i = 5; i >= 0; i--) {
-      const period = addMonthsToYearMonth(selectedPeriod, -i);
-      
-      const monthTrans = trendTransactions.filter(t => localDateFromApi(t.transaction_date).startsWith(period));
-
-      const inc = monthTrans.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-      const exp = monthTrans.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-
-      data.push({
-        label: formatYearMonthShort(period),
-        income: inc,
-        expense: exp
-      });
-    }
-    return data;
+    const periods = Array.from({ length: 6 }, (_, index) => addMonthsToYearMonth(selectedPeriod, index - 5));
+    return monthlySummariesToTrend(trendMonths, periods);
   };
 
   const sixMonthsData = getLast6MonthsData();
@@ -763,7 +724,7 @@ export function Reports() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
                             const RADIAN = Math.PI / 180;
                             const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
                             const x = cx + radius * Math.cos(-(midAngle || 0) * RADIAN);

@@ -1,32 +1,10 @@
 import { prisma } from '../lib/prisma.js';
 import { projectRecurringTransactions } from '../lib/transaction-projection.js';
+import { asDateOnlyUTC, computeBillPeriod, computeBillPeriodByOffset, endOfDayUTC, type BillPeriod } from '../lib/card-billing-period.js';
+import { centsToLegacyNumber, toCents } from '../lib/money.js';
 
-function lastDayOfMonthUTC(year: number, monthIndex: number): number {
-  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-}
-
-function clampDayOfMonthUTC(year: number, monthIndex: number, day: number): number {
-  return Math.min(day, lastDayOfMonthUTC(year, monthIndex));
-}
-
-function dateOnlyUTC(year: number, monthIndex: number, day: number): Date {
-  return new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
-}
-
-function asDateOnlyUTC(d: Date): Date {
-  return dateOnlyUTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-}
-
-function endOfDayUTC(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
-}
-
-function shiftMonth(year: number, monthIndex: number, offset: number): { year: number; monthIndex: number } {
-  const m = monthIndex + offset;
-  const y = year + Math.floor(m / 12);
-  const mm = ((m % 12) + 12) % 12;
-  return { year: y, monthIndex: mm };
-}
+export { computeBillPeriod, computeBillPeriodByOffset } from '../lib/card-billing-period.js';
+export type { BillPeriod } from '../lib/card-billing-period.js';
 
 async function getAccountIdByUserId(userId: number): Promise<number> {
   const user = await prisma.users.findUnique({
@@ -46,96 +24,6 @@ async function getAccountIdByUserId(userId: number): Promise<number> {
  * `card_bills`, eliminando a heurística por string matching.
  */
 
-export interface BillPeriod {
-  /** Início do período de compras (dia seguinte ao fechamento anterior). */
-  periodStart: Date;
-  /** Fim do período de compras = data de fechamento. */
-  periodEnd: Date;
-  /** Data de fechamento da fatura (= periodEnd). */
-  closingDate: Date;
-  /** Data de vencimento. */
-  dueDate: Date;
-}
-
-/**
- * Calcula o período da fatura "atual/aberta" para uma data de referência.
- * Fonte única — não duplicar esta lógica em controllers.
- *
- * - Se refDate > fechamento do mês corrente, a fatura aberta fecha no mês seguinte.
- * - período de compras = [fechamento anterior + 1 dia, fechamento atual].
- */
-export function computeBillPeriod(
-  closingDay: number,
-  dueDay: number,
-  refDate: Date = new Date()
-): BillPeriod {
-  // Defensivo: se os dias chegarem null/undefined (cartão legado mal cadastrado),
-  // lança em vez de gerar NaN silencioso que corrompe a fatura.
-  if (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31) {
-    throw new Error(`closing_day inválido: ${closingDay}. Configure o cartão com dia de fechamento (1-31).`);
-  }
-  if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
-    throw new Error(`due_day inválido: ${dueDay}. Configure o cartão com dia de vencimento (1-31).`);
-  }
-
-  const ref = asDateOnlyUTC(refDate);
-  const year = ref.getUTCFullYear();
-  const month = ref.getUTCMonth();
-
-  const closingThisMonth = dateOnlyUTC(year, month, clampDayOfMonthUTC(year, month, closingDay));
-
-  let periodEnd: Date;
-  if (ref.getTime() > closingThisMonth.getTime()) {
-    const next = shiftMonth(year, month, 1);
-    periodEnd = dateOnlyUTC(next.year, next.monthIndex, clampDayOfMonthUTC(next.year, next.monthIndex, closingDay));
-  } else {
-    periodEnd = closingThisMonth;
-  }
-
-  const prev = shiftMonth(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), -1);
-  const prevClosing = dateOnlyUTC(prev.year, prev.monthIndex, clampDayOfMonthUTC(prev.year, prev.monthIndex, closingDay));
-  const periodStart = new Date(prevClosing);
-  periodStart.setUTCDate(periodStart.getUTCDate() + 1);
-  periodStart.setUTCHours(0, 0, 0, 0);
-
-  const dueBase = dueDay < closingDay
-    ? shiftMonth(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), 1)
-    : { year: periodEnd.getUTCFullYear(), monthIndex: periodEnd.getUTCMonth() };
-  const dueDate = dateOnlyUTC(dueBase.year, dueBase.monthIndex, clampDayOfMonthUTC(dueBase.year, dueBase.monthIndex, dueDay));
-
-  return { periodStart, periodEnd, closingDate: periodEnd, dueDate };
-}
-
-/**
- * Calcula o período de uma fatura histórica/futura por offset de ciclo.
- * offset 0 = ciclo atual, -1 = anterior, +1 = próximo, etc.
- */
-export function computeBillPeriodByOffset(
-  closingDay: number,
-  dueDay: number,
-  offset: number,
-  refDate: Date = new Date()
-): BillPeriod {
-  const current = computeBillPeriod(closingDay, dueDay, refDate);
-  if (offset === 0) return current;
-
-  const baseEnd = asDateOnlyUTC(current.periodEnd);
-  const target = shiftMonth(baseEnd.getUTCFullYear(), baseEnd.getUTCMonth(), offset);
-  const targetEnd = dateOnlyUTC(target.year, target.monthIndex, clampDayOfMonthUTC(target.year, target.monthIndex, closingDay));
-
-  const prev = shiftMonth(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth(), -1);
-  const prevClosing = dateOnlyUTC(prev.year, prev.monthIndex, clampDayOfMonthUTC(prev.year, prev.monthIndex, closingDay));
-  const periodStart = new Date(prevClosing);
-  periodStart.setUTCDate(periodStart.getUTCDate() + 1);
-  periodStart.setUTCHours(0, 0, 0, 0);
-
-  const dueBase = dueDay < closingDay
-    ? shiftMonth(targetEnd.getUTCFullYear(), targetEnd.getUTCMonth(), 1)
-    : { year: targetEnd.getUTCFullYear(), monthIndex: targetEnd.getUTCMonth() };
-  const dueDate = dateOnlyUTC(dueBase.year, dueBase.monthIndex, clampDayOfMonthUTC(dueBase.year, dueBase.monthIndex, dueDay));
-
-  return { periodStart, periodEnd: targetEnd, closingDate: targetEnd, dueDate };
-}
 
 /**
  * Busca ou cria a fatura do ciclo atual de um cartão.
@@ -255,7 +143,9 @@ export async function getBillItems(cardId: number, userId: number, period: BillP
     }))
   ];
 
-  const total = items.reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalCents = transactions.reduce((sum, item) => sum + toCents(item.amount), 0n)
+    + projected.reduce((sum, item) => sum + toCents(item.amount), 0n);
+  const total = centsToLegacyNumber(totalCents);
   return { items, total };
 }
 
@@ -281,8 +171,9 @@ export async function getBillDetails(billId: number, userId: number) {
   };
 
   const { items, total } = await getBillItems(bill.card_id, userId, period);
-  const paidAmount = bill.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-  const remainingAmount = Math.max(0, total - paidAmount);
+  const totalCents = toCents(total);
+  const paidCents = bill.payments.reduce((sum, payment) => sum + toCents(payment.amount), 0n);
+  const remainingCents = totalCents > paidCents ? totalCents - paidCents : 0n;
 
   return {
     bill: {
@@ -296,8 +187,8 @@ export async function getBillDetails(billId: number, userId: number) {
       paid_at: bill.paid_at,
       closed_at: bill.closed_at,
       total_amount: total,
-      paid_amount: paidAmount,
-      remaining_amount: remainingAmount,
+      paid_amount: centsToLegacyNumber(paidCents),
+      remaining_amount: centsToLegacyNumber(remainingCents),
       payments: bill.payments.map(payment => ({
         id: payment.id,
         amount: Number(payment.amount),
@@ -352,11 +243,13 @@ export async function registerPayment(
     where: { bill_id: billId, user_id: userId, reversed_at: null },
     _sum: { amount: true }
   });
-  const alreadyPaid = Number(activePayments._sum.amount ?? 0);
-  const remainingBeforePayment = Math.max(0, total - alreadyPaid);
-  const amount = requestedAmount ?? remainingBeforePayment;
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error('INVALID_PAYMENT_AMOUNT');
-  if (amount > remainingBeforePayment + 0.005) throw new Error('PAYMENT_EXCEEDS_REMAINING');
+  const totalCents = toCents(total);
+  const alreadyPaidCents = toCents(activePayments._sum.amount ?? 0);
+  const remainingBeforePaymentCents = totalCents > alreadyPaidCents ? totalCents - alreadyPaidCents : 0n;
+  const amountCents = requestedAmount === undefined ? remainingBeforePaymentCents : toCents(requestedAmount);
+  if (amountCents <= 0n) throw new Error('INVALID_PAYMENT_AMOUNT');
+  if (amountCents > remainingBeforePaymentCents) throw new Error('PAYMENT_EXCEEDS_REMAINING');
+  const amount = centsToLegacyNumber(amountCents);
 
   const user = await prisma.users.findUnique({ where: { id: userId } });
   if (!user) throw new Error('USER_NOT_FOUND');
@@ -390,8 +283,8 @@ export async function registerPayment(
       }
     });
 
-    const paidAmount = alreadyPaid + amount;
-    const fullyPaid = paidAmount + 0.005 >= total;
+    const paidAmountCents = alreadyPaidCents + amountCents;
+    const fullyPaid = paidAmountCents >= totalCents;
     const updatedBill = await tx.card_bills.update({
       where: { id: billId },
       data: {
@@ -403,8 +296,8 @@ export async function registerPayment(
     return {
       ...updatedBill,
       total_amount: total,
-      paid_amount: paidAmount,
-      remaining_amount: Math.max(0, total - paidAmount),
+      paid_amount: centsToLegacyNumber(paidAmountCents),
+      remaining_amount: centsToLegacyNumber(totalCents > paidAmountCents ? totalCents - paidAmountCents : 0n),
       payment_id: payment.id
     };
   });
@@ -445,8 +338,8 @@ export async function undoPayment(billId: number, userId: number, paymentId?: nu
       where: { bill_id: billId, reversed_at: null },
       _sum: { amount: true }
     });
-    const stillPaid = Number(remainingPayments._sum.amount ?? 0);
-    const baseStatus = stillPaid > 0
+    const stillPaidCents = toCents(remainingPayments._sum.amount ?? 0);
+    const baseStatus = stillPaidCents > 0n
       ? 'partially_paid'
       : (asDateOnlyUTC(now).getTime() > bill.due_date.getTime() ? 'overdue'
         : asDateOnlyUTC(now).getTime() > bill.period_end.getTime() ? 'closed' : 'open');

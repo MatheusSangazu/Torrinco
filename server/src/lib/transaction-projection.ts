@@ -1,4 +1,19 @@
-import { advanceDate, parseDate, type Frequency } from './date-utils.js';
+import { occurrenceAt, parseDate, type Frequency } from './date-utils.js';
+import { toCents } from './money.js';
+import { isOccurrenceAllowed } from './recurrence-rules.js';
+
+function civilDateKey(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function sameMoney(left: unknown, right: unknown): boolean {
+  try {
+    return toCents(left as any) === toCents(right as any);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Projeção de transações recorrentes para um intervalo de datas.
@@ -13,7 +28,7 @@ export function projectRecurringTransactions(
   recurringTransactions: any[],
   start: Date,
   end: Date,
-  transactionsForCheck: any[]
+  transactionsForCheck: any[],
 ): any[] {
   const projectedRecurring: any[] = [];
 
@@ -25,30 +40,28 @@ export function projectRecurringTransactions(
 
   for (const rt of recurringTransactions) {
     const rtStartDate = parseDate(rt.start_date);
-    const targetDay = rtStartDate.getUTCDate();
-    let currentDate = new Date(rtStartDate);
+    let occurrenceIndex = 0;
+    let currentDate = occurrenceAt(rtStartDate, rt.frequency as Frequency, occurrenceIndex);
 
-    // Avança a data até a primeira ocorrência dentro/antes do intervalo,
-    // usando a função única advanceDate (elimina os blocos while duplicados).
-    while (currentDate < utcStart) {
-      currentDate = advanceDate(rt.frequency as Frequency, currentDate);
-      // Preserva o dia original em recorrências mensais/anuais (correção de virada de mês)
-      if ((rt.frequency === 'monthly' || rt.frequency === 'yearly') &&
-          currentDate.getUTCDate() !== targetDay) {
-        currentDate.setUTCDate(0);
-      }
+    // Localiza a primeira ocorrência do intervalo sem perder a âncora da série.
+    while (currentDate < utcStart && isOccurrenceAllowed(rt, currentDate, occurrenceIndex)) {
+      occurrenceIndex += 1;
+      currentDate = occurrenceAt(rtStartDate, rt.frequency as Frequency, occurrenceIndex);
     }
 
-    while (currentDate <= utcEnd) {
+    while (currentDate <= utcEnd && isOccurrenceAllowed(rt, currentDate, occurrenceIndex)) {
+      const occurrenceKey = civilDateKey(currentDate);
       const existingTransaction = transactionsForCheck.find(t => {
-        const tDate = new Date(t.transaction_date);
-        return t.is_recurring &&
+        const identityDate = t.recurring_occurrence_date ?? t.recurring_occurrence_at ?? t.transaction_date;
+        if (Number(t.recurring_transaction_id) === Number(rt.id)) {
+          return civilDateKey(identityDate) === occurrenceKey;
+        }
+
+        return !t.recurring_transaction_id && t.is_recurring &&
           t.type === rt.type &&
           t.description === rt.description &&
-          Math.abs(Number(t.amount) - Number(rt.amount)) < 0.01 &&
-          tDate.getUTCDate() === currentDate.getUTCDate() &&
-          tDate.getUTCMonth() === currentDate.getUTCMonth() &&
-          tDate.getUTCFullYear() === currentDate.getUTCFullYear();
+          sameMoney(t.amount, rt.amount) &&
+          civilDateKey(identityDate) === occurrenceKey;
       });
 
       if (!existingTransaction) {
@@ -59,22 +72,29 @@ export function projectRecurringTransactions(
           category: rt.category,
           category_id: rt.category_id,
           categories: rt.categories,
+          income_source_id: rt.income_source_id,
+          income_sources: rt.income_sources,
           description: rt.description,
           transaction_date: new Date(currentDate),
           status: 'pending',
           is_recurring: true,
           is_projected: true,
+          recurring_transaction_id: rt.id,
+          recurring_transactions: rt,
+          recurring_occurrence_at: new Date(currentDate),
+          occurrence_index: occurrenceIndex,
+          frequency: rt.frequency,
+          end_type: rt.end_type ?? 'never',
+          occurrence_count: rt.occurrence_count ?? null,
+          end_date: rt.end_date ?? null,
           payment_method: rt.payment_method || 'pix',
           entity_id: rt.entity_id,
-          financial_entities: rt.financial_entities
+          financial_entities: rt.financial_entities,
         });
       }
 
-      currentDate = advanceDate(rt.frequency as Frequency, currentDate);
-      if ((rt.frequency === 'monthly' || rt.frequency === 'yearly') &&
-          currentDate.getUTCDate() !== targetDay) {
-        currentDate.setUTCDate(0);
-      }
+      occurrenceIndex += 1;
+      currentDate = occurrenceAt(rtStartDate, rt.frequency as Frequency, occurrenceIndex);
     }
   }
 

@@ -5,7 +5,7 @@ export function AuthLayout() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+    return <div className="app-screen flex items-center justify-center">Carregando...</div>;
   }
 
   if (isAuthenticated) {
@@ -13,7 +13,7 @@ export function AuthLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
+    <div className="app-screen bg-gray-50 dark:bg-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200" style={{ paddingTop: 'max(3rem, var(--app-safe-top))', paddingRight: 'max(1rem, var(--app-safe-right))', paddingBottom: 'max(3rem, var(--app-safe-bottom))', paddingLeft: 'max(1rem, var(--app-safe-left))' }}>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 

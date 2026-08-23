@@ -1,21 +1,17 @@
 import { prisma } from '../lib/prisma.js';
-import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
+import { occurrenceAt, parseDate, todayUTC, type Frequency } from '../lib/date-utils.js';
+import {
+  firstOccurrenceOnOrAfter,
+  isOccurrenceAllowed,
+  normalizeRecurrenceEndRule,
+  occurrenceIndexForDate,
+  type RecurrenceEndRuleInput,
+  type RecurrenceEndType,
+} from '../lib/recurrence-rules.js';
 import { getCategoryForAccount, getEntityForAccount, getIncomeSourceForUser } from './ownership.service.js';
 import { assertAccountAccess } from './subscription.service.js';
 
-/**
- * Fonte única da lógica de transações recorrentes.
- *
- * Modelo: a recorrência é um TEMPLATE. Transações reais são materializadas
- * (geradas) a partir dela, vinculadas via `recurring_transaction_id` (FK).
- *
- * A deduplicação é feita por essa FK + data — confiável, ao contrário da
- * heurística antiga (descrição + valor). Se a recorrência tem
- * `next_due_date <= upToDate`, uma transação é criada naquela data e a
- * `next_due_date` avança.
- */
-
-export interface CreateRecurringInput {
+export interface CreateRecurringInput extends RecurrenceEndRuleInput {
   description: string;
   amount: number;
   type: 'income' | 'expense';
@@ -29,191 +25,314 @@ export interface CreateRecurringInput {
   idempotency_key?: string;
 }
 
-/**
- * Cria uma recorrência (template) e, se a data de início for hoje, já materializa
- * a primeira ocorrência e avança o `next_due_date`.
- */
-export async function createRecurring(userId: number, input: CreateRecurringInput) {
-  const {
-    description, amount, type, frequency, category, category_id, income_source_id, entity_id, payment_method, idempotency_key
-  } = input;
+export interface UpdateRecurringInput extends RecurrenceEndRuleInput {
+  description?: string;
+  amount?: number;
+  category?: string | null;
+  category_id?: number | null;
+  income_source_id?: number | null;
+  frequency?: Frequency;
+  status?: 'active' | 'paused' | 'cancelled' | 'completed';
+  entity_id?: number | null;
+  payment_method?: string;
+}
 
-  const startDate = typeof input.start_date === 'string' ? parseDate(input.start_date) : input.start_date;
+function sameCivilDate(left: Date, right: Date): boolean {
+  return left.getUTCFullYear() === right.getUTCFullYear()
+    && left.getUTCMonth() === right.getUTCMonth()
+    && left.getUTCDate() === right.getUTCDate();
+}
+
+async function getAccountId(userId: number): Promise<number> {
+  const user = await prisma.users.findUnique({ where: { id: userId }, select: { account_id: true } });
+  if (!user) throw new Error('USER_NOT_FOUND');
+  await assertAccountAccess(user.account_id);
+  return user.account_id;
+}
+
+function ruleFromRecurring(recurring: any): RecurrenceEndRuleInput {
+  return {
+    end_type: (recurring.end_type ?? 'never') as RecurrenceEndType,
+    occurrence_count: recurring.occurrence_count ?? null,
+    end_date: recurring.end_date ?? null,
+  };
+}
+
+async function materializeWithClient(
+  db: any,
+  userId: number,
+  accountId: number,
+  recurring: any,
+  occurrenceDate: Date,
+): Promise<{ transaction: any | null; created: boolean }> {
+  const seriesStart = parseDate(recurring.start_date);
+  const occurrenceIndex = occurrenceIndexForDate(seriesStart, recurring.frequency as Frequency, occurrenceDate);
+  if (occurrenceIndex === null) throw new Error('INVALID_RECURRING_OCCURRENCE_DATE');
+
+  if (!isOccurrenceAllowed(ruleFromRecurring(recurring), occurrenceDate, occurrenceIndex)) {
+    if (recurring.status === 'active') {
+      await db.recurring_transactions.update({ where: { id: recurring.id }, data: { status: 'completed' } });
+    }
+    return { transaction: null, created: false };
+  }
+
+  let transaction = await db.transactions.findFirst({
+    where: {
+      user_id: userId,
+      recurring_transaction_id: recurring.id,
+      recurring_occurrence_date: occurrenceDate,
+    },
+  });
+  let created = false;
+
+  if (!transaction) {
+    try {
+      transaction = await db.transactions.create({
+        data: {
+          account_id: accountId,
+          user_id: userId,
+          amount: recurring.amount,
+          type: recurring.type,
+          category: recurring.category,
+          category_id: recurring.category_id,
+          income_source_id: recurring.income_source_id,
+          description: recurring.description,
+          transaction_date: occurrenceDate,
+          transaction_date_civil: occurrenceDate,
+          status: 'paid',
+          is_recurring: true,
+          recurring_transaction_id: recurring.id,
+          recurring_occurrence_at: occurrenceDate,
+          recurring_occurrence_date: occurrenceDate,
+          entity_id: recurring.entity_id,
+          payment_method: recurring.payment_method,
+        },
+      });
+      created = true;
+    } catch (error: any) {
+      if (error?.code !== 'P2002') throw error;
+      transaction = await db.transactions.findFirst({
+        where: { recurring_transaction_id: recurring.id, recurring_occurrence_date: occurrenceDate },
+      });
+      if (!transaction) throw error;
+    }
+  }
+
+  // Materializar manualmente uma projeção futura não pode pular ocorrências
+  // anteriores. O cursor só avança quando processamos a ocorrência devida.
+  if (sameCivilDate(occurrenceDate, recurring.next_due_date)) {
+    const nextIndex = occurrenceIndex + 1;
+    const nextDueDate = occurrenceAt(seriesStart, recurring.frequency as Frequency, nextIndex);
+    const nextStatus = isOccurrenceAllowed(ruleFromRecurring(recurring), nextDueDate, nextIndex) ? 'active' : 'completed';
+    await db.recurring_transactions.update({
+      where: { id: recurring.id },
+      data: { next_due_date: nextDueDate, status: nextStatus },
+    });
+  }
+
+  return { transaction, created };
+}
+
+/** Cria o template e mantém `never` como compatibilidade para consumidores antigos. */
+export async function createRecurring(userId: number, input: CreateRecurringInput) {
+  const accountId = await getAccountId(userId);
+  const startDate = typeof input.start_date === 'string' ? parseDate(input.start_date) : new Date(input.start_date);
+  const endRule = normalizeRecurrenceEndRule(input, startDate);
   const today = todayUTC();
 
-  // Resolve o account_id do usuário para validar pertencimento de categoria.
-  const userRow = await prisma.users.findUnique({
-    where: { id: userId },
-    select: { account_id: true }
-  });
-  if (!userRow) throw new Error('USER_NOT_FOUND');
-  await assertAccountAccess(userRow.account_id);
-
-  if (idempotency_key) {
-    const existing = await prisma.recurring_transactions.findFirst({ where: { creation_key: idempotency_key, user_id: userId } });
+  if (input.idempotency_key) {
+    const existing = await prisma.recurring_transactions.findFirst({
+      where: { creation_key: input.idempotency_key, user_id: userId },
+    });
     if (existing) return existing;
   }
 
-  // Resolve category_id/category name quando necessário (validando pertencimento).
-  let finalCategoryId = category_id ?? null;
-  let finalCategoryName = category ?? undefined;
+  let finalCategoryId = input.category_id ?? null;
+  let finalCategoryName = input.category;
   if (finalCategoryId && !finalCategoryName) {
-    const cat = await getCategoryForAccount(finalCategoryId, userRow.account_id);
-    if (!cat) throw Object.assign(new Error('CATEGORY_FORBIDDEN'), { statusCode: 403 });
-    finalCategoryName = cat.name;
+    const category = await getCategoryForAccount(finalCategoryId, accountId);
+    if (!category) throw Object.assign(new Error('CATEGORY_FORBIDDEN'), { statusCode: 403 });
+    finalCategoryName = category.name;
   }
-  if (entity_id && !await getEntityForAccount(entity_id, userRow.account_id)) throw Object.assign(new Error('ENTITY_FORBIDDEN'), { statusCode: 403 });
-  if (income_source_id && !await getIncomeSourceForUser(income_source_id, userId)) throw Object.assign(new Error('INCOME_SOURCE_FORBIDDEN'), { statusCode: 403 });
+  if (input.entity_id && !await getEntityForAccount(input.entity_id, accountId)) {
+    throw Object.assign(new Error('ENTITY_FORBIDDEN'), { statusCode: 403 });
+  }
+  if (input.income_source_id && !await getIncomeSourceForUser(input.income_source_id, userId)) {
+    throw Object.assign(new Error('INCOME_SOURCE_FORBIDDEN'), { statusCode: 403 });
+  }
 
-  const nextDueDate = startDate.getTime() >= today.getTime()
-    ? startDate
-    : advanceDate(frequency, startDate);
+  const firstPending = firstOccurrenceOnOrAfter(startDate, input.frequency, today);
+  const initialStatus = isOccurrenceAllowed(endRule, firstPending.date, firstPending.index) ? 'active' : 'completed';
 
   try {
     return await prisma.$transaction(async tx => {
-      const recurring = await tx.recurring_transactions.create({ data: {
-      user_id: userId,
-      description,
-      amount,
-      type,
-      category: finalCategoryName ?? null,
-      category_id: finalCategoryId,
-      income_source_id: income_source_id ?? null,
-      creation_key: idempotency_key ?? null,
-      frequency,
-      start_date: startDate,
-      next_due_date: nextDueDate,
-      status: 'active',
-      entity_id: entity_id ?? null,
-      payment_method: payment_method ?? 'cash'
-      }});
+      const recurring = await tx.recurring_transactions.create({
+        data: {
+          user_id: userId,
+          description: input.description,
+          amount: input.amount,
+          type: input.type,
+          category: finalCategoryName ?? null,
+          category_id: finalCategoryId,
+          income_source_id: input.income_source_id ?? null,
+          creation_key: input.idempotency_key ?? null,
+          frequency: input.frequency,
+          start_date: startDate,
+          next_due_date: firstPending.date,
+          status: initialStatus,
+          entity_id: input.entity_id ?? null,
+          payment_method: input.payment_method ?? 'cash',
+          ...endRule,
+        },
+      });
 
-  // Se a data de início for hoje, já gera a primeira ocorrência.
-  const isToday = startDate.getUTCFullYear() === today.getUTCFullYear() &&
-                  startDate.getUTCMonth() === today.getUTCMonth() &&
-                  startDate.getUTCDate() === today.getUTCDate();
-
-      if (isToday) await materializeWithClient(tx, userId, userRow.account_id, recurring, startDate);
-      return recurring;
+      if (initialStatus === 'active' && sameCivilDate(firstPending.date, today)) {
+        await materializeWithClient(tx, userId, accountId, recurring, firstPending.date);
+      }
+      return await tx.recurring_transactions.findUnique({ where: { id: recurring.id } }) ?? recurring;
     });
-  } catch (error:any) {
-    if(error?.code==='P2002'&&idempotency_key){const existing=await prisma.recurring_transactions.findFirst({where:{creation_key:idempotency_key,user_id:userId}});if(existing)return existing}
+  } catch (error: any) {
+    if (error?.code === 'P2002' && input.idempotency_key) {
+      const existing = await prisma.recurring_transactions.findFirst({
+        where: { creation_key: input.idempotency_key, user_id: userId },
+      });
+      if (existing) return existing;
+    }
     throw error;
   }
 }
 
-async function materializeWithClient(db:any,userId:number,accountId:number,recurring:any,txDate:Date){
-  const existing=await db.transactions.findFirst({where:{user_id:userId,recurring_transaction_id:recurring.id,recurring_occurrence_at:txDate}});if(existing)return existing;
-  let created;try{created=await db.transactions.create({data:{account_id:accountId,user_id:userId,amount:recurring.amount,type:recurring.type,category:recurring.category,category_id:recurring.category_id,income_source_id:recurring.income_source_id,description:recurring.description,transaction_date:txDate,status:'paid',is_recurring:true,recurring_transaction_id:recurring.id,recurring_occurrence_at:txDate,entity_id:recurring.entity_id,payment_method:recurring.payment_method}})}catch(error:any){if(error?.code!=='P2002')throw error;created=await db.transactions.findFirst({where:{recurring_transaction_id:recurring.id,recurring_occurrence_at:txDate}});if(!created)throw error}
-  await db.recurring_transactions.update({where:{id:recurring.id},data:{next_due_date:advanceDate(recurring.frequency as Frequency,recurring.next_due_date)}});return created;
+export async function updateRecurring(userId: number, recurringId: number, input: UpdateRecurringInput) {
+  const existing = await prisma.recurring_transactions.findFirst({ where: { id: recurringId, user_id: userId } });
+  if (!existing) throw new Error('RECURRING_NOT_FOUND');
+  const accountId = await getAccountId(userId);
+
+  if (input.category_id && !await getCategoryForAccount(input.category_id, accountId)) throw new Error('CATEGORY_FORBIDDEN');
+  if (input.entity_id && !await getEntityForAccount(input.entity_id, accountId)) throw new Error('ENTITY_FORBIDDEN');
+  if (input.income_source_id && !await getIncomeSourceForUser(input.income_source_id, userId)) throw new Error('INCOME_SOURCE_FORBIDDEN');
+
+  const changesEndRule = input.end_type !== undefined || input.occurrence_count !== undefined || input.end_date !== undefined;
+  const endRule = changesEndRule
+    ? normalizeRecurrenceEndRule(input, existing.start_date)
+    : normalizeRecurrenceEndRule(ruleFromRecurring(existing), existing.start_date);
+  const frequency = input.frequency ?? existing.frequency as Frequency;
+  const next = input.frequency
+    ? firstOccurrenceOnOrAfter(existing.start_date, frequency, todayUTC())
+    : {
+        date: existing.next_due_date,
+        index: occurrenceIndexForDate(existing.start_date, frequency, existing.next_due_date) ?? 0,
+      };
+  const ruleAllowsNext = isOccurrenceAllowed(endRule, next.date, next.index);
+  const requestedStatus = input.status;
+  const status = ruleAllowsNext
+    ? (requestedStatus ?? (existing.status === 'completed' ? 'active' : existing.status))
+    : 'completed';
+
+  return prisma.recurring_transactions.update({
+    where: { id: recurringId },
+    data: {
+      description: input.description,
+      amount: input.amount,
+      category: input.category,
+      category_id: input.category_id,
+      income_source_id: input.income_source_id,
+      frequency: input.frequency,
+      status,
+      entity_id: input.entity_id,
+      payment_method: input.payment_method,
+      next_due_date: input.frequency ? next.date : undefined,
+      ...endRule,
+    },
+  });
 }
 
-/**
- * Materializa UMA ocorrência de uma recorrência, na data informada (default =
- * next_due_date). Avança o `next_due_date`. Deduplica por FK + data: se já
- * existe transação com esse `recurring_transaction_id` na mesma data, não cria.
- */
 export async function materializeOne(userId: number, recurringId: number, date?: Date) {
   const recurring = await prisma.recurring_transactions.findFirst({
-    where: { id: recurringId, user_id: userId, status: 'active' }
+    where: { id: recurringId, user_id: userId, status: 'active' },
   });
   if (!recurring) throw new Error('RECURRING_NOT_FOUND');
-
-  const account = await prisma.accounts.findFirst({
-    where: { users: { some: { id: userId } } }
-  });
-  if (!account) throw new Error('ACCOUNT_NOT_FOUND');
-  await assertAccountAccess(account.id);
-
-  const txDate = date ?? recurring.next_due_date;
-
-  // Deduplicação robusta por FK + data (mesma regra usada em materializeDue).
-  const existing = await prisma.transactions.findFirst({
-    where: {
-      user_id: userId,
-      recurring_transaction_id: recurringId,
-      transaction_date: txDate
-    }
-  });
-  if (existing) return existing;
-
-  let created;
-  try {
-    created = await prisma.transactions.create({ data: {
-      account_id: account.id,
-      user_id: userId,
-      amount: recurring.amount,
-      type: recurring.type,
-      category: recurring.category,
-      category_id: recurring.category_id,
-      description: recurring.description,
-      transaction_date: txDate,
-      status: 'paid',
-      is_recurring: true,
-      recurring_transaction_id: recurring.id,
-      recurring_occurrence_at: txDate,
-      entity_id: recurring.entity_id,
-      payment_method: recurring.payment_method
-    } });
-  } catch (error: any) {
-    if (error?.code !== 'P2002') throw error;
-    created = await prisma.transactions.findFirst({ where: { recurring_transaction_id: recurring.id, recurring_occurrence_at: txDate } });
-    if (!created) throw error;
-  }
-
-  // Avança a próxima data de vencimento.
-  const nextDueDate = advanceDate(recurring.frequency as Frequency, recurring.next_due_date);
-  await prisma.recurring_transactions.update({
-    where: { id: recurring.id },
-    data: { next_due_date: nextDueDate }
-  });
-
-  return created;
+  const accountId = await getAccountId(userId);
+  const result = await prisma.$transaction(tx => materializeWithClient(
+    tx,
+    userId,
+    accountId,
+    recurring,
+    date ?? recurring.next_due_date,
+  ));
+  if (!result.transaction) throw new Error('RECURRING_COMPLETED');
+  return result.transaction;
 }
 
-/**
- * Materializa todas as ocorrências vencidas de um usuário (next_due_date <= upToDate).
- * Usada pelo cron diário (FASE 4) e pelo endpoint de gatilho.
- * Retorna as transações criadas.
- */
 export async function materializeDue(userId: number, upToDate: Date = new Date()) {
+  const accountId = await getAccountId(userId);
+  const materializeUntil = new Date(upToDate);
+  materializeUntil.setUTCHours(23, 59, 59, 999);
   const due = await prisma.recurring_transactions.findMany({
-    where: {
-      user_id: userId,
-      status: 'active',
-      next_due_date: { lte: upToDate }
-    },
-    orderBy: { next_due_date: 'asc' }
+    where: { user_id: userId, status: 'active', next_due_date: { lte: materializeUntil } },
+    orderBy: { next_due_date: 'asc' },
   });
 
-  const created = [];
-  for (const recurring of due) {
-    // Materializa enquanto houver vencimento passado (suporta mês atrasado, etc.).
-    let current = recurring;
-    while (current.next_due_date.getTime() <= upToDate.getTime()) {
-      const tx = await materializeOne(userId, current.id);
-      if (tx) created.push(tx);
-      // Recarrega para obter o novo next_due_date.
+  const created: any[] = [];
+  for (const item of due) {
+    let current: any = item;
+    while (current.status === 'active' && current.next_due_date.getTime() <= materializeUntil.getTime()) {
+      const result = await prisma.$transaction(tx => materializeWithClient(
+        tx,
+        userId,
+        accountId,
+        current,
+        current.next_due_date,
+      ));
+      if (result.created && result.transaction) created.push(result.transaction);
       current = await prisma.recurring_transactions.findUnique({ where: { id: current.id } }) ?? current;
     }
   }
   return created;
 }
 
-/**
- * Lista as recorrências ativas de um usuário com vencimento até `days` dias à frente.
- */
 export async function listDueSoon(userId: number, days: number = 7) {
   const limit = new Date();
   limit.setUTCDate(limit.getUTCDate() + days);
   limit.setUTCHours(23, 59, 59, 999);
-
   return prisma.recurring_transactions.findMany({
-    where: {
-      user_id: userId,
-      status: 'active',
-      next_due_date: { lte: limit }
-    },
-    orderBy: { next_due_date: 'asc' }
+    where: { user_id: userId, status: 'active', next_due_date: { lte: limit } },
+    orderBy: { next_due_date: 'asc' },
   });
+}
+
+/** Encerra a série antes da ocorrência escolhida, preservando tudo que veio antes. */
+export async function truncateRecurringFrom(userId: number, recurringId: number, effectiveDate: Date) {
+  const recurring = await prisma.recurring_transactions.findFirst({ where: { id: recurringId, user_id: userId } });
+  if (!recurring) throw new Error('RECURRING_NOT_FOUND');
+  if (effectiveDate.getTime() < recurring.start_date.getTime() || sameCivilDate(effectiveDate, recurring.start_date)) {
+    return prisma.recurring_transactions.update({ where: { id: recurringId }, data: { status: 'cancelled' } });
+  }
+
+  const endDate = new Date(effectiveDate);
+  endDate.setUTCDate(endDate.getUTCDate() - 1);
+  const nextIndex = occurrenceIndexForDate(
+    recurring.start_date,
+    recurring.frequency as Frequency,
+    recurring.next_due_date,
+  );
+  const hasRemainingOccurrence = nextIndex !== null && isOccurrenceAllowed(
+    { end_type: 'end_date', end_date: endDate },
+    recurring.next_due_date,
+    nextIndex,
+  );
+  const status = hasRemainingOccurrence
+    ? (recurring.status === 'active' ? 'active' : recurring.status)
+    : 'completed';
+  return prisma.recurring_transactions.update({
+    where: { id: recurringId },
+    data: { end_type: 'end_date', occurrence_count: null, end_date: endDate, status },
+  });
+}
+
+export async function cancelRecurring(userId: number, recurringId: number) {
+  const result = await prisma.recurring_transactions.updateMany({
+    where: { id: recurringId, user_id: userId },
+    data: { status: 'cancelled' },
+  });
+  if (result.count === 0) throw new Error('RECURRING_NOT_FOUND');
 }

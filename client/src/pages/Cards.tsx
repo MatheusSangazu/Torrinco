@@ -8,6 +8,7 @@ import { Input } from '../components/Input';
 import { Checkbox } from '../components/Checkbox';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { formatLocalDate, formatLocalDateLong, formatLocalDateShort, localDateFromApi } from '../lib/local-date';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface Transaction {
   id: number;
@@ -105,6 +106,10 @@ export function Cards() {
   const [paying, setPaying] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState<CreditCard | null>(null);
+  const [deletingCard, setDeletingCard] = useState(false);
+  const cardDialogRef = useDialogFocus<HTMLDivElement>(isModalOpen, () => setIsModalOpen(false));
+  const billDialogRef = useDialogFocus<HTMLDivElement>(billModalOpen, () => setBillModalOpen(false));
 
   useEffect(() => {
     fetchCards();
@@ -162,19 +167,6 @@ export function Cards() {
     } finally {
       setPaying(false);
     }
-  };
-
-  const parseDateLocal = (dateString: string | Date) => {
-    if (!dateString) return new Date();
-    if (dateString instanceof Date) return dateString;
-    const dateStr = typeof dateString === 'string' ? dateString : String(dateString);
-    const cleanDate = dateStr.split('T')[0];
-    const parts = cleanDate.split('-');
-    if (parts.length === 3) {
-      const [y, m, d] = parts.map(Number);
-      return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-    }
-    return new Date(dateString);
   };
 
   const fetchCards = async () => {
@@ -274,16 +266,19 @@ export function Cards() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir este cartão?')) return;
-
+  const confirmDeleteCard = async () => {
+    if (!cardToDelete) return;
     try {
-      await cardsService.delete(id);
+      setDeletingCard(true);
+      await cardsService.delete(cardToDelete.id);
       toast.success('Cartão excluído com sucesso!');
-      fetchCards();
+      setCardToDelete(null);
+      await fetchCards();
     } catch (error) {
       console.error('Erro ao excluir cartão:', error);
       toast.error('Erro ao excluir cartão');
+    } finally {
+      setDeletingCard(false);
     }
   };
 
@@ -436,12 +431,14 @@ export function Cards() {
                   <div className="flex gap-1 sm:gap-2">
                     <button
                       onClick={() => handleEdit(card)}
+                      aria-label={`Editar cartão ${card.name}`}
                       className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
                     >
                       <Pencil size={14} className="sm:w-4 sm:h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(card.id)}
+                      onClick={() => setCardToDelete(card)}
+                      aria-label={`Excluir cartão ${card.name}`}
                       className="p-1.5 sm:p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-gray-400 dark:text-slate-500 hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={14} className="sm:w-4 sm:h-4" />
@@ -660,14 +657,15 @@ export function Cards() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div ref={cardDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editingCard ? 'Editar cartão' : 'Novo cartão'} className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingCard ? 'Editar Cartão' : 'Novo Cartão'}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar formulário do cartão"
                 className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
               >
                 <X size={20} />
@@ -745,6 +743,7 @@ export function Cards() {
                     <button
                       key={color.id}
                       type="button"
+                      aria-label={`Selecionar cor ${color.id}`}
                       onClick={() => setFormData({ ...formData, color: color.class })}
                       className={clsx(
                         'h-10 rounded-lg transition-all duration-200 border-2 relative overflow-hidden',
@@ -790,14 +789,15 @@ export function Cards() {
       )}
 
       {billModalOpen && billModalCard && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="app-scroll-lock app-dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div ref={billDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Detalhes da fatura" className="app-dialog-surface bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-2xl overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                 {billModalType === 'current' ? 'Fatura Atual' : 'Fatura Seguinte'} - {billModalCard.name}
               </h2>
               <button
                 onClick={handleCloseBillModal}
+                aria-label="Fechar detalhes da fatura"
                 className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 dark:text-slate-500 transition-colors"
               >
                 <X size={20} />
@@ -958,6 +958,16 @@ export function Cards() {
         confirmLabel="Desfazer"
         cancelLabel="Voltar"
         isLoading={paying}
+        type="danger"
+      />
+      <ConfirmModal
+        isOpen={cardToDelete !== null}
+        onClose={() => setCardToDelete(null)}
+        onConfirm={() => void confirmDeleteCard()}
+        title="Excluir cartão"
+        message={`Deseja realmente excluir o cartão ${cardToDelete?.name ?? ''}?`}
+        confirmLabel="Excluir"
+        isLoading={deletingCard}
         type="danger"
       />
     </div>

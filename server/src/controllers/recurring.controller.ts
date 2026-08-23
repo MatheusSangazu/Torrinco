@@ -1,7 +1,7 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { JwtRequest } from '../middleware/jwt.js';
-import { parseDate, advanceDate, todayUTC, type Frequency } from '../lib/date-utils.js';
+import { parseDate } from '../lib/date-utils.js';
 import * as recurringService from '../services/recurring.service.js';
 import { getCategoryForAccount, getEntityForAccount } from '../services/ownership.service.js';
 import { getValidatedBody, getValidatedQuery } from '../middleware/validate.js';
@@ -12,7 +12,7 @@ export class RecurringController {
    */
   static async createTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
-      const { description, amount, category, category_id, income_source_id, type, frequency, start_date, entity_id, payment_method, idempotency_key } = getValidatedBody<any>(req);
+      const { description, amount, category, category_id, income_source_id, type, frequency, start_date, entity_id, payment_method, idempotency_key, end_type, occurrence_count, end_date } = getValidatedBody<any>(req);
       const userId = req.userId!;
 
       if (!description || !amount || !type || !frequency || !start_date) {
@@ -53,6 +53,9 @@ export class RecurringController {
         entity_id: entity_id ? Number(entity_id) : undefined,
         payment_method,
         idempotency_key,
+        end_type,
+        occurrence_count,
+        end_date,
       });
 
       res.status(201).json({ recurringTransaction });
@@ -92,7 +95,7 @@ export class RecurringController {
   static async updateTransaction(req: JwtRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { description, amount, category, category_id, income_source_id, frequency, status, entity_id, payment_method } = req.body;
+      const { description, amount, category, category_id, income_source_id, frequency, status, entity_id, payment_method, end_type, occurrence_count, end_date } = getValidatedBody<any>(req);
       const userId = req.userId!;
 
       const existing = await prisma.recurring_transactions.findFirst({
@@ -132,18 +135,21 @@ export class RecurringController {
         finalStatus = 'active';
       }
 
-      const updated = await prisma.recurring_transactions.update({
-        where: { id: Number(id) },
-        data: {
-          description: description ?? undefined,
-          amount: amount ? parseFloat(amount) : undefined,
-          category: finalCategoryName ?? undefined,
-          frequency: frequency ?? undefined,
-          status: (finalStatus as any) ?? undefined,
-          entity_id: entity_id !== undefined ? (entity_id ? parseInt(entity_id) : null) : undefined,
-          income_source_id: income_source_id !== undefined ? (income_source_id ? Number(income_source_id) : null) : undefined,
-          payment_method: payment_method ?? undefined
-        }
+      if (status === 'inactive') finalStatus = 'paused';
+
+      const updated = await recurringService.updateRecurring(userId, Number(id), {
+        description,
+        amount: amount !== undefined ? Number(amount) : undefined,
+        category: finalCategoryName,
+        category_id: finalCategoryId,
+        income_source_id: income_source_id !== undefined ? (income_source_id ? Number(income_source_id) : null) : undefined,
+        frequency,
+        status: finalStatus,
+        entity_id: entity_id !== undefined ? (entity_id ? Number(entity_id) : null) : undefined,
+        payment_method,
+        end_type,
+        occurrence_count,
+        end_date,
       });
 
       res.json({ recurringTransaction: updated });
@@ -168,10 +174,7 @@ export class RecurringController {
         return res.status(404).json({ error: 'Transação recorrente não encontrada.' });
       }
 
-      await prisma.recurring_transactions.update({
-        where: { id: Number(id) },
-        data: { status: 'cancelled' }
-      });
+      await recurringService.cancelRecurring(userId, Number(id));
 
       res.json({ message: 'Transação recorrente cancelada com sucesso.' });
     } catch (error) {
@@ -192,7 +195,8 @@ export class RecurringController {
       res.status(201).json({ transaction });
     } catch (error: any) {
       const notFound=error?.message==='RECURRING_NOT_FOUND';
-      res.status(notFound ? 404 : 400).json({ code:notFound?'RECURRING_NOT_FOUND':'RECURRING_GENERATION_FAILED',error:notFound?'Transação recorrente não encontrada.':'Não foi possível gerar a ocorrência recorrente.' });
+      const completed=error?.message==='RECURRING_COMPLETED';
+      res.status(notFound ? 404 : 400).json({ code:notFound?'RECURRING_NOT_FOUND':completed?'RECURRING_COMPLETED':'RECURRING_GENERATION_FAILED',error:notFound?'Transação recorrente não encontrada.':completed?'A recorrência já chegou ao fim.':'Não foi possível gerar a ocorrência recorrente.' });
     }
   }
 
