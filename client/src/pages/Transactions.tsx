@@ -81,6 +81,7 @@ export function Transactions() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [cardFilter, setCardFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; transaction: Transaction | null }>({ open: false, transaction: null });
@@ -556,7 +557,8 @@ export function Transactions() {
     const matchesSearch = t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           categoryName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || t.type === typeFilter;
-    return matchesSearch && matchesType;
+    const matchesCard = cardFilter === 'all' || String(t.entity_id) === cardFilter;
+    return matchesSearch && matchesType && matchesCard;
   });
 
   const formatCurrency = (value: number) => {
@@ -643,6 +645,18 @@ export function Transactions() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={<Search className="w-4 h-4" />}
+          />
+        </div>
+        <div className="w-full sm:w-56">
+          <CustomSelect
+            value={cardFilter}
+            onChange={(value) => setCardFilter(String(value))}
+            options={[
+              { value: 'all', label: 'Todos os cartões' },
+              ...creditCards.map((card) => ({ value: String(card.id), label: card.name }))
+            ]}
+            placeholder="Filtrar por cartão"
+            searchable
           />
         </div>
         <div className="flex gap-2 flex-wrap">
